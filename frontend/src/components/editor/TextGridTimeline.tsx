@@ -26,7 +26,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   
-  // Resizing state for boundaries
   const resizeRef = useRef<{
     tierIdx: number;
     entryIdx: number;
@@ -61,7 +60,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     }
   };
 
-  // Add selected waveform range as a new interval to target tier
   const handleAddSelectionToTier = (tierIdx: number) => {
     if (!selection) return;
     const s = Math.min(selection.start, selection.end);
@@ -82,7 +80,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     onUpdateTiers(newTiers);
   };
 
-  // Split selected interval at currentTime
   const handleSplitInterval = (tierIdx: number) => {
     const newTiers = [...tiers];
     const targetTier = { ...newTiers[tierIdx] };
@@ -106,16 +103,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     }
   };
 
-  // Delete selected interval
-  const handleDeleteInterval = (tierIdx: number, entryIdx: number) => {
-    const newTiers = [...tiers];
-    const targetTier = { ...newTiers[tierIdx] };
-    targetTier.entries = targetTier.entries.filter((_, i) => i !== entryIdx);
-    newTiers[tierIdx] = targetTier;
-    onUpdateTiers(newTiers);
-  };
-
-  // Label inline editing
   const startEditLabel = (tierIdx: number, entryIdx: number, initialText: string) => {
     setEditingKey(`${tierIdx}-${entryIdx}`);
     setEditingText(initialText);
@@ -132,10 +119,9 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     setEditingKey(null);
   };
 
-  // Boundary dragging (Resize)
   const handleBoundaryDragStart = (e: React.PointerEvent, tierIdx: number, entryIdx: number) => {
     e.stopPropagation();
-    const track = e.currentTarget.parentElement;
+    const track = e.currentTarget.parentElement?.parentElement;
     if (!track) return;
     const rect = track.getBoundingClientRect();
     const target = tiers[tierIdx].entries[entryIdx] as IntervalEntry;
@@ -161,7 +147,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       const cur = entries[entryIdx];
       if (newEnd > cur.start + 0.01) {
         entries[entryIdx] = { ...cur, end: roundTime(newEnd) };
-        // If next entry exists, adjust its start
         if (entryIdx + 1 < entries.length) {
           entries[entryIdx + 1] = { ...entries[entryIdx + 1], start: roundTime(newEnd) };
         }
@@ -182,13 +167,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   };
 
   const roundTime = (t: number) => Math.round(t * 1000) / 1000;
-
   const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
 
   return (
     <div className="flex flex-col w-full bg-white select-none border-b border-gray-200">
-      {/* Tier Header Toolbar */}
-      <div className="flex items-center justify-between px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-xs">
+      <div className="flex items-center justify-between px-3 py-1 bg-gray-100 border-b border-gray-200 text-xs">
         <span className="font-semibold text-gray-700">Tiers ({tiers.length})</span>
         <div className="flex items-center space-x-2">
           <button
@@ -206,12 +189,10 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
         </div>
       </div>
 
-      {/* Tiers List */}
       <div className="flex flex-col divide-y divide-gray-200">
         {tiers.map((tier, tierIdx) => (
-          <div key={tierIdx} className="flex h-16 w-full relative group bg-white">
-            {/* Tier Title Panel */}
-            <div className="w-32 flex-shrink-0 bg-gray-50 border-r border-gray-200 px-2 py-1.5 flex flex-col justify-between z-10">
+          <div key={tierIdx} className="flex h-14 w-full relative group bg-white">
+            <div className="w-28 flex-shrink-0 bg-gray-50 border-r border-gray-200 px-2 py-1 flex flex-col justify-between z-10">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-xs text-gray-900 truncate" title={tier.name}>
                   {tier.name}
@@ -225,7 +206,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 </button>
               </div>
 
-              {/* Quick Actions for Word Tier */}
               <div className="flex items-center space-x-1">
                 {tier.tier_type === 'interval' && (
                   <>
@@ -233,7 +213,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       onClick={() => handleAddSelectionToTier(tierIdx)}
                       disabled={!selection}
                       className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 disabled:opacity-30"
-                      title="選択範囲をこのティアに追加"
+                      title="選択範囲を追加"
                     >
                       +区間
                     </button>
@@ -250,9 +230,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
               </div>
             </div>
 
-            {/* Timeline Track Area */}
             <div className="relative flex-1 h-full bg-white overflow-hidden">
-              {/* Playhead Vertical Line */}
               {showPlayhead && (
                 <div
                   className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 z-20 pointer-events-none will-change-transform"
@@ -260,14 +238,13 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 />
               )}
 
-              {/* Intervals */}
               {tier.tier_type === 'interval' ? (
                 (tier.entries as IntervalEntry[]).map((entry, entryIdx) => {
+                  // Skip only completely outside intervals
                   if (entry.end < viewRange.start || entry.start > viewRange.end) return null;
 
-                  const leftPct = Math.max(0, timeToPercent(entry.start));
-                  const rightPct = Math.min(100, timeToPercent(entry.end));
-                  const widthPct = Math.max(0.2, rightPct - leftPct);
+                  const leftPct = ((entry.start - viewRange.start) / viewSpan) * 100;
+                  const widthPct = ((entry.end - entry.start) / viewSpan) * 100;
                   const isEditing = editingKey === `${tierIdx}-${entryIdx}`;
                   const isSelected =
                     selection &&
@@ -279,7 +256,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       key={entryIdx}
                       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                       className={`absolute top-0 bottom-0 border-r border-gray-300 flex items-center justify-center px-1 text-xs cursor-pointer ${
-                        isSelected ? 'bg-blue-50/80 font-semibold' : 'hover:bg-gray-50'
+                        isSelected ? 'bg-blue-50/90 font-semibold text-blue-900' : 'hover:bg-gray-50 text-gray-800'
                       }`}
                       onClick={() => onSelectInterval(entry.start, entry.end)}
                       onDoubleClick={() => startEditLabel(tierIdx, entryIdx, entry.label)}
@@ -308,12 +285,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                           </button>
                         </div>
                       ) : (
-                        <span className="truncate text-gray-900 font-sans text-xs select-none">
+                        <span className="truncate font-sans text-xs select-none px-1">
                           {entry.label}
                         </span>
                       )}
 
-                      {/* Right boundary handle for dragging/resizing */}
                       <div
                         onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
                         className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/40 z-10"

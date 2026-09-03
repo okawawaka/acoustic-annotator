@@ -30,8 +30,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
   const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
 
-  // 1. Draw Waveform ONLY when peaks, duration, viewRange, or height change
-  // (Never redraw static waveform on currentTime update!)
+  // Draw Static Waveform & Time Ruler
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -42,21 +41,24 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     const h = canvas.height;
     ctx.clearRect(0, 0, width, h);
 
-    // Background: Pure White
+    // Background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, h);
 
-    // Center Zero Line
-    ctx.strokeStyle = '#e2e8f0'; // gray-200
+    // Waveform drawing area (leave 18px at bottom for time ruler)
+    const waveHeight = h - 20;
+
+    // Zero line
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, h / 2);
-    ctx.lineTo(width, h / 2);
+    ctx.moveTo(0, waveHeight / 2);
+    ctx.lineTo(width, waveHeight / 2);
     ctx.stroke();
 
-    // Draw Waveform bars (Solid black/slate for paper clarity)
+    // Waveform bars
     if (peaks && peaks.length > 0 && duration > 0) {
-      ctx.fillStyle = '#0f172a'; // slate-900
+      ctx.fillStyle = '#0f172a'; // Deep slate/black
 
       const numPoints = peaks.length;
       for (let i = 0; i < width; i++) {
@@ -65,14 +67,49 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
         const peakIdx = Math.min(numPoints - 1, Math.max(0, Math.floor((timeAtPixel / duration) * numPoints)));
         const amp = peaks[peakIdx] || 0;
-        const barHeight = Math.max(0.5, amp * (h / 2) * 0.95);
+        const barH = Math.max(0.5, amp * (waveHeight / 2) * 0.95);
 
-        ctx.fillRect(i, h / 2 - barHeight, 1, barHeight * 2);
+        ctx.fillRect(i, waveHeight / 2 - barH, 1, barH * 2);
       }
+    }
+
+    // Time Ruler bottom border
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, waveHeight);
+    ctx.lineTo(width, waveHeight);
+    ctx.stroke();
+
+    // Time Ruler Tick Marks & Labels
+    ctx.fillStyle = '#64748b'; // slate-500
+    ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+
+    // Determine nice tick step based on viewSpan
+    let tickStep = 1.0;
+    if (viewSpan < 0.5) tickStep = 0.05;
+    else if (viewSpan < 1.5) tickStep = 0.1;
+    else if (viewSpan < 4) tickStep = 0.5;
+    else if (viewSpan < 10) tickStep = 1.0;
+    else if (viewSpan < 30) tickStep = 2.0;
+    else tickStep = 5.0;
+
+    const firstTick = Math.ceil(viewRange.start / tickStep) * tickStep;
+    for (let t = firstTick; t <= viewRange.end; t += tickStep) {
+      const x = ((t - viewRange.start) / viewSpan) * width;
+      if (x < 0 || x > width) continue;
+
+      ctx.beginPath();
+      ctx.moveTo(x, waveHeight);
+      ctx.lineTo(x, waveHeight + 4);
+      ctx.stroke();
+
+      const label = t.toFixed(tickStep < 0.1 ? 2 : tickStep < 1 ? 1 : 0) + 's';
+      ctx.fillText(label, x, h - 4);
     }
   }, [peaks, duration, viewRange, height, viewSpan]);
 
-  // Pointer interaction for seek and range selection
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = containerRef.current;
     if (!container) return;
@@ -105,26 +142,21 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     dragStartRef.current = null;
   };
 
-  // Convert time to percentage relative to view
-  const timeToPercent = (time: number) => {
-    return ((time - viewRange.start) / viewSpan) * 100;
-  };
-
-  // Calculate selection style
+  // Selection overlay calculation
   const selectionStyle = React.useMemo(() => {
     if (!selection || selection.start === selection.end) return null;
     const selMin = Math.min(selection.start, selection.end);
     const selMax = Math.max(selection.start, selection.end);
 
-    const left = Math.max(0, timeToPercent(selMin));
-    const right = Math.min(100, timeToPercent(selMax));
+    const left = ((selMin - viewRange.start) / viewSpan) * 100;
+    const width = ((selMax - selMin) / viewSpan) * 100;
     return {
       left: `${left}%`,
-      width: `${Math.max(0.2, right - left)}%`,
+      width: `${Math.max(0.1, width)}%`,
     };
   }, [selection, viewRange, viewSpan]);
 
-  const playheadPercent = timeToPercent(currentTime);
+  const playheadPercent = ((currentTime - viewRange.start) / viewSpan) * 100;
   const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
 
   return (
@@ -136,7 +168,6 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {/* 1. Static Waveform Canvas (Heavy drawing, isolated) */}
       <canvas
         ref={canvasRef}
         width={1400}
@@ -144,18 +175,16 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         className="w-full h-full block pointer-events-none"
       />
 
-      {/* 2. Selection Overlay (Ultra-lightweight DOM element) */}
       {selectionStyle && (
         <div
-          className="absolute top-0 bottom-0 bg-blue-500/15 border-x border-blue-600 pointer-events-none"
+          className="absolute top-0 bottom-[20px] bg-blue-500/15 border-x border-blue-600 pointer-events-none"
           style={selectionStyle}
         />
       )}
 
-      {/* 3. Playhead (Hardware-accelerated DOM element, 0% CPU cost) */}
       {showPlayhead && (
         <div
-          className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 pointer-events-none z-10 will-change-transform"
+          className="absolute top-0 bottom-[20px] w-[1.5px] bg-red-600 pointer-events-none z-10 will-change-transform"
           style={{ left: `${playheadPercent}%` }}
         >
           <div className="w-2.5 h-2.5 bg-red-600 -ml-[4px] rotate-45 pointer-events-none" />
