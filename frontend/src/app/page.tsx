@@ -7,7 +7,7 @@ import { ControlToolbar } from '@/components/editor/ControlToolbar';
 import { ASRModal } from '@/components/editor/ASRModal';
 import { AudioMetadata, TextGridData } from '@/types';
 import { uploadAudio, parseTextGrid, exportTextGrid, transcribeAudio, getApiBaseUrl } from '@/lib/api';
-import { Upload, Music, FileText, CheckCircle2 } from 'lucide-react';
+import { Upload, Music, FileText } from 'lucide-react';
 
 export default function AnnotatorApp() {
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
@@ -20,16 +20,10 @@ export default function AnnotatorApp() {
   const [viewRange, setViewRange] = useState({ start: 0, end: 10 });
   const [isASRModalOpen, setIsASRModalOpen] = useState(false);
   const [isASRLoading, setIsASRLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const textGridInputRef = useRef<HTMLInputElement | null>(null);
-
-  const showStatus = (msg: string) => {
-    setStatusMessage(msg);
-    setTimeout(() => setStatusMessage(null), 4000);
-  };
 
   useEffect(() => {
     if (audioMetadata) {
@@ -37,11 +31,13 @@ export default function AnnotatorApp() {
     }
   }, [audioMetadata]);
 
+  // Audio time update event
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const time = audioRef.current.currentTime;
     setCurrentTime(time);
 
+    // Loop selection
     if (isLooping && selection && selection.start !== selection.end) {
       const minSel = Math.min(selection.start, selection.end);
       const maxSel = Math.max(selection.start, selection.end);
@@ -92,11 +88,9 @@ export default function AnnotatorApp() {
     setCurrentTime(time);
   };
 
+  // Insert boundary at current playhead
   const handleInsertBoundary = useCallback(() => {
-    if (!textGridData || textGridData.tiers.length === 0) {
-      showStatus('境界を追加するティアが存在しません。ティアを追加してください。');
-      return;
-    }
+    if (!textGridData || textGridData.tiers.length === 0) return;
 
     const newTiers = textGridData.tiers.map((tier) => {
       if (tier.tier_type === 'interval') {
@@ -115,8 +109,6 @@ export default function AnnotatorApp() {
               { start: cur, end: original.end, label: '' }
             );
           }
-        } else {
-          entries.push({ start: cur, end: Math.min(textGridData.max_timestamp, cur + 0.5), label: '' });
         }
         return { ...tier, entries };
       }
@@ -124,9 +116,9 @@ export default function AnnotatorApp() {
     });
 
     setTextGridData({ ...textGridData, tiers: newTiers });
-    showStatus(`位置 ${currentTime.toFixed(3)}s に境界を挿入しました`);
   }, [textGridData, currentTime]);
 
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
@@ -149,9 +141,10 @@ export default function AnnotatorApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleTogglePlay, handlePlaySelection, handleInsertBoundary]);
 
+  // Zoom controls
   const handleZoomIn = () => {
     const span = viewRange.end - viewRange.start;
-    const newSpan = Math.max(0.2, span * 0.7);
+    const newSpan = Math.max(0.1, span * 0.7);
     const mid = currentTime >= viewRange.start && currentTime <= viewRange.end ? currentTime : (viewRange.start + viewRange.end) / 2;
     const dur = audioMetadata ? audioMetadata.duration : 10;
     const s = Math.max(0, mid - newSpan / 2);
@@ -174,12 +167,12 @@ export default function AnnotatorApp() {
     setViewRange({ start: 0, end: audioMetadata.duration });
   };
 
+  // Audio Upload
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      showStatus('音声ファイルを処理・ピーク抽出中...');
       const meta = await uploadAudio(file);
       setAudioMetadata(meta);
 
@@ -189,7 +182,7 @@ export default function AnnotatorApp() {
           max_timestamp: meta.duration,
           tiers: [
             {
-              name: 'Transcribe',
+              name: 'Word',
               tier_type: 'interval',
               min_timestamp: 0,
               max_timestamp: meta.duration,
@@ -198,45 +191,40 @@ export default function AnnotatorApp() {
           ],
         });
       }
-      showStatus(`音声「${file.name}」を読み込みました (${meta.duration.toFixed(1)}秒)`);
     } catch (err: any) {
-      alert(`音声の読み込みに失敗しました: ${err.message}`);
+      alert(`音声の読み込みエラー: ${err.message}`);
     }
   };
 
+  // TextGrid Upload
   const handleTextGridUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      showStatus('TextGridファイルを解析中...');
       const tg = await parseTextGrid(file);
       setTextGridData(tg);
-      showStatus(`TextGrid「${file.name}」をインポートしました (${tg.tiers.length} ティア)`);
     } catch (err: any) {
-      alert(`TextGridのインポートに失敗しました: ${err.message}`);
+      alert(`TextGrid読み込みエラー: ${err.message}`);
     }
   };
 
+  // Export TextGrid
   const handleExportTextGrid = async () => {
-    if (!textGridData) {
-      alert('エクスポートするTextGridデータがありません。');
-      return;
-    }
+    if (!textGridData) return;
     try {
       const filename = audioMetadata ? `${audioMetadata.filename.replace(/\.[^/.]+$/, '')}.TextGrid` : 'annotation.TextGrid';
       await exportTextGrid(textGridData, filename);
-      showStatus(`Praat互換の「${filename}」をダウンロードしました`);
     } catch (err: any) {
-      alert(`エクスポートに失敗しました: ${err.message}`);
+      alert(`保存エラー: ${err.message}`);
     }
   };
 
+  // ASR Transcription
   const handleRunASR = async (params: { modelSize: string; language?: string; tierName: string }) => {
     if (!audioMetadata) return;
     setIsASRLoading(true);
     try {
-      showStatus(`Whisper (${params.modelSize}) によるCPU高速文字起こしを実行中...`);
       const result = await transcribeAudio({
         audioId: audioMetadata.audio_id,
         modelSize: params.modelSize,
@@ -252,16 +240,15 @@ export default function AnnotatorApp() {
       });
 
       setIsASRModalOpen(false);
-      showStatus(`文字起こし完了！(言語: ${result.language}, 精度: ${(result.language_probability * 100).toFixed(0)}%)`);
     } catch (err: any) {
-      alert(`文字起こしに失敗しました: ${err.message}`);
+      alert(`文字起こしエラー: ${err.message}`);
     } finally {
       setIsASRLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-100">
+    <div className="flex flex-col h-screen overflow-hidden bg-white text-gray-900 font-sans">
       {audioMetadata && (
         <audio
           ref={audioRef}
@@ -286,48 +273,32 @@ export default function AnnotatorApp() {
         onChange={handleTextGridUpload}
       />
 
-      <header className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-900/90 backdrop-blur z-20">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400 font-bold text-base">
-            波
-          </div>
-          <div>
-            <h1 className="font-bold text-sm text-slate-100 flex items-center gap-2">
-              Acoustic Annotator
-              <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700">
-                Praat互換 Webエディション
-              </span>
-            </h1>
-            <p className="text-[11px] text-slate-400">PC / iPad / タブレット両用 音響分析・TextGridアノテーション</p>
-          </div>
+      {/* Minimal Header */}
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white">
+        <div className="flex items-center space-x-2">
+          <span className="font-semibold text-sm tracking-tight text-gray-900">Acoustic Annotator</span>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 text-xs">
           <button
             onClick={() => audioInputRef.current?.click()}
-            className="flex items-center px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors"
+            className="flex items-center px-2.5 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
           >
-            <Music className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
+            <Music className="w-3.5 h-3.5 mr-1" />
             音声を開く
           </button>
           <button
             onClick={() => textGridInputRef.current?.click()}
-            className="flex items-center px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors"
+            className="flex items-center px-2.5 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
           >
-            <FileText className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+            <FileText className="w-3.5 h-3.5 mr-1" />
             TextGridを開く
           </button>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        {statusMessage && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center px-4 py-2 rounded-xl bg-slate-800/95 border border-sky-500/40 text-sky-200 text-xs shadow-2xl backdrop-blur animate-in fade-in slide-in-from-top-2">
-            <CheckCircle2 className="w-4 h-4 mr-2 text-sky-400" />
-            {statusMessage}
-          </div>
-        )}
-
+      {/* Main Workspace */}
+      <main className="flex-1 flex flex-col overflow-hidden bg-white">
         {audioMetadata ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             <ControlToolbar
@@ -350,10 +321,9 @@ export default function AnnotatorApp() {
               onInsertBoundary={handleInsertBoundary}
               onOpenASRModal={() => setIsASRModalOpen(true)}
               onExportTextGrid={handleExportTextGrid}
-              onImportClick={() => audioInputRef.current?.click()}
             />
 
-            <div className="bg-slate-950">
+            <div className="bg-white">
               <WaveformCanvas
                 peaks={audioMetadata.peaks}
                 duration={audioMetadata.duration}
@@ -366,7 +336,7 @@ export default function AnnotatorApp() {
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-slate-900/40">
+            <div className="flex-1 overflow-y-auto bg-white">
               {textGridData && (
                 <TextGridTimeline
                   tiers={textGridData.tiers}
@@ -384,19 +354,14 @@ export default function AnnotatorApp() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-950/60">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white">
             <div
               onClick={() => audioInputRef.current?.click()}
-              className="max-w-md w-full p-10 border-2 border-dashed border-slate-800 hover:border-sky-500/60 rounded-3xl cursor-pointer bg-slate-900/40 hover:bg-slate-900/80 transition-all flex flex-col items-center group"
+              className="p-8 border border-dashed border-gray-300 hover:border-gray-500 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100/60 transition-colors flex flex-col items-center max-w-sm w-full"
             >
-              <div className="w-16 h-16 rounded-2xl bg-sky-500/10 group-hover:bg-sky-500/20 text-sky-400 flex items-center justify-center mb-4 transition-colors">
-                <Upload className="w-8 h-8" />
-              </div>
-              <h2 className="text-base font-semibold text-slate-200 mb-1">音声ファイルをドロップまたはクリック</h2>
-              <p className="text-xs text-slate-400 mb-4">WAV, MP3, FLAC, M4A, OGG 形式に対応</p>
-              <div className="flex items-center space-x-2 text-[11px] text-slate-500 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
-                <span>⚡ CPU高速Whisper文字起こし ＆ Praat TextGrid互換</span>
-              </div>
+              <Upload className="w-8 h-8 text-gray-500 mb-2" />
+              <div className="text-xs font-medium text-gray-800 mb-1">音声ファイルを読み込む</div>
+              <div className="text-[11px] text-gray-400">クリックまたはドラッグ＆ドロップ</div>
             </div>
           </div>
         )}
@@ -407,6 +372,7 @@ export default function AnnotatorApp() {
         onClose={() => setIsASRModalOpen(false)}
         onRunASR={handleRunASR}
         isLoading={isASRLoading}
+        duration={audioMetadata ? audioMetadata.duration : 0}
       />
     </div>
   );

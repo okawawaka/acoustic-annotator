@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Tier, IntervalEntry, PointEntry } from '@/types';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Scissors } from 'lucide-react';
 
 interface TextGridTimelineProps {
   tiers: Tier[];
@@ -25,30 +25,97 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 }) => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  
+  // Resizing state for boundaries
+  const resizeRef = useRef<{
+    tierIdx: number;
+    entryIdx: number;
+    startX: number;
+    initialEnd: number;
+    containerWidth: number;
+  } | null>(null);
 
   const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
 
+  const timeToPercent = (time: number) => {
+    return ((time - viewRange.start) / viewSpan) * 100;
+  };
+
   const handleAddTier = (type: 'interval' | 'point') => {
-    const name = prompt(type === 'interval' ? '新規区間ティア名 (例: Word, Phoneme):' : '新規ポイントティア名:');
+    const name = prompt(type === 'interval' ? '新規区間ティア名 (例: Word, Phone):' : '新規ポイントティア名:');
     if (!name) return;
     const newTier: Tier = {
       name,
       tier_type: type,
       min_timestamp: 0,
       max_timestamp: duration,
-      entries: [],
+      entries: type === 'interval' ? [{ start: 0, end: duration, label: '' }] : [],
     };
     onUpdateTiers([...tiers, newTier]);
   };
 
   const handleDeleteTier = (idx: number) => {
     const tierName = tiers[idx]?.name;
-    if (confirm(`ティア「${tierName}」を削除してもよろしいですか？`)) {
-      const updated = tiers.filter((_, i) => i !== idx);
-      onUpdateTiers(updated);
+    if (confirm(`ティア「${tierName}」を削除しますか？`)) {
+      onUpdateTiers(tiers.filter((_, i) => i !== idx));
     }
   };
 
+  // Add selected waveform range as a new interval to target tier
+  const handleAddSelectionToTier = (tierIdx: number) => {
+    if (!selection) return;
+    const s = Math.min(selection.start, selection.end);
+    const e = Math.max(selection.start, selection.end);
+    if (e - s < 0.01) return;
+
+    const label = prompt('新規区間のラベルを入力:') || '';
+    const newTiers = [...tiers];
+    const targetTier = { ...newTiers[tierIdx] };
+
+    if (targetTier.tier_type === 'interval') {
+      const entries = [...(targetTier.entries as IntervalEntry[])];
+      entries.push({ start: s, end: e, label });
+      entries.sort((a, b) => a.start - b.start);
+      targetTier.entries = entries;
+    }
+    newTiers[tierIdx] = targetTier;
+    onUpdateTiers(newTiers);
+  };
+
+  // Split selected interval at currentTime
+  const handleSplitInterval = (tierIdx: number) => {
+    const newTiers = [...tiers];
+    const targetTier = { ...newTiers[tierIdx] };
+    if (targetTier.tier_type !== 'interval') return;
+
+    const entries = [...(targetTier.entries as IntervalEntry[])];
+    const idx = entries.findIndex(e => e.start <= currentTime && e.end >= currentTime);
+    if (idx !== -1) {
+      const target = entries[idx];
+      if (currentTime - target.start > 0.02 && target.end - currentTime > 0.02) {
+        entries.splice(
+          idx,
+          1,
+          { start: target.start, end: currentTime, label: target.label },
+          { start: currentTime, end: target.end, label: '' }
+        );
+        targetTier.entries = entries;
+        newTiers[tierIdx] = targetTier;
+        onUpdateTiers(newTiers);
+      }
+    }
+  };
+
+  // Delete selected interval
+  const handleDeleteInterval = (tierIdx: number, entryIdx: number) => {
+    const newTiers = [...tiers];
+    const targetTier = { ...newTiers[tierIdx] };
+    targetTier.entries = targetTier.entries.filter((_, i) => i !== entryIdx);
+    newTiers[tierIdx] = targetTier;
+    onUpdateTiers(newTiers);
+  };
+
+  // Label inline editing
   const startEditLabel = (tierIdx: number, entryIdx: number, initialText: string) => {
     setEditingKey(`${tierIdx}-${entryIdx}`);
     setEditingText(initialText);
@@ -65,69 +132,136 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     setEditingKey(null);
   };
 
-  const timeToPercent = (time: number) => {
-    return ((time - viewRange.start) / viewSpan) * 100;
+  // Boundary dragging (Resize)
+  const handleBoundaryDragStart = (e: React.PointerEvent, tierIdx: number, entryIdx: number) => {
+    e.stopPropagation();
+    const track = e.currentTarget.parentElement;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const target = tiers[tierIdx].entries[entryIdx] as IntervalEntry;
+
+    resizeRef.current = {
+      tierIdx,
+      entryIdx,
+      startX: e.clientX,
+      initialEnd: target.end,
+      containerWidth: rect.width,
+    };
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      if (!resizeRef.current) return;
+      const { tierIdx, entryIdx, startX, initialEnd, containerWidth } = resizeRef.current;
+      const deltaX = moveEvent.clientX - startX;
+      const deltaTime = (deltaX / containerWidth) * viewSpan;
+      const newEnd = Math.max(0, initialEnd + deltaTime);
+
+      const updatedTiers = [...tiers];
+      const tier = { ...updatedTiers[tierIdx] };
+      const entries = [...(tier.entries as IntervalEntry[])];
+      const cur = entries[entryIdx];
+      if (newEnd > cur.start + 0.01) {
+        entries[entryIdx] = { ...cur, end: roundTime(newEnd) };
+        // If next entry exists, adjust its start
+        if (entryIdx + 1 < entries.length) {
+          entries[entryIdx + 1] = { ...entries[entryIdx + 1], start: roundTime(newEnd) };
+        }
+        tier.entries = entries;
+        updatedTiers[tierIdx] = tier;
+        onUpdateTiers(updatedTiers);
+      }
+    };
+
+    const onPointerUp = () => {
+      resizeRef.current = null;
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
   };
 
+  const roundTime = (t: number) => Math.round(t * 1000) / 1000;
+
+  const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
+
   return (
-    <div className="flex flex-col w-full bg-slate-900 select-none overflow-x-hidden">
-      {/* Tier Add Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-950 text-xs text-slate-400">
-        <span className="font-semibold text-slate-300">TextGrid ティア一覧 ({tiers.length})</span>
+    <div className="flex flex-col w-full bg-white select-none border-b border-gray-200">
+      {/* Tier Header Toolbar */}
+      <div className="flex items-center justify-between px-4 py-1.5 bg-gray-50 border-b border-gray-200 text-xs">
+        <span className="font-semibold text-gray-700">Tiers ({tiers.length})</span>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handleAddTier('interval')}
-            className="flex items-center px-2.5 py-1 rounded bg-slate-800 hover:bg-sky-600 hover:text-white transition-colors"
+            className="px-2 py-0.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium"
           >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            + 区間ティア (Interval)
+            + 区間ティア
           </button>
           <button
             onClick={() => handleAddTier('point')}
-            className="flex items-center px-2.5 py-1 rounded bg-slate-800 hover:bg-sky-600 hover:text-white transition-colors"
+            className="px-2 py-0.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium"
           >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            + 点ティア (Point)
+            + 点ティア
           </button>
         </div>
       </div>
 
       {/* Tiers List */}
-      <div className="flex flex-col divide-y divide-slate-800">
+      <div className="flex flex-col divide-y divide-gray-200">
         {tiers.map((tier, tierIdx) => (
-          <div key={tierIdx} className="flex h-16 w-full relative group">
-            {/* Tier Header Label */}
-            <div className="w-36 flex-shrink-0 bg-slate-950/80 border-r border-slate-800 px-2 py-1.5 flex flex-col justify-between z-10">
+          <div key={tierIdx} className="flex h-16 w-full relative group bg-white">
+            {/* Tier Title Panel */}
+            <div className="w-32 flex-shrink-0 bg-gray-50 border-r border-gray-200 px-2 py-1.5 flex flex-col justify-between z-10">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-xs text-slate-200 truncate" title={tier.name}>
+                <span className="font-medium text-xs text-gray-900 truncate" title={tier.name}>
                   {tier.name}
                 </span>
                 <button
                   onClick={() => handleDeleteTier(tierIdx)}
-                  className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="ティア削除"
+                  className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100"
+                  title="削除"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">
-                {tier.tier_type === 'interval' ? 'Interval' : 'Point'} ({tier.entries.length})
-              </span>
+
+              {/* Quick Actions for Word Tier */}
+              <div className="flex items-center space-x-1">
+                {tier.tier_type === 'interval' && (
+                  <>
+                    <button
+                      onClick={() => handleAddSelectionToTier(tierIdx)}
+                      disabled={!selection}
+                      className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 disabled:opacity-30"
+                      title="選択範囲をこのティアに追加"
+                    >
+                      +区間
+                    </button>
+                    <button
+                      onClick={() => handleSplitInterval(tierIdx)}
+                      className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1"
+                      title="現在位置で分割"
+                    >
+                      <Scissors className="w-2.5 h-2.5 inline" />
+                    </button>
+                  </>
+                )}
+                <span className="text-[9px] text-gray-400 ml-auto">{tier.tier_type}</span>
+              </div>
             </div>
 
-            {/* Timeline Track */}
-            <div className="relative flex-1 h-full bg-slate-900/50 overflow-hidden">
+            {/* Timeline Track Area */}
+            <div className="relative flex-1 h-full bg-white overflow-hidden">
               {/* Playhead Vertical Line */}
-              {currentTime >= viewRange.start && currentTime <= viewRange.end && (
+              {showPlayhead && (
                 <div
-                  className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-20 pointer-events-none"
+                  className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 z-20 pointer-events-none will-change-transform"
                   style={{ left: `${timeToPercent(currentTime)}%` }}
                 />
               )}
 
-              {/* Entries Rendering */}
+              {/* Intervals */}
               {tier.tier_type === 'interval' ? (
-                // Interval Tier Entries
                 (tier.entries as IntervalEntry[]).map((entry, entryIdx) => {
                   if (entry.end < viewRange.start || entry.start > viewRange.end) return null;
 
@@ -135,17 +269,17 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   const rightPct = Math.min(100, timeToPercent(entry.end));
                   const widthPct = Math.max(0.2, rightPct - leftPct);
                   const isEditing = editingKey === `${tierIdx}-${entryIdx}`;
+                  const isSelected =
+                    selection &&
+                    Math.abs(selection.start - entry.start) < 0.01 &&
+                    Math.abs(selection.end - entry.end) < 0.01;
 
                   return (
                     <div
                       key={entryIdx}
                       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                      className={`absolute top-0 bottom-0 border-r border-slate-700/80 flex items-center justify-center px-1 text-xs cursor-pointer transition-colors ${
-                        selection &&
-                        Math.abs(selection.start - entry.start) < 0.01 &&
-                        Math.abs(selection.end - entry.end) < 0.01
-                          ? 'bg-sky-500/25 border-sky-400'
-                          : 'hover:bg-slate-800/60'
+                      className={`absolute top-0 bottom-0 border-r border-gray-300 flex items-center justify-center px-1 text-xs cursor-pointer ${
+                        isSelected ? 'bg-blue-50/80 font-semibold' : 'hover:bg-gray-50'
                       }`}
                       onClick={() => onSelectInterval(entry.start, entry.end)}
                       onDoubleClick={() => startEditLabel(tierIdx, entryIdx, entry.label)}
@@ -161,28 +295,34 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                               if (e.key === 'Enter') saveEditLabel(tierIdx, entryIdx);
                               if (e.key === 'Escape') setEditingKey(null);
                             }}
-                            className="w-full bg-slate-950 border border-sky-500 text-white text-xs px-1 py-0.5 rounded outline-none"
+                            className="w-full bg-white border border-gray-400 text-gray-900 text-xs px-1 py-0.5 rounded outline-none"
                           />
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               saveEditLabel(tierIdx, entryIdx);
                             }}
-                            className="ml-1 p-0.5 text-sky-400 hover:text-white"
+                            className="ml-1 text-gray-600 hover:text-black"
                           >
                             <Check className="w-3 h-3" />
                           </button>
                         </div>
                       ) : (
-                        <span className="truncate text-slate-200 font-mono text-[11px] select-none" title={entry.label}>
+                        <span className="truncate text-gray-900 font-sans text-xs select-none">
                           {entry.label}
                         </span>
                       )}
+
+                      {/* Right boundary handle for dragging/resizing */}
+                      <div
+                        onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/40 z-10"
+                        title="境界をドラッグして移動"
+                      />
                     </div>
                   );
                 })
               ) : (
-                // Point Tier Entries
                 (tier.entries as PointEntry[]).map((point, pointIdx) => {
                   if (point.time < viewRange.start || point.time > viewRange.end) return null;
                   const leftPct = timeToPercent(point.time);
@@ -192,12 +332,12 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                     <div
                       key={pointIdx}
                       style={{ left: `${leftPct}%` }}
-                      className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-amber-400/80 flex flex-col items-center justify-start cursor-pointer group/point"
+                      className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-gray-800 flex flex-col items-center justify-start cursor-pointer"
                       onDoubleClick={() => startEditLabel(tierIdx, pointIdx, point.label)}
                     >
-                      <div className="w-2 h-2 rounded-full bg-amber-400 -mt-1 shadow" />
+                      <div className="w-2 h-2 rounded-full bg-gray-800 -mt-1" />
                       {isEditing ? (
-                        <div className="absolute top-2 bg-slate-950 p-1 rounded border border-amber-400 z-30">
+                        <div className="absolute top-2 bg-white p-1 rounded border border-gray-300 shadow z-30">
                           <input
                             type="text"
                             autoFocus
@@ -207,12 +347,12 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                               if (e.key === 'Enter') saveEditLabel(tierIdx, pointIdx);
                               if (e.key === 'Escape') setEditingKey(null);
                             }}
-                            className="text-xs bg-slate-900 text-white px-1 py-0.5 rounded outline-none"
+                            className="text-xs bg-white text-gray-900 px-1 py-0.5 rounded border border-gray-300 outline-none"
                           />
                         </div>
                       ) : (
                         point.label && (
-                          <span className="absolute top-2 text-[10px] text-amber-300 font-mono whitespace-nowrap bg-slate-950/90 px-1 rounded border border-amber-500/30">
+                          <span className="absolute top-2 text-[10px] text-gray-800 whitespace-nowrap bg-white px-1 border border-gray-200 rounded">
                             {point.label}
                           </span>
                         )

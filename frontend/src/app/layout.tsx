@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Acoustic Annotator - 次世代Praatアノテーション",
-  description: "Web-based, iPad/tablet compatible Praat TextGrid acoustic annotation tool with CPU-optimized Whisper ASR.",
+  title: "Acoustic Annotator",
+  description: "Acoustic Analysis & Praat TextGrid Annotator",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Annotator",
   },
 };
@@ -17,7 +17,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -26,13 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className="dark">
-      <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
-      </head>
-      <body className="antialiased min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <html lang="ja">
+      <body className="antialiased min-h-screen bg-white text-gray-900 flex flex-col">
         {children}
       </body>
     </html>

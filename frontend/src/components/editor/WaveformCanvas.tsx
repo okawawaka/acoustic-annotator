@@ -7,7 +7,7 @@ interface WaveformCanvasProps {
   duration: number;
   currentTime: number;
   selection: { start: number; end: number } | null;
-  viewRange: { start: number; end: number }; // In seconds
+  viewRange: { start: number; end: number };
   onSeek: (time: number) => void;
   onSelectRange: (range: { start: number; end: number } | null) => void;
   height?: number;
@@ -24,10 +24,14 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   height = 140,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<number | null>(null);
 
-  // Redraw canvas on prop changes
+  const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
+
+  // 1. Draw Waveform ONLY when peaks, duration, viewRange, or height change
+  // (Never redraw static waveform on currentTime update!)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -38,88 +42,42 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     const h = canvas.height;
     ctx.clearRect(0, 0, width, h);
 
-    // Background
-    ctx.fillStyle = '#0f172a'; // slate-900
+    // Background: Pure White
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, h);
 
-    // Center line
-    ctx.strokeStyle = '#334155'; // slate-700
+    // Center Zero Line
+    ctx.strokeStyle = '#e2e8f0'; // gray-200
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, h / 2);
     ctx.lineTo(width, h / 2);
     ctx.stroke();
 
-    const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
-
-    // Draw Waveform peaks
+    // Draw Waveform bars (Solid black/slate for paper clarity)
     if (peaks && peaks.length > 0 && duration > 0) {
-      ctx.fillStyle = '#38bdf8'; // sky-400
+      ctx.fillStyle = '#0f172a'; // slate-900
 
       const numPoints = peaks.length;
       for (let i = 0; i < width; i++) {
-        // Map pixel X to time
         const timeAtPixel = viewRange.start + (i / width) * viewSpan;
         if (timeAtPixel < 0 || timeAtPixel > duration) continue;
 
-        // Peak index
         const peakIdx = Math.min(numPoints - 1, Math.max(0, Math.floor((timeAtPixel / duration) * numPoints)));
         const amp = peaks[peakIdx] || 0;
-        const barHeight = Math.max(1, amp * (h / 2) * 0.95);
+        const barHeight = Math.max(0.5, amp * (h / 2) * 0.95);
 
         ctx.fillRect(i, h / 2 - barHeight, 1, barHeight * 2);
       }
     }
+  }, [peaks, duration, viewRange, height, viewSpan]);
 
-    // Selection Highlight
-    if (selection && selection.start !== selection.end) {
-      const selMin = Math.min(selection.start, selection.end);
-      const selMax = Math.max(selection.start, selection.end);
-
-      const x1 = ((selMin - viewRange.start) / viewSpan) * width;
-      const x2 = ((selMax - viewRange.start) / viewSpan) * width;
-
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.25)'; // Sky translucent
-      ctx.fillRect(x1, 0, Math.max(2, x2 - x1), h);
-
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x1, 0);
-      ctx.lineTo(x1, h);
-      ctx.moveTo(x2, 0);
-      ctx.lineTo(x2, h);
-      ctx.stroke();
-    }
-
-    // Playhead Line
-    if (currentTime >= viewRange.start && currentTime <= viewRange.end) {
-      const playheadX = ((currentTime - viewRange.start) / viewSpan) * width;
-      ctx.strokeStyle = '#ef4444'; // red-500
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, h);
-      ctx.stroke();
-
-      // Playhead top triangle
-      ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.moveTo(playheadX - 6, 0);
-      ctx.lineTo(playheadX + 6, 0);
-      ctx.lineTo(playheadX, 8);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }, [peaks, duration, currentTime, selection, viewRange, height]);
-
-  // Handle pointer down (mouse / touch)
-  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
+  // Pointer interaction for seek and range selection
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const viewSpan = viewRange.end - viewRange.start;
     const clickedTime = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
 
     isDraggingRef.current = true;
@@ -128,13 +86,12 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     onSelectRange({ start: clickedTime, end: clickedTime });
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current || dragStartRef.current === null) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const viewSpan = viewRange.end - viewRange.start;
     const currentTimeAtPointer = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
 
     onSelectRange({
@@ -148,17 +105,62 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     dragStartRef.current = null;
   };
 
+  // Convert time to percentage relative to view
+  const timeToPercent = (time: number) => {
+    return ((time - viewRange.start) / viewSpan) * 100;
+  };
+
+  // Calculate selection style
+  const selectionStyle = React.useMemo(() => {
+    if (!selection || selection.start === selection.end) return null;
+    const selMin = Math.min(selection.start, selection.end);
+    const selMax = Math.max(selection.start, selection.end);
+
+    const left = Math.max(0, timeToPercent(selMin));
+    const right = Math.min(100, timeToPercent(selMax));
+    return {
+      left: `${left}%`,
+      width: `${Math.max(0.2, right - left)}%`,
+    };
+  }, [selection, viewRange, viewSpan]);
+
+  const playheadPercent = timeToPercent(currentTime);
+  const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
+
   return (
-    <div className="relative w-full overflow-hidden select-none border-b border-slate-800">
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden select-none bg-white border-b border-gray-200 cursor-crosshair touch-none"
+      style={{ height: `${height}px` }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+    >
+      {/* 1. Static Waveform Canvas (Heavy drawing, isolated) */}
       <canvas
         ref={canvasRef}
         width={1400}
         height={height}
-        className="w-full h-[140px] cursor-crosshair block touch-none"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        className="w-full h-full block pointer-events-none"
       />
+
+      {/* 2. Selection Overlay (Ultra-lightweight DOM element) */}
+      {selectionStyle && (
+        <div
+          className="absolute top-0 bottom-0 bg-blue-500/15 border-x border-blue-600 pointer-events-none"
+          style={selectionStyle}
+        />
+      )}
+
+      {/* 3. Playhead (Hardware-accelerated DOM element, 0% CPU cost) */}
+      {showPlayhead && (
+        <div
+          className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 pointer-events-none z-10 will-change-transform"
+          style={{ left: `${playheadPercent}%` }}
+        >
+          <div className="w-2.5 h-2.5 bg-red-600 -ml-[4px] rotate-45 pointer-events-none" />
+        </div>
+      )}
     </div>
   );
 };

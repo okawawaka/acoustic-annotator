@@ -8,9 +8,9 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Sparkles,
   Download,
   SplitSquareVertical,
+  Mic,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -30,7 +30,6 @@ interface ControlToolbarProps {
   onInsertBoundary: () => void;
   onOpenASRModal: () => void;
   onExportTextGrid: () => void;
-  onImportClick: () => void;
 }
 
 export const ControlToolbar: React.FC<ControlToolbarProps> = ({
@@ -58,22 +57,22 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-sm gap-2">
+    <div className="flex flex-wrap items-center justify-between px-4 py-2 bg-white border-b border-gray-200 text-xs text-gray-800 gap-2">
       {/* Playback Controls */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-1.5">
         <button
           onClick={onTogglePlay}
           disabled={!hasAudio}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-sky-500 hover:bg-sky-400 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-md transition-all"
+          className="flex items-center justify-center w-8 h-8 rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-900 disabled:opacity-30 transition-colors"
           title="再生 / 一時停止 (Space)"
         >
-          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
         </button>
 
         <button
           onClick={onPlaySelection}
           disabled={!hasAudio}
-          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs text-slate-200 disabled:opacity-40"
+          className="px-2.5 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-30"
           title="選択区間を再生 (Tab)"
         >
           区間再生 [Tab]
@@ -81,87 +80,85 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
         <button
           onClick={onToggleLoop}
-          className={`p-2 rounded-lg text-xs transition-colors ${
-            isLooping ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+          className={`p-1.5 rounded border transition-colors ${
+            isLooping ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
           }`}
-          title="ループ再生切替"
+          title="ループ再生"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
 
-        {/* Speed Selector */}
         <select
           value={playbackRate}
           onChange={(e) => onChangePlaybackRate(parseFloat(e.target.value))}
-          className="bg-slate-800 text-slate-300 text-xs px-2 py-1.5 rounded-lg outline-none cursor-pointer border border-slate-700"
+          className="bg-white text-gray-700 px-2 py-1 rounded border border-gray-300 outline-none cursor-pointer"
         >
           <option value="0.5">0.5x</option>
           <option value="0.75">0.75x</option>
-          <option value="1">1.0x (標準)</option>
+          <option value="1">1.0x</option>
           <option value="1.25">1.25x</option>
           <option value="1.5">1.5x</option>
         </select>
 
-        {/* Time display */}
-        <div className="font-mono text-xs text-slate-300 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+        <div className="font-mono text-gray-600 bg-gray-50 px-2 py-1 rounded border border-gray-200">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
       </div>
 
-      {/* Editing & Zoom Controls */}
-      <div className="flex items-center space-x-2">
+      {/* Editing & Zoom */}
+      <div className="flex items-center space-x-1.5">
         <button
           onClick={onInsertBoundary}
           disabled={!hasAudio}
-          className="flex items-center px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500/30 text-amber-300 text-xs active:scale-95 transition-all"
+          className="flex items-center px-2.5 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30"
           title="現在位置に境界を挿入 (Enter)"
         >
-          <SplitSquareVertical className="w-4 h-4 mr-1" />
+          <SplitSquareVertical className="w-3.5 h-3.5 mr-1 text-gray-600" />
           境界挿入 [Enter]
         </button>
 
-        <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+        <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden">
           <button
             onClick={onZoomIn}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded"
-            title="ズームイン"
+            className="p-1 text-gray-600 hover:bg-gray-100 border-r border-gray-300"
+            title="拡大"
           >
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onZoomOut}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded"
-            title="ズームアウト"
+            className="p-1 text-gray-600 hover:bg-gray-100 border-r border-gray-300"
+            title="縮小"
           >
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onResetZoom}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded"
-            title="全体表示に戻す"
+            className="p-1 text-gray-600 hover:bg-gray-100"
+            title="全体表示"
           >
-            <Maximize2 className="w-4 h-4" />
+            <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Actions: AI & Export */}
-      <div className="flex items-center space-x-2">
+      {/* Actions */}
+      <div className="flex items-center space-x-1.5">
         <button
           onClick={onOpenASRModal}
           disabled={!hasAudio}
-          className="flex items-center px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-95 text-white font-medium text-xs shadow-md transition-all disabled:opacity-40"
+          className="flex items-center px-3 py-1.5 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white font-medium disabled:opacity-30 transition-colors"
         >
-          <Sparkles className="w-4 h-4 mr-1.5" />
-          AI自動文字起こし
+          <Mic className="w-3.5 h-3.5 mr-1" />
+          自動文字起こし
         </button>
 
         <button
           onClick={onExportTextGrid}
-          className="flex items-center px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors"
-          title="Praat TextGrid形式でエクスポート"
+          className="flex items-center px-2.5 py-1.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+          title="Praat TextGrid形式で保存"
         >
-          <Download className="w-4 h-4 mr-1.5" />
+          <Download className="w-3.5 h-3.5 mr-1 text-gray-600" />
           TextGrid保存
         </button>
       </div>
