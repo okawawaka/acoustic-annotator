@@ -10,6 +10,8 @@ interface TextGridTimelineProps {
   currentTime: number;
   viewRange: { start: number; end: number };
   selection: { start: number; end: number } | null;
+  hoverTime: number | null;
+  onHoverTimeChange: (time: number | null) => void;
   onUpdateTiers: (tiers: Tier[]) => void;
   onSelectInterval: (start: number, end: number) => void;
 }
@@ -20,6 +22,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   currentTime,
   viewRange,
   selection,
+  hoverTime,
+  onHoverTimeChange,
   onUpdateTiers,
   onSelectInterval,
 }) => {
@@ -169,10 +173,20 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   const roundTime = (t: number) => Math.round(t * 1000) / 1000;
   const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
 
+  const hoverPercent = hoverTime !== null ? ((hoverTime - viewRange.start) / viewSpan) * 100 : null;
+  const showHover = hoverTime !== null && hoverTime >= viewRange.start && hoverTime <= viewRange.end;
+
+  const handleTrackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const t = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
+    onHoverTimeChange(t);
+  };
+
   return (
     <div className="flex flex-col w-full bg-white select-none border-b border-gray-200">
       <div className="flex items-center justify-between px-3 py-1 bg-gray-100 border-b border-gray-200 text-xs">
-        <span className="font-semibold text-gray-700">Tiers ({tiers.length})</span>
+        <span className="font-semibold text-gray-700">TextGrid ティア一覧 ({tiers.length})</span>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handleAddTier('interval')}
@@ -230,7 +244,20 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
               </div>
             </div>
 
-            <div className="relative flex-1 h-full bg-white overflow-hidden">
+            <div
+              className="relative flex-1 h-full bg-white overflow-hidden cursor-crosshair"
+              onPointerMove={handleTrackPointerMove}
+              onPointerLeave={() => onHoverTimeChange(null)}
+            >
+              {/* Synchronized Hover Hairline */}
+              {showHover && hoverPercent !== null && (
+                <div
+                  className="absolute top-0 bottom-0 w-[1px] bg-gray-400 pointer-events-none z-10"
+                  style={{ left: `${hoverPercent}%` }}
+                />
+              )}
+
+              {/* Playhead */}
               {showPlayhead && (
                 <div
                   className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 z-20 pointer-events-none will-change-transform"
@@ -240,7 +267,6 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 
               {tier.tier_type === 'interval' ? (
                 (tier.entries as IntervalEntry[]).map((entry, entryIdx) => {
-                  // Skip only completely outside intervals
                   if (entry.end < viewRange.start || entry.start > viewRange.end) return null;
 
                   const leftPct = ((entry.start - viewRange.start) / viewSpan) * 100;
@@ -255,7 +281,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                     <div
                       key={entryIdx}
                       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                      className={`absolute top-0 bottom-0 border-r border-gray-300 flex items-center justify-center px-1 text-xs cursor-pointer ${
+                      className={`absolute top-0 bottom-0 border-r border-gray-400/80 flex items-center justify-center px-1 text-xs cursor-pointer ${
                         isSelected ? 'bg-blue-50/90 font-semibold text-blue-900' : 'hover:bg-gray-50 text-gray-800'
                       }`}
                       onClick={() => onSelectInterval(entry.start, entry.end)}

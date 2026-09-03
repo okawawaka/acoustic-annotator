@@ -8,6 +8,9 @@ interface WaveformCanvasProps {
   currentTime: number;
   selection: { start: number; end: number } | null;
   viewRange: { start: number; end: number };
+  boundaries?: number[]; // Projected boundaries from TextGrid tiers
+  hoverTime: number | null;
+  onHoverTimeChange: (time: number | null) => void;
   onSeek: (time: number) => void;
   onSelectRange: (range: { start: number; end: number } | null) => void;
   height?: number;
@@ -19,6 +22,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   currentTime,
   selection,
   viewRange,
+  boundaries = [],
+  hoverTime,
+  onHoverTimeChange,
   onSeek,
   onSelectRange,
   height = 140,
@@ -30,7 +36,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
   const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
 
-  // Draw Static Waveform & Time Ruler
+  // Draw Static Waveform, Time Ruler & Projected Boundaries
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -45,7 +51,6 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, h);
 
-    // Waveform drawing area (leave 18px at bottom for time ruler)
     const waveHeight = h - 20;
 
     // Zero line
@@ -55,6 +60,23 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     ctx.moveTo(0, waveHeight / 2);
     ctx.lineTo(width, waveHeight / 2);
     ctx.stroke();
+
+    // Projected Boundary Lines (Dashed Gray Lines showing TextGrid alignment)
+    if (boundaries && boundaries.length > 0) {
+      ctx.strokeStyle = '#cbd5e1'; // gray-300
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      for (const bTime of boundaries) {
+        if (bTime >= viewRange.start && bTime <= viewRange.end) {
+          const bx = ((bTime - viewRange.start) / viewSpan) * width;
+          ctx.beginPath();
+          ctx.moveTo(bx, 0);
+          ctx.lineTo(bx, waveHeight);
+          ctx.stroke();
+        }
+      }
+      ctx.setLineDash([]); // Reset line dash
+    }
 
     // Waveform bars
     if (peaks && peaks.length > 0 && duration > 0) {
@@ -73,7 +95,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       }
     }
 
-    // Time Ruler bottom border
+    // Time Ruler bottom line
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -82,11 +104,10 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     ctx.stroke();
 
     // Time Ruler Tick Marks & Labels
-    ctx.fillStyle = '#64748b'; // slate-500
+    ctx.fillStyle = '#64748b';
     ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'center';
 
-    // Determine nice tick step based on viewSpan
     let tickStep = 1.0;
     if (viewSpan < 0.5) tickStep = 0.05;
     else if (viewSpan < 1.5) tickStep = 0.1;
@@ -108,7 +129,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       const label = t.toFixed(tickStep < 0.1 ? 2 : tickStep < 1 ? 1 : 0) + 's';
       ctx.fillText(label, x, h - 4);
     }
-  }, [peaks, duration, viewRange, height, viewSpan]);
+  }, [peaks, duration, viewRange, height, viewSpan, boundaries]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = containerRef.current;
@@ -124,17 +145,26 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current || dragStartRef.current === null) return;
     const container = containerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const currentTimeAtPointer = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
 
-    onSelectRange({
-      start: dragStartRef.current,
-      end: currentTimeAtPointer,
-    });
+    onHoverTimeChange(currentTimeAtPointer);
+
+    if (isDraggingRef.current && dragStartRef.current !== null) {
+      onSelectRange({
+        start: dragStartRef.current,
+        end: currentTimeAtPointer,
+      });
+    }
+  };
+
+  const handlePointerLeave = () => {
+    onHoverTimeChange(null);
+    isDraggingRef.current = false;
+    dragStartRef.current = null;
   };
 
   const handlePointerUp = () => {
@@ -142,7 +172,6 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
     dragStartRef.current = null;
   };
 
-  // Selection overlay calculation
   const selectionStyle = React.useMemo(() => {
     if (!selection || selection.start === selection.end) return null;
     const selMin = Math.min(selection.start, selection.end);
@@ -159,6 +188,9 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
   const playheadPercent = ((currentTime - viewRange.start) / viewSpan) * 100;
   const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
 
+  const hoverPercent = hoverTime !== null ? ((hoverTime - viewRange.start) / viewSpan) * 100 : null;
+  const showHover = hoverTime !== null && hoverTime >= viewRange.start && hoverTime <= viewRange.end;
+
   return (
     <div
       ref={containerRef}
@@ -166,6 +198,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       style={{ height: `${height}px` }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
       onPointerUp={handlePointerUp}
     >
       <canvas
@@ -175,6 +208,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         className="w-full h-full block pointer-events-none"
       />
 
+      {/* Selection Highlight Overlay */}
       {selectionStyle && (
         <div
           className="absolute top-0 bottom-[20px] bg-blue-500/15 border-x border-blue-600 pointer-events-none"
@@ -182,9 +216,22 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         />
       )}
 
+      {/* Synchronized Hover Hairline */}
+      {showHover && hoverPercent !== null && (
+        <div
+          className="absolute top-0 bottom-[20px] w-[1px] bg-gray-400 pointer-events-none z-10"
+          style={{ left: `${hoverPercent}%` }}
+        >
+          <div className="absolute top-1 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1 py-0.2 rounded pointer-events-none font-mono">
+            {hoverTime.toFixed(3)}s
+          </div>
+        </div>
+      )}
+
+      {/* Playhead */}
       {showPlayhead && (
         <div
-          className="absolute top-0 bottom-[20px] w-[1.5px] bg-red-600 pointer-events-none z-10 will-change-transform"
+          className="absolute top-0 bottom-[20px] w-[1.5px] bg-red-600 pointer-events-none z-20 will-change-transform"
           style={{ left: `${playheadPercent}%` }}
         >
           <div className="w-2.5 h-2.5 bg-red-600 -ml-[4px] rotate-45 pointer-events-none" />
