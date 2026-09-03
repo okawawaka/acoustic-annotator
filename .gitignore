@@ -1,0 +1,44 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Node.js / Next.js
+node_modules/
+coverage/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.eslintcache
+
+# Environment variables
+.env
+.env*.local
+
+# Audio & cache
+uploads/
+cache/
+models/*
+!models/.gitkeep
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log

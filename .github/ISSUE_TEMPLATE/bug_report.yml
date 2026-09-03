@@ -1,0 +1,23 @@
+﻿name: バグ報告 (Bug Report)
+description: 動作の不具合やエラーを報告します
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 不具合の概要
+      description: どのような問題が発生しましたか？
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 実行環境
+      description: OS（Windows/Mac）、ブラウザ（Chrome/Safari/iPad）、CPU等のスペック
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 再現手順
+      description: 問題が発生した手順を教えてください。

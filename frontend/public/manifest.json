@@ -1,0 +1,16 @@
+{
+  "name": "Acoustic Annotator",
+  "short_name": "Annotator",
+  "description": "High-performance Acoustic Analysis & Praat TextGrid Annotator",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
