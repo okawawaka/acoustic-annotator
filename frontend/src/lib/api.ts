@@ -1,4 +1,4 @@
-import { AudioMetadata, TextGridData } from "@/types";
+import { AudioMetadata, TextGridData, Tier } from "@/types";
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
@@ -83,6 +83,32 @@ export async function transcribeAudio(params: {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.detail || `Transcription failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function alignCustomText(params: {
+  text: string;
+  duration: number;
+  tierName: string;
+  splitBy: string;
+}): Promise<Tier> {
+  const res = await fetch(`${getApiBaseUrl()}/api/textgrid/align_text`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: params.text,
+      duration: params.duration,
+      tier_name: params.tierName,
+      split_by: params.splitBy,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Text alignment failed: ${res.statusText}`);
   }
   return res.json();
 }

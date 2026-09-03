@@ -11,6 +11,7 @@ import {
   Download,
   SplitSquareVertical,
   Mic,
+  FileText,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -30,6 +31,7 @@ interface ControlToolbarProps {
   onResetZoom: () => void;
   onInsertBoundary: () => void;
   onOpenASRModal: () => void;
+  onOpenCustomTextModal: () => void;
   onExportTextGrid: () => void;
 }
 
@@ -50,6 +52,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onResetZoom,
   onInsertBoundary,
   onOpenASRModal,
+  onOpenCustomTextModal,
   onExportTextGrid,
 }) => {
   const formatTime = (time: number) => {
@@ -111,7 +114,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
 
-        {/* Selected interval length indicator */}
         {selectionDuration && (
           <div className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200" title="選択区間の長さ">
             選択: {selectionDuration}s
@@ -158,6 +160,16 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
       {/* Actions */}
       <div className="flex items-center space-x-1.5">
+        <button
+          onClick={onOpenCustomTextModal}
+          disabled={!hasAudio}
+          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30 transition-colors"
+          title="既存のテキスト（台本）から自動で区間を配置"
+        >
+          <FileText className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          台本から区間作成
+        </button>
+
         <button
           onClick={onOpenASRModal}
           disabled={!hasAudio}

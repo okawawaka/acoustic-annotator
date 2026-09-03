@@ -1,4 +1,5 @@
-﻿import os
+import os
+import re
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from faster_whisper import WhisperModel
@@ -11,7 +12,6 @@ class ASRService:
     @classmethod
     def get_model(cls, model_size: str = "base") -> WhisperModel:
         if model_size not in cls._models:
-            # Optimal for standard CPU: int8 quantization with multi-threading
             cpu_threads = max(1, os.cpu_count() - 1 if os.cpu_count() else 2)
             cls._models[model_size] = WhisperModel(
                 model_size_or_path=model_size,
@@ -33,12 +33,16 @@ class ASRService:
     ) -> Dict[str, Any]:
         model = cls.get_model(model_size)
 
-        segments, info = model.transcribe(
+        # Transcribe without aggressive VAD filter to ensure the ENTIRE audio is processed from start to finish
+        segments_generator, info = model.transcribe(
             str(audio_path),
             language=language,
             word_timestamps=True,
-            vad_filter=True, # Voice Activity Detection filters out silence
-            vad_parameters=dict(min_silence_duration_ms=500)
+            vad_filter=False, # vad_filter=False ensures long audios are never truncated early
+            condition_on_previous_text=False, # Avoid repetition loops and stalls
+            beam_size=2 if language else 1, # Faster execution on CPU
+            best_of=1,
+            temperature=0.0
         )
 
         detected_lang = info.language
@@ -47,7 +51,8 @@ class ASRService:
         utterance_entries: List[IntervalEntry] = []
         word_entries: List[IntervalEntry] = []
 
-        for seg in segments:
+        # Iterate all segments to completion
+        for seg in segments_generator:
             text = seg.text.strip()
             if text:
                 utterance_entries.append(IntervalEntry(
@@ -97,6 +102,39 @@ class ASRService:
 
         return {
             "language": detected_lang,
-            "language_probability": round(lang_prob, 4),
+            "language_probability": round(lang_prob, 4) if lang_prob is not None else 1.0,
             "textgrid": tg_data
         }
+
+    @staticmethod
+    def align_custom_text(
+        text: str,
+        duration: float,
+        tier_name: str = "Script",
+        split_by: str = "line"
+    ) -> Tier:
+        """Create intervals from custom user transcript text distributed over duration."""
+        if split_by == "word":
+            items = [w.strip() for w in re.split(r'[\s、。]+', text) if w.strip()]
+        else: # By line
+            items = [line.strip() for line in text.splitlines() if line.strip()]
+
+        if not items:
+            items = [text.strip()] if text.strip() else []
+
+        entries: List[IntervalEntry] = []
+        count = len(items)
+        if count > 0:
+            interval_len = duration / count
+            for i, item in enumerate(items):
+                s = round(i * interval_len, 3)
+                e = round((i + 1) * interval_len, 3)
+                entries.append(IntervalEntry(start=s, end=e, label=item))
+
+        return Tier(
+            name=tier_name,
+            tier_type="interval",
+            min_timestamp=0.0,
+            max_timestamp=duration,
+            entries=entries
+        )

@@ -1,13 +1,20 @@
-﻿import io
+import io
 from pathlib import Path
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from app.config import UPLOAD_DIR
-from app.models.textgrid import TextGridData, AudioMetadata, ASRRequest
+from app.models.textgrid import TextGridData, AudioMetadata, ASRRequest, Tier
 from app.services.textgrid_service import TextGridService
 from app.services.audio_service import AudioService
 from app.services.asr_service import ASRService
+
+class CustomTextRequest(BaseModel):
+    text: str = Field(..., description="User transcript text")
+    duration: float = Field(..., description="Audio duration in seconds")
+    tier_name: str = Field(default="Script", description="Target tier name")
+    split_by: str = Field(default="line", description="Split by 'line' or 'word'")
 
 app = FastAPI(
     title="Acoustic Annotator API",
@@ -15,7 +22,6 @@ app = FastAPI(
     description="High-performance, CPU-optimized backend for acoustic analysis and Praat TextGrid annotation."
 )
 
-# Enable CORS for local network (PC, iPad, tablets)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,7 +36,6 @@ def health():
 
 @app.post("/api/audio/upload", response_model=AudioMetadata)
 async def upload_audio(file: UploadFile = File(...)):
-    """Upload an audio file, save to storage, and return metadata with waveform peaks."""
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="Empty audio file.")
@@ -41,7 +46,6 @@ async def upload_audio(file: UploadFile = File(...)):
 
 @app.get("/api/audio/{audio_id}/stream")
 def stream_audio(audio_id: str):
-    """Stream audio file for browser playback."""
     matches = list(UPLOAD_DIR.glob(f"{audio_id}.*"))
     if not matches:
         raise HTTPException(status_code=404, detail="Audio not found.")
@@ -50,7 +54,6 @@ def stream_audio(audio_id: str):
 
 @app.post("/api/textgrid/parse", response_model=TextGridData)
 async def parse_textgrid(file: UploadFile = File(...)):
-    """Parse an uploaded Praat .TextGrid file."""
     content_bytes = await file.read()
     try:
         content_str = content_bytes.decode("utf-8")
@@ -62,7 +65,6 @@ async def parse_textgrid(file: UploadFile = File(...)):
 
 @app.post("/api/textgrid/export")
 def export_textgrid(data: TextGridData, format: str = "short_textgrid"):
-    """Export TextGridData JSON into Praat .TextGrid file format."""
     content = TextGridService.export_textgrid_string(data, output_format=format)
     return Response(
         content=content,
@@ -72,7 +74,6 @@ def export_textgrid(data: TextGridData, format: str = "short_textgrid"):
 
 @app.post("/api/asr/transcribe")
 def transcribe_audio(req: ASRRequest):
-    """Perform CPU-optimized Faster-Whisper ASR with word timestamps."""
     matches = list(UPLOAD_DIR.glob(f"{req.audio_id}.*"))
     if not matches:
         raise HTTPException(status_code=404, detail="Audio file not found.")
@@ -86,3 +87,14 @@ def transcribe_audio(req: ASRRequest):
         duration=metadata.duration
     )
     return result
+
+@app.post("/api/textgrid/align_text", response_model=Tier)
+def align_custom_text(req: CustomTextRequest):
+    """Generate a TextGrid IntervalTier from user-provided transcript text."""
+    tier = ASRService.align_custom_text(
+        text=req.text,
+        duration=req.duration,
+        tier_name=req.tier_name,
+        split_by=req.split_by
+    )
+    return tier

@@ -42,3 +42,10 @@ models/*
 Thumbs.db
 Desktop.ini
 *.log
+
+backend/models/
+models/
+*.bin
+*.json
+!frontend/*.json
+!backend/*.json
