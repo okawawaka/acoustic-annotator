@@ -1,6 +1,6 @@
 export async function extractPeaksFromAudioFile(
   file: File,
-  numPeaks: number = 1200
+  numPeaks: number = 4000
 ): Promise<{ duration: number; peaks: number[]; sampleRate: number }> {
   const arrayBuffer = await file.arrayBuffer();
   const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();

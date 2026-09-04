@@ -132,8 +132,10 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
 
           <div className="text-[11px] text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
             {splitBy === 'char'
-              ? '入力テキストの一文字ずつ（空白・改行を除く）に均等な区間を自動作成します。'
-              : '音声の時間に合わせて区間が自動生成されます。生成後、波形を見ながら境界線をドラッグして微調整できます。'}
+              ? '音声波形の発音エネルギーとAI解析に基づき、一文字ずつの実際の発声区間に自動配置します。'
+              : splitBy === 'word'
+              ? '音声波形と発話タイミングを解析し、単語ごとの発話区間に自動配置します。'
+              : '音声波形と発話タイミングを解析し、文・行ごとの発話区間に自動配置します。'}
           </div>
 
           {/* Action Buttons */}

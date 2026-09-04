@@ -23,6 +23,36 @@ class ASRService:
             )
         return cls._models[model_size]
 
+    @staticmethod
+    def _snap_boundary_to_energy_valley(
+        audio: Any,
+        sample_rate: int,
+        target_time: float,
+        search_radius: float = 0.25
+    ) -> float:
+        """Snap boundary time to nearest acoustic energy minimum (valley) in waveform."""
+        import numpy as np
+        win_size = int(0.015 * sample_rate) # 15ms window
+        step_size = int(0.005 * sample_rate) # 5ms step
+        s_pos = max(0, int((target_time - search_radius) * sample_rate))
+        e_pos = min(len(audio) - win_size, int((target_time + search_radius) * sample_rate))
+
+        if e_pos <= s_pos:
+            return round(target_time, 3)
+
+        min_rms = float("inf")
+        best_time = target_time
+
+        for pos in range(s_pos, e_pos, step_size):
+            chunk = audio[pos : pos + win_size]
+            rms = float(np.sqrt(np.mean(chunk**2)))
+            t = pos / sample_rate
+            if rms < min_rms:
+                min_rms = rms
+                best_time = t
+
+        return round(best_time, 3)
+
     @classmethod
     def transcribe(
         cls,
@@ -116,6 +146,18 @@ class ASRService:
 
         max_ts = total_duration
 
+        # Refine Word boundaries by snapping to acoustic energy valleys
+        if word_entries:
+            refined_words: List[IntervalEntry] = []
+            for idx, entry in enumerate(word_entries):
+                s = cls._snap_boundary_to_energy_valley(audio, sample_rate, entry.start, 0.2)
+                e = cls._snap_boundary_to_energy_valley(audio, sample_rate, entry.end, 0.2)
+                if e > s + 0.02:
+                    refined_words.append(IntervalEntry(start=s, end=e, label=entry.label))
+                else:
+                    refined_words.append(entry)
+            word_entries = refined_words
+
         tiers = []
         # Utterance Tier (Sentence level)
         if output_tier in ["utterance", "both"] and utterance_entries:
@@ -127,7 +169,7 @@ class ASRService:
                 entries=utterance_entries
             ))
 
-        # Word Tier (Word level)
+        # Word Tier (Word level with acoustic valley snapping)
         if output_tier in ["word", "both"] and word_entries:
             tiers.append(Tier(
                 name="Word",
@@ -244,17 +286,22 @@ class ASRService:
                                         c_e = round(seg_s + (k + 1) * char_step, 3)
                                         matched_spans[u_start + k] = (c_s, c_e)
 
-                        # Interpolate any unmatched spans
+                        # Interpolate any unmatched spans and snap to acoustic valleys
                         last_e = 0.0
                         for idx, span in enumerate(matched_spans):
                             u_char = user_items[idx]
                             if span is not None:
-                                speech_intervals.append(IntervalEntry(start=span[0], end=span[1], label=u_char))
-                                last_e = span[1]
+                                s = cls._snap_boundary_to_energy_valley(audio, 16000, span[0], 0.2)
+                                e = cls._snap_boundary_to_energy_valley(audio, 16000, span[1], 0.2)
+                                s = max(last_e, s)
+                                e = max(s + 0.02, e)
+                                speech_intervals.append(IntervalEntry(start=s, end=e, label=u_char))
+                                last_e = e
                             else:
-                                # Fallback local estimate
-                                speech_intervals.append(IntervalEntry(start=last_e, end=round(last_e + 0.2, 3), label=u_char))
-                                last_e = round(last_e + 0.2, 3)
+                                s = last_e
+                                e = round(last_e + 0.15, 3)
+                                speech_intervals.append(IntervalEntry(start=s, end=e, label=u_char))
+                                last_e = e
 
                     elif split_by == "word":
                         user_str_list = [w.lower() for w in user_items]
@@ -279,11 +326,17 @@ class ASRService:
                         for idx, span in enumerate(matched_word_spans):
                             u_word = user_items[idx]
                             if span is not None:
-                                speech_intervals.append(IntervalEntry(start=span[0], end=span[1], label=u_word))
-                                last_e = span[1]
+                                s = cls._snap_boundary_to_energy_valley(audio, 16000, span[0], 0.2)
+                                e = cls._snap_boundary_to_energy_valley(audio, 16000, span[1], 0.2)
+                                s = max(last_e, s)
+                                e = max(s + 0.02, e)
+                                speech_intervals.append(IntervalEntry(start=s, end=e, label=u_word))
+                                last_e = e
                             else:
-                                speech_intervals.append(IntervalEntry(start=last_e, end=round(last_e + 0.5, 3), label=u_word))
-                                last_e = round(last_e + 0.5, 3)
+                                s = last_e
+                                e = round(last_e + 0.3, 3)
+                                speech_intervals.append(IntervalEntry(start=s, end=e, label=u_word))
+                                last_e = e
 
                     else: # By line
                         total_segs = len(seg_list)
