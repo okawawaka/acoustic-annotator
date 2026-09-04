@@ -124,13 +124,16 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
               onChange={(e) => setSplitBy(e.target.value)}
               className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
             >
-              <option value="line">改行ごと (文単位)</option>
+              <option value="char">一文字ずつ (モーラ・音素単位)</option>
               <option value="word">単語・空白ごと</option>
+              <option value="line">改行ごと (文単位)</option>
             </select>
           </div>
 
           <div className="text-[11px] text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
-            音声の時間に合わせて区間が自動生成されます。生成後、波形を見ながら境界線をドラッグして微調整できます。
+            {splitBy === 'char'
+              ? '入力テキストの一文字ずつ（空白・改行を除く）に均等な区間を自動作成します。'
+              : '音声の時間に合わせて区間が自動生成されます。生成後、波形を見ながら境界線をドラッグして微調整できます。'}
           </div>
 
           {/* Action Buttons */}

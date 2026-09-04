@@ -359,7 +359,10 @@ export default function AnnotatorApp() {
     try {
       // Split text helper (client-side fallback & generation)
       const parseTextItems = (txt: string, split: string) => {
-        if (split === 'word') {
+        if (split === 'char') {
+          // Split character by character, ignoring whitespace and newlines
+          return Array.from(txt.replace(/\s+/g, ''));
+        } else if (split === 'word') {
           return txt.trim().split(/[\s、。,\.]+/).filter((w) => w.length > 0);
         } else {
           return txt.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
