@@ -31,10 +31,34 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = React.useState<number>(1000);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<number | null>(null);
 
   const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
+
+  // Synchronize canvas buffer width with actual DOM client width to avoid stretch/distortion
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateWidth = () => {
+      const w = container.clientWidth;
+      if (w > 0) setContainerWidth(w);
+    };
+    updateWidth();
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerWidth(Math.round(entry.contentRect.width));
+        }
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   // Draw Static Waveform, Time Ruler & Projected Boundaries
   useEffect(() => {
@@ -129,7 +153,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       const label = t.toFixed(tickStep < 0.1 ? 2 : tickStep < 1 ? 1 : 0) + 's';
       ctx.fillText(label, x, h - 4);
     }
-  }, [peaks, duration, viewRange, height, viewSpan, boundaries]);
+  }, [peaks, duration, viewRange, height, viewSpan, boundaries, containerWidth]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = containerRef.current;
@@ -225,7 +249,7 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       >
         <canvas
           ref={canvasRef}
-          width={1400}
+          width={containerWidth}
           height={height}
           className="w-full h-full block pointer-events-none"
         />
