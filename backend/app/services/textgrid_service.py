@@ -8,56 +8,150 @@ from praatio.utilities.constants import Interval, Point
 
 class TextGridService:
     @staticmethod
-    def parse_textgrid_file(file_path: Union[str, Path]) -> TextGridData:
-        """Parse a .TextGrid file using praatio."""
-        tg = pt_tg.openTextgrid(str(file_path), includeEmptyIntervals=True)
-        return TextGridService._praatio_to_model(tg)
+    def decode_bytes(content_bytes: bytes) -> str:
+        """Robustly decode TextGrid raw bytes with BOM and multi-encoding detection."""
+        if content_bytes.startswith(b'\xff\xfe'):
+            return content_bytes.decode('utf-16-le', errors='replace')
+        if content_bytes.startswith(b'\xfe\xff'):
+            return content_bytes.decode('utf-16-be', errors='replace')
+        if content_bytes.startswith(b'\xef\xbb\xbf'):
+            return content_bytes.decode('utf-8-sig', errors='replace')
+
+        for enc in ['utf-8', 'utf-16', 'cp932', 'shift_jis', 'latin-1']:
+            try:
+                return content_bytes.decode(enc)
+            except (UnicodeDecodeError, LookupError):
+                continue
+
+        return content_bytes.decode('utf-8', errors='replace')
 
     @staticmethod
     def parse_textgrid_content(content: str) -> TextGridData:
-        """Parse TextGrid text content directly."""
+        """Parse TextGrid text content with multiple fallback strategies."""
+        # 1. Try praatio first
         import tempfile
-        with tempfile.NamedTemporaryFile("w", suffix=".TextGrid", encoding="utf-8", delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
         try:
-            return TextGridService.parse_textgrid_file(tmp_path)
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            with tempfile.NamedTemporaryFile("w", suffix=".TextGrid", encoding="utf-8", delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            try:
+                tg = pt_tg.openTextgrid(tmp_path, includeEmptyIntervals=True)
+                return TextGridService._praatio_to_model(tg)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+        except Exception:
+            # 2. Fallback to robust regex parser
+            return TextGridService._robust_parse(content)
 
     @staticmethod
-    def _praatio_to_model(tg: pt_tg.Textgrid) -> TextGridData:
+    def parse_textgrid_file(file_path: Union[str, Path]) -> TextGridData:
+        with open(file_path, "rb") as f:
+            raw_bytes = f.read()
+        content = TextGridService.decode_bytes(raw_bytes)
+        return TextGridService.parse_textgrid_content(content)
+
+    @staticmethod
+    def _robust_parse(text: str) -> TextGridData:
+        """Custom regex-based robust parser for Praat TextGrid (handles empty lines, custom headers, short/long)."""
+        import re
+        clean_text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+        # Check for Short TextGrid format
+        lines = [l.strip() for l in clean_text.split("\n") if l.strip()]
+        if lines and len(lines) > 5 and ("ooTextFile" in lines[0]):
+            if len(lines) > 1 and ("TextGrid" in lines[1]) and not any("item [" in l or "xmin =" in l for l in lines[:10]):
+                try:
+                    import praatio.utilities.textgrid_io as tio
+                    tg_dict = tio.parseTextgridStr(clean_text, includeEmptyIntervals=True)
+                    tiers: List[Tier] = []
+                    for t in tg_dict.get("tiers", []):
+                        is_int = t.get("type") == "IntervalTier"
+                        entries = []
+                        for e in t.get("entryList", []):
+                            if is_int:
+                                entries.append(IntervalEntry(start=round(e[0], 5), end=round(e[1], 5), label=e[2]))
+                            else:
+                                entries.append(PointEntry(time=round(e[0], 5), label=e[1]))
+                        tiers.append(Tier(
+                            name=t.get("name", "Tier"),
+                            tier_type="interval" if is_int else "point",
+                            min_timestamp=round(t.get("minT", 0.0), 5),
+                            max_timestamp=round(t.get("maxT", 0.0), 5),
+                            entries=entries
+                        ))
+                    return TextGridData(
+                        min_timestamp=round(float(lines[2]), 5),
+                        max_timestamp=round(float(lines[3]), 5),
+                        tiers=tiers
+                    )
+                except Exception:
+                    pass
+
+        # Long TextGrid format
+        min_m = re.search(r"^\s*xmin\s*=\s*([-\d.]+)", clean_text, re.MULTILINE)
+        max_m = re.search(r"^\s*xmax\s*=\s*([-\d.]+)", clean_text, re.MULTILINE)
+        total_min = float(min_m.group(1)) if min_m else 0.0
+        total_max = float(max_m.group(1)) if max_m else 10.0
+
+        tier_chunks = re.split(r"item\s*\[\s*\d+\s*\]\s*:", clean_text)
+        if len(tier_chunks) <= 1:
+            tier_chunks = re.split(r"item\s*\[", clean_text)
+
         tiers: List[Tier] = []
-        for tier_name in tg.tierNames:
-            pt_tier = tg.getTier(tier_name)
-            if isinstance(pt_tier, pt_tg.IntervalTier):
-                entries = [
-                    IntervalEntry(start=round(entry.start, 5), end=round(entry.end, 5), label=entry.label)
-                    for entry in pt_tier.entries
-                ]
+        for chunk in tier_chunks[1:]:
+            class_m = re.search(r'class\s*=\s*"([^"]+)"', chunk)
+            tier_class = class_m.group(1).strip() if class_m else "IntervalTier"
+            is_interval = "interval" in tier_class.lower()
+
+            name_m = re.search(r'name\s*=\s*"([^"]*)"', chunk)
+            tier_name = name_m.group(1) if name_m else "Tier"
+
+            t_min_m = re.search(r"xmin\s*=\s*([-\d.]+)", chunk)
+            t_max_m = re.search(r"xmax\s*=\s*([-\d.]+)", chunk)
+            t_min = float(t_min_m.group(1)) if t_min_m else total_min
+            t_max = float(t_max_m.group(1)) if t_max_m else total_max
+
+            entries = []
+            if is_interval:
+                int_matches = re.finditer(
+                    r'xmin\s*=\s*([-\d.]+)\s*\n\s*xmax\s*=\s*([-\d.]+)\s*\n\s*text\s*=\s*"([^"]*)"',
+                    chunk
+                )
+                for m in int_matches:
+                    entries.append(IntervalEntry(
+                        start=round(float(m.group(1)), 5),
+                        end=round(float(m.group(2)), 5),
+                        label=m.group(3)
+                    ))
                 tiers.append(Tier(
                     name=tier_name,
                     tier_type="interval",
-                    min_timestamp=round(pt_tier.minTimestamp, 5),
-                    max_timestamp=round(pt_tier.maxTimestamp, 5),
+                    min_timestamp=t_min,
+                    max_timestamp=t_max,
                     entries=entries
                 ))
-            elif isinstance(pt_tier, pt_tg.PointTier):
-                entries = [
-                    PointEntry(time=round(entry.time, 5), label=entry.label)
-                    for entry in pt_tier.entries
-                ]
+            else:
+                pt_matches = re.finditer(
+                    r'(?:time|number)\s*=\s*([-\d.]+)\s*\n\s*(?:mark|text)\s*=\s*"([^"]*)"',
+                    chunk
+                )
+                for m in pt_matches:
+                    entries.append(PointEntry(
+                        time=round(float(m.group(1)), 5),
+                        label=m.group(2)
+                    ))
                 tiers.append(Tier(
                     name=tier_name,
                     tier_type="point",
-                    min_timestamp=round(pt_tier.minTimestamp, 5),
-                    max_timestamp=round(pt_tier.maxTimestamp, 5),
+                    min_timestamp=t_min,
+                    max_timestamp=t_max,
                     entries=entries
                 ))
+
         return TextGridData(
-            min_timestamp=round(tg.minTimestamp, 5),
-            max_timestamp=round(tg.maxTimestamp, 5),
+            min_timestamp=round(total_min, 5),
+            max_timestamp=round(total_max, 5),
             tiers=tiers
         )
 

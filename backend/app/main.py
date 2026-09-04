@@ -55,11 +55,7 @@ def stream_audio(audio_id: str):
 @app.post("/api/textgrid/parse", response_model=TextGridData)
 async def parse_textgrid(file: UploadFile = File(...)):
     content_bytes = await file.read()
-    try:
-        content_str = content_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        content_str = content_bytes.decode("latin-1")
-    
+    content_str = TextGridService.decode_bytes(content_bytes)
     tg_data = TextGridService.parse_textgrid_content(content_str)
     return tg_data
 

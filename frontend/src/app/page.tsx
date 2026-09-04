@@ -70,7 +70,7 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // Audio time update event with Auto-Scroll on playback
+  // Audio time update event with Auto-Scroll on playback (preserves constant window span)
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const time = audioRef.current.currentTime;
@@ -78,8 +78,13 @@ export default function AnnotatorApp() {
 
     if (isPlaying && time > viewRange.end) {
       const span = viewRange.end - viewRange.start;
-      const newStart = time;
-      const newEnd = Math.min(audioMetadata ? audioMetadata.duration : time + span, newStart + span);
+      const totalDur = audioMetadata ? audioMetadata.duration : (textGridData ? textGridData.max_timestamp : time + span);
+      let newStart = time;
+      let newEnd = newStart + span;
+      if (newEnd > totalDur) {
+        newEnd = totalDur;
+        newStart = Math.max(0, newEnd - span);
+      }
       setViewRange({ start: newStart, end: newEnd });
     }
 
@@ -275,6 +280,10 @@ export default function AnnotatorApp() {
       const tg = await parseTextGrid(file);
       setTextGridData(tg);
       setActiveTierIdx(0);
+      if (!audioMetadata) {
+        const span = Math.min(10, tg.max_timestamp);
+        setViewRange({ start: 0, end: span });
+      }
     } catch (err: any) {
       alert(`TextGrid解析エラー: ${err.message}`);
     }
