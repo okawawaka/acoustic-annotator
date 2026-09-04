@@ -392,6 +392,7 @@ export default function AnnotatorApp() {
           duration: audioMetadata.duration,
           tierName: params.tierName,
           splitBy: params.splitBy,
+          audioId: audioMetadata.audio_id || undefined,
         });
       } catch (networkErr) {
         console.warn('API alignText fallback to local calculation:', networkErr);

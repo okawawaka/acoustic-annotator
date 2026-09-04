@@ -1,4 +1,5 @@
 import io
+from typing import Union, Optional
 from pathlib import Path
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -14,7 +15,8 @@ class CustomTextRequest(BaseModel):
     text: str = Field(..., description="User transcript text")
     duration: float = Field(..., description="Audio duration in seconds")
     tier_name: str = Field(default="Script", description="Target tier name")
-    split_by: str = Field(default="line", description="Split by 'line' or 'word'")
+    split_by: str = Field(default="line", description="Split by 'char', 'word', or 'line'")
+    audio_id: Union[str, None] = Field(default=None, description="Optional audio ID for acoustic forced alignment")
 
 app = FastAPI(
     title="Acoustic Annotator API",
@@ -87,10 +89,17 @@ def transcribe_audio(req: ASRRequest):
 
 @app.post("/api/textgrid/align_text", response_model=Tier)
 def align_custom_text(req: CustomTextRequest):
+    audio_path = None
+    if req.audio_id:
+        matches = list(UPLOAD_DIR.glob(f"{req.audio_id}.*"))
+        if matches:
+            audio_path = matches[0]
+
     tier = ASRService.align_custom_text(
         text=req.text,
         duration=req.duration,
         tier_name=req.tier_name,
-        split_by=req.split_by
+        split_by=req.split_by,
+        audio_path=audio_path
     )
     return tier

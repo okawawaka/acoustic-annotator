@@ -94,6 +94,7 @@ export async function alignCustomText(params: {
   duration: number;
   tierName: string;
   splitBy: string;
+  audioId?: string;
 }): Promise<Tier> {
   const res = await fetch(`${getApiBaseUrl()}/api/textgrid/align_text`, {
     method: "POST",
@@ -105,6 +106,7 @@ export async function alignCustomText(params: {
       duration: params.duration,
       tier_name: params.tierName,
       split_by: params.splitBy,
+      audio_id: params.audioId || null,
     }),
   });
 

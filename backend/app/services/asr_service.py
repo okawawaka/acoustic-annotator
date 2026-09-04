@@ -149,33 +149,138 @@ class ASRService:
             "textgrid": tg_data
         }
 
-    @staticmethod
+    @classmethod
     def align_custom_text(
+        cls,
         text: str,
         duration: float,
         tier_name: str = "Script",
-        split_by: str = "line"
+        split_by: str = "line",
+        audio_path: Optional[Path] = None
     ) -> Tier:
-        """Create intervals from custom user transcript text distributed over duration."""
-        if split_by == "char":
-            # Split character-by-character (excluding whitespace)
-            items = [ch for ch in text if not ch.isspace()]
-        elif split_by == "word":
-            items = [w.strip() for w in re.split(r'[\s、。]+', text) if w.strip()]
-        else: # By line
-            items = [line.strip() for line in text.splitlines() if line.strip()]
-
-        if not items:
-            items = [text.strip()] if text.strip() else []
-
+        """Create acoustically aligned intervals from user transcript text using Whisper & waveform alignment."""
         entries: List[IntervalEntry] = []
-        count = len(items)
-        if count > 0:
-            interval_len = duration / count
-            for i, item in enumerate(items):
-                s = round(i * interval_len, 3)
-                e = round((i + 1) * interval_len, 3)
-                entries.append(IntervalEntry(start=s, end=e, label=item))
+
+        # 1. Prepare target items from user text
+        if split_by == "char":
+            user_items = [ch for ch in text if not ch.isspace()]
+        elif split_by == "word":
+            user_items = [w.strip() for w in re.split(r'[\s、。,\.]+', text) if w.strip()]
+        else: # By line
+            user_items = [line.strip() for line in text.splitlines() if line.strip()]
+
+        if not user_items:
+            user_items = [text.strip()] if text.strip() else []
+
+        aligned = False
+
+        # 2. Acoustic Alignment via Whisper (using user script as prompt)
+        if audio_path and audio_path.exists() and user_items:
+            try:
+                model = cls.get_model("base")
+                from faster_whisper.audio import decode_audio
+                audio = decode_audio(str(audio_path))
+
+                segments_generator, _ = model.transcribe(
+                    audio,
+                    language="ja",
+                    initial_prompt=text[:300], # Inject user script into prompt for acoustic alignment
+                    word_timestamps=True,
+                    beam_size=1,
+                    best_of=1,
+                    temperature=0.0
+                )
+                seg_list = list(segments_generator)
+
+                raw_words = []
+                for s in seg_list:
+                    if s.words:
+                        for w in s.words:
+                            w_txt = w.word.strip()
+                            if w_txt and w.end > w.start:
+                                raw_words.append((round(w.start, 3), round(w.end, 3), w_txt))
+
+                if raw_words:
+                    speech_intervals: List[IntervalEntry] = []
+
+                    if split_by == "char":
+                        # Decompose recognized words into characters
+                        char_spans = []
+                        for s_time, e_time, w_txt in raw_words:
+                            chars_in_word = [c for c in w_txt if not c.isspace()]
+                            if chars_in_word:
+                                step = (e_time - s_time) / len(chars_in_word)
+                                for idx, c in enumerate(chars_in_word):
+                                    c_start = round(s_time + idx * step, 3)
+                                    c_end = round(s_time + (idx + 1) * step, 3)
+                                    char_spans.append((c_start, c_end, c))
+
+                        # Map to user items if count matches or assign user characters sequentially
+                        total_spans = len(char_spans)
+                        total_user = len(user_items)
+                        for i, u_char in enumerate(user_items):
+                            if total_user == total_spans:
+                                s, e, _ = char_spans[i]
+                            else:
+                                # Proportional mapping to speech time spans
+                                span_idx = min(total_spans - 1, int(i * (total_spans / total_user)))
+                                s, e, _ = char_spans[span_idx]
+                            speech_intervals.append(IntervalEntry(start=s, end=e, label=u_char))
+
+                    elif split_by == "word":
+                        total_words = len(raw_words)
+                        total_user = len(user_items)
+                        for i, u_word in enumerate(user_items):
+                            if total_user == total_words:
+                                s, e, _ = raw_words[i]
+                            else:
+                                word_idx = min(total_words - 1, int(i * (total_words / total_user)))
+                                s, e, _ = raw_words[word_idx]
+                            speech_intervals.append(IntervalEntry(start=s, end=e, label=u_word))
+
+                    else: # Line by line
+                        total_segs = len(seg_list)
+                        total_user = len(user_items)
+                        for i, u_line in enumerate(user_items):
+                            seg_idx = min(total_segs - 1, int(i * (total_segs / total_user)))
+                            s = round(seg_list[seg_idx].start, 3)
+                            e = round(seg_list[seg_idx].end, 3)
+                            speech_intervals.append(IntervalEntry(start=s, end=e, label=u_line))
+
+                    # Sort and clean speech intervals to build Praat-compliant continuous timeline
+                    speech_intervals.sort(key=lambda x: x.start)
+                    continuous_entries: List[IntervalEntry] = []
+                    curr_time = 0.0
+
+                    for item in speech_intervals:
+                        if item.start > curr_time + 0.03:
+                            # Silence interval between speeches
+                            continuous_entries.append(IntervalEntry(start=round(curr_time, 3), end=round(item.start, 3), label=""))
+                            curr_time = item.start
+                        elif item.start < curr_time:
+                            item.start = curr_time
+
+                        if item.end > item.start + 0.01:
+                            continuous_entries.append(IntervalEntry(start=round(item.start, 3), end=round(item.end, 3), label=item.label))
+                            curr_time = item.end
+
+                    if curr_time < duration:
+                        continuous_entries.append(IntervalEntry(start=round(curr_time, 3), end=round(duration, 3), label=""))
+
+                    entries = continuous_entries
+                    aligned = True
+            except Exception as e:
+                print(f"[ASRService.align_custom_text] Acoustic alignment fallback: {e}")
+
+        # 3. Fallback: Proportional distribution if no audio or alignment failed
+        if not aligned:
+            count = len(user_items)
+            if count > 0:
+                interval_len = duration / count
+                for i, item in enumerate(user_items):
+                    s = round(i * interval_len, 3)
+                    e = round((i + 1) * interval_len, 3)
+                    entries.append(IntervalEntry(start=s, end=e, label=item))
 
         return Tier(
             name=tier_name,

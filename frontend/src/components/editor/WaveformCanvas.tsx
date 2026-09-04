@@ -193,50 +193,73 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
   return (
     <div
-      ref={containerRef}
-      className="relative w-full overflow-hidden select-none bg-white border-b border-gray-200 cursor-crosshair touch-none"
+      className="flex w-full overflow-hidden select-none bg-white border-b border-gray-200"
       style={{ height: `${height}px` }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
-      onPointerUp={handlePointerUp}
     >
-      <canvas
-        ref={canvasRef}
-        width={1400}
-        height={height}
-        className="w-full h-full block pointer-events-none"
-      />
+      {/* Audio Left Header (Matches TextGrid Timeline Header) */}
+      <div className="w-32 flex-shrink-0 bg-gray-50 border-r border-gray-200 px-2 py-1.5 flex flex-col justify-between select-none z-10">
+        <div>
+          <span className="font-semibold text-xs text-gray-800">Audio (波形)</span>
+          <div className="text-[10px] text-gray-500 mt-0.5">Mono</div>
+        </div>
 
-      {/* Selection Highlight Overlay */}
-      {selectionStyle && (
-        <div
-          className="absolute top-0 bottom-[20px] bg-blue-500/15 border-x border-blue-600 pointer-events-none"
-          style={selectionStyle}
+        <div className="text-[9px] text-gray-400 font-mono flex flex-col justify-between py-1" style={{ height: `${height - 55}px` }}>
+          <span>+1.0</span>
+          <span> 0.0</span>
+          <span>-1.0</span>
+        </div>
+
+        <div className="text-[9px] text-gray-400">
+          {(duration || 0).toFixed(1)}s
+        </div>
+      </div>
+
+      {/* Waveform Track (Perfect 1-to-1 pixel alignment with TextGrid tracks) */}
+      <div
+        ref={containerRef}
+        className="flex-1 relative overflow-hidden select-none bg-white cursor-crosshair touch-none h-full"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+        onPointerUp={handlePointerUp}
+      >
+        <canvas
+          ref={canvasRef}
+          width={1400}
+          height={height}
+          className="w-full h-full block pointer-events-none"
         />
-      )}
 
-      {/* Synchronized Hover Hairline */}
-      {showHover && hoverPercent !== null && (
-        <div
-          className="absolute top-0 bottom-[20px] w-[1px] bg-gray-400 pointer-events-none z-10"
-          style={{ left: `${hoverPercent}%` }}
-        >
-          <div className="absolute top-1 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1 py-0.2 rounded pointer-events-none font-mono">
-            {hoverTime.toFixed(3)}s
+        {/* Selection Highlight Overlay */}
+        {selectionStyle && (
+          <div
+            className="absolute top-0 bottom-[20px] bg-blue-500/15 border-x border-blue-600 pointer-events-none"
+            style={selectionStyle}
+          />
+        )}
+
+        {/* Synchronized Hover Hairline */}
+        {showHover && hoverPercent !== null && (
+          <div
+            className="absolute top-0 bottom-[20px] w-[1px] bg-gray-400 pointer-events-none z-10"
+            style={{ left: `${hoverPercent}%` }}
+          >
+            <div className="absolute top-1 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1 py-0.2 rounded pointer-events-none font-mono">
+              {hoverTime.toFixed(3)}s
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Playhead */}
-      {showPlayhead && (
-        <div
-          className="absolute top-0 bottom-[20px] w-[1.5px] bg-red-600 pointer-events-none z-20 will-change-transform"
-          style={{ left: `${playheadPercent}%` }}
-        >
-          <div className="w-2.5 h-2.5 bg-red-600 -ml-[4px] rotate-45 pointer-events-none" />
-        </div>
-      )}
+        {/* Playhead */}
+        {showPlayhead && (
+          <div
+            className="absolute top-0 bottom-[20px] w-[1.5px] bg-red-600 pointer-events-none z-20 will-change-transform"
+            style={{ left: `${playheadPercent}%` }}
+          >
+            <div className="w-2.5 h-2.5 bg-red-600 -ml-[4px] rotate-45 pointer-events-none" />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
