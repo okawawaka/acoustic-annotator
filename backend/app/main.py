@@ -84,13 +84,13 @@ def transcribe_audio(req: ASRRequest):
         audio_path=audio_path,
         model_size=req.model_size,
         language=req.language,
-        duration=metadata.duration
+        duration=metadata.duration,
+        output_tier=req.output_tier
     )
     return result
 
 @app.post("/api/textgrid/align_text", response_model=Tier)
 def align_custom_text(req: CustomTextRequest):
-    """Generate a TextGrid IntervalTier from user-provided transcript text."""
     tier = ASRService.align_custom_text(
         text=req.text,
         duration=req.duration,

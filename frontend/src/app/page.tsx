@@ -27,6 +27,7 @@ export default function AnnotatorApp() {
   const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState(false);
   const [isCustomTextLoading, setIsCustomTextLoading] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [activeTierIdx, setActiveTierIdx] = useState<number>(0);
   const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -40,6 +41,15 @@ export default function AnnotatorApp() {
       setViewRange({ start: 0, end: initSpan });
     }
   }, [audioMetadata]);
+
+  // Keep activeTierIdx within valid bounds
+  useEffect(() => {
+    if (textGridData && textGridData.tiers.length > 0) {
+      if (activeTierIdx >= textGridData.tiers.length) {
+        setActiveTierIdx(0);
+      }
+    }
+  }, [textGridData, activeTierIdx]);
 
   // Extract all boundaries from TextGrid for waveform projection
   const projectedBoundaries = useMemo(() => {
@@ -123,21 +133,23 @@ export default function AnnotatorApp() {
     setCurrentTime(time);
   };
 
+  // Insert boundary ONLY into the currently active tier
   const handleInsertBoundary = useCallback(() => {
     if (!textGridData || textGridData.tiers.length === 0) return;
+    const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
 
-    const newTiers = textGridData.tiers.map((tier) => {
-      if (tier.tier_type === 'interval') {
+    const newTiers = textGridData.tiers.map((tier, idx) => {
+      if (idx === targetIdx && tier.tier_type === 'interval') {
         const cur = currentTime;
         const entries = [...tier.entries];
-        const targetIdx = entries.findIndex(
+        const entryIdx = entries.findIndex(
           (e) => 'start' in e && e.start <= cur && e.end >= cur
         );
-        if (targetIdx !== -1) {
-          const original = entries[targetIdx] as any;
+        if (entryIdx !== -1) {
+          const original = entries[entryIdx] as IntervalEntry;
           if (cur - original.start > 0.01 && original.end - cur > 0.01) {
             entries.splice(
-              targetIdx,
+              entryIdx,
               1,
               { start: original.start, end: cur, label: original.label },
               { start: cur, end: original.end, label: '' }
@@ -150,7 +162,7 @@ export default function AnnotatorApp() {
     });
 
     setTextGridData({ ...textGridData, tiers: newTiers });
-  }, [textGridData, currentTime]);
+  }, [textGridData, currentTime, activeTierIdx]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -244,6 +256,7 @@ export default function AnnotatorApp() {
           },
         ],
       });
+      setActiveTierIdx(0);
 
       uploadAudio(file)
         .then((serverMeta) => {
@@ -261,6 +274,7 @@ export default function AnnotatorApp() {
     try {
       const tg = await parseTextGrid(file);
       setTextGridData(tg);
+      setActiveTierIdx(0);
     } catch (err: any) {
       alert(`TextGrid解析エラー: ${err.message}`);
     }
@@ -306,8 +320,8 @@ export default function AnnotatorApp() {
     }
   };
 
-  // ASR Transcription (Complete from start to finish)
-  const handleRunASR = async (params: { modelSize: string; language?: string; tierName: string }) => {
+  // ASR Transcription (Complete from start to finish with selectable output tier)
+  const handleRunASR = async (params: { modelSize: string; language?: string; tierName: string; outputTier: string }) => {
     if (!audioMetadata || !audioMetadata.audio_id) {
       alert('バックエンドに音声が登録されていません。少し待ってから再度お試しください。');
       return;
@@ -319,6 +333,7 @@ export default function AnnotatorApp() {
         modelSize: params.modelSize,
         language: params.language,
         tierName: params.tierName,
+        outputTier: params.outputTier,
       });
 
       const existingTiers = textGridData ? textGridData.tiers : [];
@@ -336,23 +351,72 @@ export default function AnnotatorApp() {
     }
   };
 
-  // Custom Transcript Alignment from User Text
-  const handleAlignCustomText = async (params: { text: string; tierName: string; splitBy: string }) => {
+  // Custom Transcript Alignment from User Text (Target existing Word tier or New tier, with client-side fallback)
+  const handleAlignCustomText = async (params: { text: string; tierName: string; splitBy: string; targetMode: 'existing' | 'new' }) => {
     if (!audioMetadata) return;
     setIsCustomTextLoading(true);
-    try {
-      const newTier = await alignCustomText({
-        text: params.text,
-        duration: audioMetadata.duration,
-        tierName: params.tierName,
-        splitBy: params.splitBy,
-      });
 
-      const existingTiers = textGridData ? textGridData.tiers : [];
+    try {
+      // Split text helper (client-side fallback & generation)
+      const parseTextItems = (txt: string, split: string) => {
+        if (split === 'word') {
+          return txt.trim().split(/[\s、。,\.]+/).filter((w) => w.length > 0);
+        } else {
+          return txt.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+        }
+      };
+
+      const items = parseTextItems(params.text, params.splitBy);
+      if (items.length === 0) {
+        alert('有効なテキストがありません。');
+        setIsCustomTextLoading(false);
+        return;
+      }
+
+      let newTier: any = null;
+      try {
+        newTier = await alignCustomText({
+          text: params.text,
+          duration: audioMetadata.duration,
+          tierName: params.tierName,
+          splitBy: params.splitBy,
+        });
+      } catch (networkErr) {
+        console.warn('API alignText fallback to local calculation:', networkErr);
+        const intervalLen = audioMetadata.duration / items.length;
+        const entries = items.map((item, i) => ({
+          start: Math.round(i * intervalLen * 1000) / 1000,
+          end: Math.round((i + 1) * intervalLen * 1000) / 1000,
+          label: item,
+        }));
+        newTier = {
+          name: params.tierName,
+          tier_type: 'interval',
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          entries,
+        };
+      }
+
+      const existingTiers = textGridData ? [...textGridData.tiers] : [];
+      if (params.targetMode === 'existing') {
+        const foundIdx = existingTiers.findIndex((t) => t.name === params.tierName);
+        if (foundIdx !== -1) {
+          existingTiers[foundIdx] = newTier;
+          setActiveTierIdx(foundIdx);
+        } else {
+          existingTiers.push(newTier);
+          setActiveTierIdx(existingTiers.length - 1);
+        }
+      } else {
+        existingTiers.push(newTier);
+        setActiveTierIdx(existingTiers.length - 1);
+      }
+
       setTextGridData({
         min_timestamp: 0,
         max_timestamp: audioMetadata.duration,
-        tiers: [...existingTiers, newTier],
+        tiers: existingTiers,
       });
 
       setIsCustomTextModalOpen(false);
@@ -499,6 +563,8 @@ export default function AnnotatorApp() {
                   viewRange={viewRange}
                   selection={selection}
                   hoverTime={hoverTime}
+                  activeTierIdx={activeTierIdx}
+                  onSelectTier={setActiveTierIdx}
                   onHoverTimeChange={setHoverTime}
                   onUpdateTiers={(updated) => setTextGridData({ ...textGridData, tiers: updated })}
                   onSelectInterval={(s, e) => {
@@ -538,6 +604,7 @@ export default function AnnotatorApp() {
         onClose={() => setIsCustomTextModalOpen(false)}
         onAlignText={handleAlignCustomText}
         isLoading={isCustomTextLoading}
+        existingTierNames={textGridData ? textGridData.tiers.map((t) => t.name) : ['Word']}
       />
     </div>
   );

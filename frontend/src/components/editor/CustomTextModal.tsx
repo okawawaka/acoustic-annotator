@@ -6,8 +6,9 @@ import { X, FileText } from 'lucide-react';
 interface CustomTextModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAlignText: (params: { text: string; tierName: string; splitBy: string }) => Promise<void>;
+  onAlignText: (params: { text: string; tierName: string; splitBy: string; targetMode: 'existing' | 'new' }) => Promise<void>;
   isLoading: boolean;
+  existingTierNames: string[];
 }
 
 export const CustomTextModal: React.FC<CustomTextModalProps> = ({
@@ -15,9 +16,12 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
   onClose,
   onAlignText,
   isLoading,
+  existingTierNames,
 }) => {
   const [text, setText] = useState('');
-  const [tierName, setTierName] = useState('Script');
+  const [targetMode, setTargetMode] = useState<'existing' | 'new'>('existing');
+  const [selectedTier, setSelectedTier] = useState(existingTierNames.includes('Word') ? 'Word' : (existingTierNames[0] || 'Word'));
+  const [newTierName, setNewTierName] = useState('Script');
   const [splitBy, setSplitBy] = useState('line');
 
   if (!isOpen) return null;
@@ -28,10 +32,12 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
       alert('テキストを入力してください。');
       return;
     }
+    const targetTierName = targetMode === 'existing' ? selectedTier : newTierName;
     await onAlignText({
       text,
-      tierName,
+      tierName: targetTierName,
       splitBy,
+      targetMode,
     });
   };
 
@@ -53,10 +59,10 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
           <div>
             <label className="block font-medium text-gray-700 mb-1">
-              書き起こしテキスト（台本・歌詞・発話内容）
+              書き起こしテキスト（台本・発話内容）
             </label>
             <textarea
-              rows={6}
+              rows={5}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="ここに手動で起こしたテキストを貼り付けてください。&#10;改行ごとに1つの区間として自動配置されます。"
@@ -64,33 +70,67 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block font-medium text-gray-700 mb-1">分割単位</label>
-              <select
-                value={splitBy}
-                onChange={(e) => setSplitBy(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
-              >
-                <option value="line">改行ごと (文単位)</option>
-                <option value="word">単語・空白ごと</option>
-              </select>
+          {/* Target Tier Selection */}
+          <div>
+            <label className="block font-medium text-gray-700 mb-1">区間を追加するティア</label>
+            <div className="flex items-center space-x-3 mb-1.5">
+              <label className="flex items-center space-x-1 cursor-pointer">
+                <input
+                  type="radio"
+                  name="targetMode"
+                  checked={targetMode === 'existing'}
+                  onChange={() => setTargetMode('existing')}
+                />
+                <span>既存のティア (Wordなど)</span>
+              </label>
+              <label className="flex items-center space-x-1 cursor-pointer">
+                <input
+                  type="radio"
+                  name="targetMode"
+                  checked={targetMode === 'new'}
+                  onChange={() => setTargetMode('new')}
+                />
+                <span>新規ティアを作成</span>
+              </label>
             </div>
 
-            <div>
-              <label className="block font-medium text-gray-700 mb-1">新規ティア名</label>
+            {targetMode === 'existing' ? (
+              <select
+                value={selectedTier}
+                onChange={(e) => setSelectedTier(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
+              >
+                {existingTierNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            ) : (
               <input
                 type="text"
-                value={tierName}
-                onChange={(e) => setTierName(e.target.value)}
+                value={newTierName}
+                onChange={(e) => setNewTierName(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
                 placeholder="Script"
               />
-            </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block font-medium text-gray-700 mb-1">分割単位</label>
+            <select
+              value={splitBy}
+              onChange={(e) => setSplitBy(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
+            >
+              <option value="line">改行ごと (文単位)</option>
+              <option value="word">単語・空白ごと</option>
+            </select>
           </div>
 
           <div className="text-[11px] text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
-            音声の時間に合わせて区間が自動生成されます。生成後、波形を見ながら境界線をドラッグして位置を微調整できます。
+            音声の時間に合わせて区間が自動生成されます。生成後、波形を見ながら境界線をドラッグして微調整できます。
           </div>
 
           {/* Action Buttons */}

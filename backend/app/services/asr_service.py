@@ -29,7 +29,8 @@ class ASRService:
         audio_path: Path,
         model_size: str = "base",
         language: Optional[str] = None,
-        duration: Optional[float] = None
+        duration: Optional[float] = None,
+        output_tier: str = "both"
     ) -> Dict[str, Any]:
         model = cls.get_model(model_size)
 
@@ -38,9 +39,10 @@ class ASRService:
             str(audio_path),
             language=language,
             word_timestamps=True,
-            vad_filter=False, # vad_filter=False ensures long audios are never truncated early
+            vad_filter=False, # Process entire audio duration without cutting off early
             condition_on_previous_text=False, # Avoid repetition loops and stalls
-            beam_size=2 if language else 1, # Faster execution on CPU
+            no_speech_threshold=0.6,
+            beam_size=1, # Fast and reliable on CPU
             best_of=1,
             temperature=0.0
         )
@@ -51,7 +53,6 @@ class ASRService:
         utterance_entries: List[IntervalEntry] = []
         word_entries: List[IntervalEntry] = []
 
-        # Iterate all segments to completion
         for seg in segments_generator:
             text = seg.text.strip()
             if text:
@@ -75,8 +76,8 @@ class ASRService:
         )
 
         tiers = []
-        # Utterance / Sentence Tier
-        if utterance_entries:
+        # Utterance Tier (Sentence level)
+        if output_tier in ["utterance", "both"] and utterance_entries:
             tiers.append(Tier(
                 name="Utterance",
                 tier_type="interval",
@@ -84,8 +85,9 @@ class ASRService:
                 max_timestamp=max_ts,
                 entries=utterance_entries
             ))
-        # Word-level Tier
-        if word_entries:
+
+        # Word Tier (Word level)
+        if output_tier in ["word", "both"] and word_entries:
             tiers.append(Tier(
                 name="Word",
                 tier_type="interval",

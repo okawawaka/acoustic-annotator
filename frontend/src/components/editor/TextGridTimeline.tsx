@@ -11,6 +11,8 @@ interface TextGridTimelineProps {
   viewRange: { start: number; end: number };
   selection: { start: number; end: number } | null;
   hoverTime: number | null;
+  activeTierIdx: number;
+  onSelectTier: (idx: number) => void;
   onHoverTimeChange: (time: number | null) => void;
   onUpdateTiers: (tiers: Tier[]) => void;
   onSelectInterval: (start: number, end: number) => void;
@@ -23,6 +25,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   viewRange,
   selection,
   hoverTime,
+  activeTierIdx,
+  onSelectTier,
   onHoverTimeChange,
   onUpdateTiers,
   onSelectInterval,
@@ -186,7 +190,9 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   return (
     <div className="flex flex-col w-full bg-white select-none border-b border-gray-200">
       <div className="flex items-center justify-between px-3 py-1 bg-gray-100 border-b border-gray-200 text-xs">
-        <span className="font-semibold text-gray-700">TextGrid ティア一覧 ({tiers.length})</span>
+        <span className="font-semibold text-gray-700">
+          TextGrid ティア一覧 ({tiers.length}) - <span className="text-blue-700 font-medium">現在選択中: {tiers[activeTierIdx]?.name || '未選択'}</span>
+        </span>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handleAddTier('interval')}
@@ -204,168 +210,207 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       </div>
 
       <div className="flex flex-col divide-y divide-gray-200">
-        {tiers.map((tier, tierIdx) => (
-          <div key={tierIdx} className="flex h-14 w-full relative group bg-white">
-            <div className="w-28 flex-shrink-0 bg-gray-50 border-r border-gray-200 px-2 py-1 flex flex-col justify-between z-10">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-xs text-gray-900 truncate" title={tier.name}>
-                  {tier.name}
-                </span>
-                <button
-                  onClick={() => handleDeleteTier(tierIdx)}
-                  className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100"
-                  title="削除"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-1">
-                {tier.tier_type === 'interval' && (
-                  <>
-                    <button
-                      onClick={() => handleAddSelectionToTier(tierIdx)}
-                      disabled={!selection}
-                      className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 disabled:opacity-30"
-                      title="選択範囲を追加"
-                    >
-                      +区間
-                    </button>
-                    <button
-                      onClick={() => handleSplitInterval(tierIdx)}
-                      className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1"
-                      title="現在位置で分割"
-                    >
-                      <Scissors className="w-2.5 h-2.5 inline" />
-                    </button>
-                  </>
-                )}
-                <span className="text-[9px] text-gray-400 ml-auto">{tier.tier_type}</span>
-              </div>
-            </div>
-
+        {tiers.map((tier, tierIdx) => {
+          const isActive = tierIdx === activeTierIdx;
+          return (
             <div
-              className="relative flex-1 h-full bg-white overflow-hidden cursor-crosshair"
-              onPointerMove={handleTrackPointerMove}
-              onPointerLeave={() => onHoverTimeChange(null)}
+              key={tierIdx}
+              className={`flex h-14 w-full relative group bg-white ${
+                isActive ? 'ring-1 ring-blue-500/50' : ''
+              }`}
+              onClick={() => onSelectTier(tierIdx)}
             >
-              {/* Synchronized Hover Hairline */}
-              {showHover && hoverPercent !== null && (
-                <div
-                  className="absolute top-0 bottom-0 w-[1px] bg-gray-400 pointer-events-none z-10"
-                  style={{ left: `${hoverPercent}%` }}
-                />
-              )}
+              {/* Tier Left Header */}
+              <div
+                className={`w-32 flex-shrink-0 border-r px-2 py-1 flex flex-col justify-between z-10 transition-colors cursor-pointer ${
+                  isActive ? 'bg-blue-50/70 border-blue-200' : 'bg-gray-50 border-gray-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`font-semibold text-xs truncate ${
+                      isActive ? 'text-blue-900' : 'text-gray-900'
+                    }`}
+                    title={tier.name}
+                  >
+                    {isActive ? `● ${tier.name}` : tier.name}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTier(tierIdx);
+                    }}
+                    className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100"
+                    title="削除"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
 
-              {/* Playhead */}
-              {showPlayhead && (
-                <div
-                  className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 z-20 pointer-events-none will-change-transform"
-                  style={{ left: `${timeToPercent(currentTime)}%` }}
-                />
-              )}
+                <div className="flex items-center space-x-1">
+                  {tier.tier_type === 'interval' && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddSelectionToTier(tierIdx);
+                        }}
+                        disabled={!selection}
+                        className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 disabled:opacity-30 bg-white"
+                        title="選択範囲をこのティアに追加"
+                      >
+                        +区間
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSplitInterval(tierIdx);
+                        }}
+                        className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 bg-white"
+                        title="現在位置で分割"
+                      >
+                        <Scissors className="w-2.5 h-2.5 inline" />
+                      </button>
+                    </>
+                  )}
+                  <span className="text-[9px] text-gray-400 ml-auto">{tier.tier_type}</span>
+                </div>
+              </div>
 
-              {tier.tier_type === 'interval' ? (
-                (tier.entries as IntervalEntry[]).map((entry, entryIdx) => {
-                  if (entry.end < viewRange.start || entry.start > viewRange.end) return null;
+              {/* Tier Right Timeline Track */}
+              <div
+                className="relative flex-1 h-full bg-white overflow-hidden cursor-crosshair"
+                onPointerMove={handleTrackPointerMove}
+                onPointerLeave={() => onHoverTimeChange(null)}
+              >
+                {/* Synchronized Hover Hairline */}
+                {showHover && hoverPercent !== null && (
+                  <div
+                    className="absolute top-0 bottom-0 w-[1px] bg-gray-400 pointer-events-none z-10"
+                    style={{ left: `${hoverPercent}%` }}
+                  />
+                )}
 
-                  const leftPct = ((entry.start - viewRange.start) / viewSpan) * 100;
-                  const widthPct = ((entry.end - entry.start) / viewSpan) * 100;
-                  const isEditing = editingKey === `${tierIdx}-${entryIdx}`;
-                  const isSelected =
-                    selection &&
-                    Math.abs(selection.start - entry.start) < 0.01 &&
-                    Math.abs(selection.end - entry.end) < 0.01;
+                {/* Playhead */}
+                {showPlayhead && (
+                  <div
+                    className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 z-20 pointer-events-none will-change-transform"
+                    style={{ left: `${timeToPercent(currentTime)}%` }}
+                  />
+                )}
 
-                  return (
-                    <div
-                      key={entryIdx}
-                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                      className={`absolute top-0 bottom-0 border-r border-gray-400/80 flex items-center justify-center px-1 text-xs cursor-pointer ${
-                        isSelected ? 'bg-blue-50/90 font-semibold text-blue-900' : 'hover:bg-gray-50 text-gray-800'
-                      }`}
-                      onClick={() => onSelectInterval(entry.start, entry.end)}
-                      onDoubleClick={() => startEditLabel(tierIdx, entryIdx, entry.label)}
-                    >
-                      {isEditing ? (
-                        <div className="flex items-center w-full z-30">
-                          <input
-                            type="text"
-                            autoFocus
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEditLabel(tierIdx, entryIdx);
-                              if (e.key === 'Escape') setEditingKey(null);
-                            }}
-                            className="w-full bg-white border border-gray-400 text-gray-900 text-xs px-1 py-0.5 rounded outline-none"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              saveEditLabel(tierIdx, entryIdx);
-                            }}
-                            className="ml-1 text-gray-600 hover:text-black"
-                          >
-                            <Check className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="truncate font-sans text-xs select-none px-1">
-                          {entry.label}
-                        </span>
-                      )}
+                {tier.tier_type === 'interval' ? (
+                  (tier.entries as IntervalEntry[]).map((entry, entryIdx) => {
+                    if (entry.end < viewRange.start || entry.start > viewRange.end) return null;
 
+                    const leftPct = ((entry.start - viewRange.start) / viewSpan) * 100;
+                    const widthPct = ((entry.end - entry.start) / viewSpan) * 100;
+                    const isEditing = editingKey === `${tierIdx}-${entryIdx}`;
+                    const isSelected =
+                      selection &&
+                      Math.abs(selection.start - entry.start) < 0.01 &&
+                      Math.abs(selection.end - entry.end) < 0.01;
+
+                    return (
                       <div
-                        onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
-                        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/40 z-10"
-                        title="境界をドラッグして移動"
-                      />
-                    </div>
-                  );
-                })
-              ) : (
-                (tier.entries as PointEntry[]).map((point, pointIdx) => {
-                  if (point.time < viewRange.start || point.time > viewRange.end) return null;
-                  const leftPct = timeToPercent(point.time);
-                  const isEditing = editingKey === `${tierIdx}-${pointIdx}`;
-
-                  return (
-                    <div
-                      key={pointIdx}
-                      style={{ left: `${leftPct}%` }}
-                      className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-gray-800 flex flex-col items-center justify-start cursor-pointer"
-                      onDoubleClick={() => startEditLabel(tierIdx, pointIdx, point.label)}
-                    >
-                      <div className="w-2 h-2 rounded-full bg-gray-800 -mt-1" />
-                      {isEditing ? (
-                        <div className="absolute top-2 bg-white p-1 rounded border border-gray-300 shadow z-30">
-                          <input
-                            type="text"
-                            autoFocus
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEditLabel(tierIdx, pointIdx);
-                              if (e.key === 'Escape') setEditingKey(null);
-                            }}
-                            className="text-xs bg-white text-gray-900 px-1 py-0.5 rounded border border-gray-300 outline-none"
-                          />
-                        </div>
-                      ) : (
-                        point.label && (
-                          <span className="absolute top-2 text-[10px] text-gray-800 whitespace-nowrap bg-white px-1 border border-gray-200 rounded">
-                            {point.label}
+                        key={entryIdx}
+                        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                        className={`absolute top-0 bottom-0 border-r border-gray-400/80 flex items-center justify-center px-1 text-xs cursor-pointer ${
+                          isSelected ? 'bg-blue-50/90 font-semibold text-blue-900' : 'hover:bg-gray-50 text-gray-800'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectTier(tierIdx);
+                          onSelectInterval(entry.start, entry.end);
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startEditLabel(tierIdx, entryIdx, entry.label);
+                        }}
+                      >
+                        {isEditing ? (
+                          <div className="flex items-center w-full z-30" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              autoFocus
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEditLabel(tierIdx, entryIdx);
+                                if (e.key === 'Escape') setEditingKey(null);
+                              }}
+                              className="w-full bg-white border border-gray-400 text-gray-900 text-xs px-1 py-0.5 rounded outline-none"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                saveEditLabel(tierIdx, entryIdx);
+                              }}
+                              className="ml-1 text-gray-600 hover:text-black"
+                            >
+                              <Check className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="truncate font-sans text-xs select-none px-1">
+                            {entry.label}
                           </span>
-                        )
-                      )}
-                    </div>
-                  );
-                })
-              )}
+                        )}
+
+                        <div
+                          onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
+                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/40 z-10"
+                          title="境界をドラッグして移動"
+                        />
+                      </div>
+                    );
+                  })
+                ) : (
+                  (tier.entries as PointEntry[]).map((point, pointIdx) => {
+                    if (point.time < viewRange.start || point.time > viewRange.end) return null;
+                    const leftPct = timeToPercent(point.time);
+                    const isEditing = editingKey === `${tierIdx}-${pointIdx}`;
+
+                    return (
+                      <div
+                        key={pointIdx}
+                        style={{ left: `${leftPct}%` }}
+                        className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-gray-800 flex flex-col items-center justify-start cursor-pointer"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startEditLabel(tierIdx, pointIdx, point.label);
+                        }}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-gray-800 -mt-1" />
+                        {isEditing ? (
+                          <div className="absolute top-2 bg-white p-1 rounded border border-gray-300 shadow z-30" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              autoFocus
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEditLabel(tierIdx, pointIdx);
+                                if (e.key === 'Escape') setEditingKey(null);
+                              }}
+                              className="text-xs bg-white text-gray-900 px-1 py-0.5 rounded border border-gray-300 outline-none"
+                            />
+                          </div>
+                        ) : (
+                          point.label && (
+                            <span className="absolute top-2 text-[10px] text-gray-800 whitespace-nowrap bg-white px-1 border border-gray-200 rounded">
+                              {point.label}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -66,6 +66,7 @@ export async function transcribeAudio(params: {
   modelSize: string;
   language?: string;
   tierName?: string;
+  outputTier?: string;
 }): Promise<{ language: string; language_probability: number; textgrid: TextGridData }> {
   const res = await fetch(`${getApiBaseUrl()}/api/asr/transcribe`, {
     method: "POST",
@@ -76,7 +77,8 @@ export async function transcribeAudio(params: {
       audio_id: params.audioId,
       model_size: params.modelSize,
       language: params.language || null,
-      tier_name: params.tierName || "Whisper-ASR",
+      tier_name: params.tierName || "Whisper",
+      output_tier: params.outputTier || "word",
     }),
   });
 

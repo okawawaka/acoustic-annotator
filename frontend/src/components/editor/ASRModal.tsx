@@ -6,7 +6,7 @@ import { X, Mic } from 'lucide-react';
 interface ASRModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onRunASR: (params: { modelSize: string; language?: string; tierName: string }) => Promise<void>;
+  onRunASR: (params: { modelSize: string; language?: string; tierName: string; outputTier: string }) => Promise<void>;
   isLoading: boolean;
   duration: number;
 }
@@ -19,11 +19,11 @@ export const ASRModal: React.FC<ASRModalProps> = ({
   duration,
 }) => {
   const [modelSize, setModelSize] = useState('base');
-  const [language, setLanguage] = useState('ja'); // Default to Japanese for faster execution
+  const [language, setLanguage] = useState('ja');
   const [tierName, setTierName] = useState('Whisper');
+  const [outputTier, setOutputTier] = useState('word'); // Default: Word only!
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Timer for execution feedback
   useEffect(() => {
     let interval: any = null;
     if (isLoading) {
@@ -41,8 +41,6 @@ export const ASRModal: React.FC<ASRModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Calculate realistic processing time on standard CPU
-  // Language auto-detect requires an extra language-id pass and larger beam exploration
   const getEstimatedSeconds = () => {
     if (!duration || duration <= 0) return 10;
     let multiplier = 0.35;
@@ -50,7 +48,6 @@ export const ASRModal: React.FC<ASRModalProps> = ({
     if (modelSize === 'base') multiplier = 0.35;
     if (modelSize === 'small') multiplier = 0.85;
 
-    // If auto-detect is selected, analysis takes significantly longer (~2.2x)
     if (!language) {
       multiplier *= 2.2;
     }
@@ -64,6 +61,7 @@ export const ASRModal: React.FC<ASRModalProps> = ({
       modelSize,
       language: language || undefined,
       tierName,
+      outputTier,
     });
   };
 
@@ -128,6 +126,31 @@ export const ASRModal: React.FC<ASRModalProps> = ({
               <option value="es">スペイン語 (Spanish)</option>
               <option value="">自動判別 (処理時間が長くなります)</option>
             </select>
+          </div>
+
+          {/* Output Tier Option (Word only, Utterance only, or Both) */}
+          <div>
+            <label className="block font-medium text-gray-700 mb-1">追加するティア</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { id: 'word', label: 'Word のみ' },
+                { id: 'utterance', label: '文単位 のみ' },
+                { id: 'both', label: '両方 (Word & 文)' },
+              ].map((opt) => (
+                <button
+                  type="button"
+                  key={opt.id}
+                  onClick={() => setOutputTier(opt.id)}
+                  className={`py-1 px-1.5 rounded border text-center text-[11px] transition-colors ${
+                    outputTier === opt.id
+                      ? 'bg-blue-50 border-blue-600 text-blue-800 font-medium'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Estimated Time Indicator */}

@@ -55,8 +55,8 @@ $rootPath = (Resolve-Path "$PSScriptRoot\..").Path
 $backendPath = Join-Path $rootPath "backend"
 $frontendPath = Join-Path $rootPath "frontend"
 
-Write-Host "1. Starting Backend (FastAPI)..." -ForegroundColor Yellow
-Start-Process -FilePath $uvCmd -ArgumentList "run uvicorn app.main:app --host 0.0.0.0 --port 8000" -WorkingDirectory $backendPath
+Write-Host "1. Starting Backend (FastAPI with hot-reload)..." -ForegroundColor Yellow
+Start-Process -FilePath $uvCmd -ArgumentList "run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $backendPath
 
 Write-Host "2. Starting Frontend (Next.js)..." -ForegroundColor Yellow
 Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm run dev" -WorkingDirectory $frontendPath
