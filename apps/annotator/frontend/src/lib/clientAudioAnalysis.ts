@@ -1,4 +1,4 @@
-﻿import { AcousticAnalysisData, IntervalMetrics } from "@/types";
+import { AcousticAnalysisData, IntervalMetrics } from "@/types";
 
 /**
  * ブラウザ内完全完結の音響解析エンジン
@@ -370,6 +370,18 @@ export function computeIntervalMetricsClient(
       if (formants.f1[i]) f1List.push(formants.f1[i]!);
       if (formants.f2[i]) f2List.push(formants.f2[i]!);
       if (formants.f3[i]) f3List.push(formants.f3[i]!);
+    }
+  }
+
+  // 短い区間などで20%〜80%枠内にサンプルがない場合、全区間(0%〜100%)から取得
+  if (f1List.length === 0) {
+    for (let i = 0; i < formants.times.length; i++) {
+      const t = formants.times[i];
+      if (t >= start && t <= end) {
+        if (formants.f1[i]) f1List.push(formants.f1[i]!);
+        if (formants.f2[i]) f2List.push(formants.f2[i]!);
+        if (formants.f3[i]) f3List.push(formants.f3[i]!);
+      }
     }
   }
 
