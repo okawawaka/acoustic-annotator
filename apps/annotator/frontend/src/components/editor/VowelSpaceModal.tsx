@@ -112,7 +112,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
 
       const dpr = window.devicePixelRatio || 1;
       const cssW = 460;
-      const cssH = 380;
+      const cssH = 400;
 
       canvas.width = cssW * dpr;
       canvas.height = cssH * dpr;
@@ -123,15 +123,40 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
 
       const w = cssW;
       const h = cssH;
-      const pad = 45;
+      const pad = 44;
 
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, w, h);
 
-      // 音声学の標準軸範囲
-      const minF1 = 200, maxF1 = 1000;
-      const minF2 = 500, maxF2 = 3000;
+      // 母音のF1/F2が収まりきらない問題を解消するため、データに合わせて表示範囲を柔軟に決定
+      let minF1 = 200;
+      let maxF1 = 1200; // 女性・子供の広母音(開母音)や高F1母音もゆったり収まる1200Hzを基準値に
+      let minF2 = 500;
+      let maxF2 = 3000;
+
+      if (points.length > 0) {
+        const rawMaxF1 = Math.max(...points.map((p) => p.f1));
+        const rawMinF1 = Math.min(...points.map((p) => p.f1));
+        const rawMaxF2 = Math.max(...points.map((p) => p.f2));
+        const rawMinF2 = Math.min(...points.map((p) => p.f2));
+
+        // F1が上限に収まるようにマージンを確保
+        if (rawMaxF1 > maxF1 - 100) {
+          maxF1 = Math.ceil((rawMaxF1 + 150) / 100) * 100;
+        }
+        if (rawMinF1 < minF1) {
+          minF1 = Math.max(100, Math.floor((rawMinF1 - 50) / 100) * 100);
+        }
+
+        // F2もデータが端に寄りすぎないよう調整
+        if (rawMaxF2 > maxF2 - 150) {
+          maxF2 = Math.ceil((rawMaxF2 + 200) / 500) * 500;
+        }
+        if (rawMinF2 < minF2) {
+          minF2 = Math.max(400, Math.floor((rawMinF2 - 100) / 500) * 500);
+        }
+      }
 
       const toX = (f2: number) => pad + ((maxF2 - f2) / (maxF2 - minF2)) * (w - pad * 2);
       const toY = (f1: number) => pad + ((f1 - minF1) / (maxF1 - minF1)) * (h - pad * 2);
@@ -145,7 +170,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
       ctx.font = '10px monospace';
       ctx.fillStyle = '#64748b';
 
-      for (let f2 = 1000; f2 <= 2500; f2 += 500) {
+      for (let f2 = Math.ceil((minF2 + 100) / 500) * 500; f2 < maxF2; f2 += 500) {
         const x = toX(f2);
         ctx.beginPath();
         ctx.strokeStyle = '#e2e8f0';
@@ -157,7 +182,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
         ctx.fillText(String(f2), x, h - pad + 15);
       }
 
-      for (let f1 = 300; f1 <= 900; f1 += 200) {
+      for (let f1 = Math.ceil((minF1 + 50) / 200) * 200; f1 < maxF1; f1 += 200) {
         const y = toY(f1);
         ctx.beginPath();
         ctx.strokeStyle = '#e2e8f0';
@@ -306,7 +331,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
               <span>計測母音一覧 ({points.length}件)</span>
               <span className="font-mono text-[10px] text-gray-500">LPC {maxFormantFreq}Hz</span>
             </div>
-            <div className="flex-1 overflow-y-auto max-h-[380px]">
+            <div className="flex-1 overflow-y-auto max-h-[400px]">
               {points.length > 0 ? (
                 <table className="w-full text-left font-mono text-[11px]">
                   <thead className="bg-gray-50 sticky top-0 border-b border-gray-200 text-gray-500 text-[10px]">

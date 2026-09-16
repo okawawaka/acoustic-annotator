@@ -174,28 +174,28 @@ function extractFormantsLPC(
       continue;
     }
 
-    // レヴィンソン・ダービン法
-    const a = new Float32Array(lpcOrder + 1);
+    // レヴィンソン・ダービン法 (係数の安定性と精度を確保)
+    const a = new Float64Array(lpcOrder + 1);
+    const aPrev = new Float64Array(lpcOrder + 1);
     a[0] = 1.0;
+    aPrev[0] = 1.0;
     let e = r[0];
 
     for (let i = 1; i <= lpcOrder; i++) {
       let lambda = 0;
       for (let j = 0; j < i; j++) {
-        lambda -= a[j] * r[i - j];
+        lambda -= aPrev[j] * r[i - j];
       }
       const kVal = lambda / e;
-
-      for (let j = 1; j < (i + 1) / 2; j++) {
-        const temp = a[j] + kVal * a[i - j];
-        a[i - j] = a[i - j] + kVal * a[j];
-        a[j] = temp;
-      }
-      if (i % 2 === 0) {
-        a[i / 2] += kVal * a[i / 2];
-      }
       a[i] = kVal;
+      for (let j = 1; j < i; j++) {
+        a[j] = aPrev[j] + kVal * aPrev[i - j];
+      }
       e *= (1.0 - kVal * kVal);
+      if (e <= 0) break;
+      for (let j = 0; j <= i; j++) {
+        aPrev[j] = a[j];
+      }
     }
 
     // LPC 多項式の周波数スペクトルピーク探索 (0〜effectiveSr/2)
@@ -210,7 +210,7 @@ function extractFormantsLPC(
     const peaks: number[] = [];
     const df = effectiveSr / nFft;
 
-    let prevVal = 0;
+    let prevVal = 1.0 / (real[0] * real[0] + imag[0] * imag[0] + 1e-8);
     let prevDiff = 0;
 
     for (let k = 1; k < nFft / 2; k++) {
@@ -218,7 +218,7 @@ function extractFormantsLPC(
       const diff = mag - prevVal;
       if (prevDiff > 0 && diff <= 0) {
         const freq = (k - 1) * df;
-        if (freq > 200 && freq < maxFormantFreq) {
+        if (freq >= 200 && freq <= maxFormantFreq) {
           peaks.push(freq);
         }
       }
