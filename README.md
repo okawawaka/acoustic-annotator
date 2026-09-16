@@ -8,7 +8,7 @@
 ## 🌐 オンライン公開版 (Web Standalone)
 
 - **Acoustic Annotator (Web版)**: [https://okawawaka.github.io/acoustic-annotator/](https://okawawaka.github.io/acoustic-annotator/)
-  - 完全クライアントサイド動作（サーバー通信不要）。ブラウザ内DSPエンジン（Burg LPC, 自己相関F0, STFT, 音響VAD）により即時動作します。
+  - 完全クライアントサイド動作（サーバー通信不要）。ブラウザ内DSPエンジン（Burg LPC多項式根探索, 自己相関F0, STFT, 音響VAD）により即時動作します。
 
 ---
 
@@ -63,7 +63,7 @@ npm run dev
   - 音声学解析ライブラリ `praat-parselmouth` をインポート・結合しているため、GPLv3 が適用されます。
 - **フロントエンド (`apps/annotator/frontend`)**:
   - **[MIT License](apps/annotator/frontend/package.json)**
-  - ブラウザ内で動作する独自の音響解析アルゴリズム（Burg LPC, 自己相関ピッチ, STFT, 音響VAD）および UI コンポーネントは、Praat C/C++ コードに依存しない純粋な TypeScript 実装であり、独立して MIT ライセンスの下で自由に再利用可能です。
+  - ブラウザ内で動作する独自の音響解析アルゴリズム（Burg LPC 多項式根探索, 自己相関ピッチ, STFT, 音響VAD）および UI コンポーネントは、Praat C/C++ コードに依存しない純粋な TypeScript クリーンルーム実装であり、独立して MIT ライセンスの下で自由に再利用可能です。
 - **独立Webツール群 (`ipa-keyboard`, `phonological-rule-editor`, `syntax-tree-editor`)**:
   - **MIT License**
 
