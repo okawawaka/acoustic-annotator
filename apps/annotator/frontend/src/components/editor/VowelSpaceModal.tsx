@@ -83,15 +83,24 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
         if (lbl && isVowel(lbl)) {
           const metrics = computeIntervalMetricsClient(analysisData, entry.start, entry.end);
           if (metrics.f1 && metrics.f2) {
-            collected.push({
-              label: lbl,
-              start: entry.start,
-              end: entry.end,
-              f1: metrics.f1,
-              f2: metrics.f2,
-              duration_ms: metrics.duration_ms,
-              mean_f0: metrics.mean_f0,
-            });
+            // 音声学的物理整合性チェック（非母音・無声音・ノイズ外れ値の排除）
+            if (
+              metrics.f1 >= 200 &&
+              metrics.f1 <= 1250 &&
+              metrics.f2 >= 600 &&
+              metrics.f2 <= 3200 &&
+              metrics.f2 > metrics.f1 + 150
+            ) {
+              collected.push({
+                label: lbl,
+                start: entry.start,
+                end: entry.end,
+                f1: metrics.f1,
+                f2: metrics.f2,
+                duration_ms: metrics.duration_ms,
+                mean_f0: metrics.mean_f0,
+              });
+            }
           }
         }
       }
