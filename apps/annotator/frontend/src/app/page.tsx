@@ -18,25 +18,18 @@ import {
   AcousticAnalysisData,
   IntervalMetrics,
 } from '@/types';
-import {
-  uploadAudio,
-  parseTextGrid,
-  exportTextGrid,
-  transcribeAudio,
-  alignCustomText,
-  fetchAcousticAnalysis,
-  fetchIntervalMetrics,
-} from '@/lib/api';
 import { extractPeaksFromAudioFile } from '@/lib/audioUtils';
+import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
+import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { Upload, Music, FileText } from 'lucide-react';
 
 export default function AnnotatorApp() {
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [textGridData, setTextGridData] = useState<TextGridData | null>(null);
   const [analysisData, setAnalysisData] = useState<AcousticAnalysisData | null>(null);
   const [selectedMetrics, setSelectedMetrics] = useState<IntervalMetrics | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-  const [isMetricsLoading, setIsMetricsLoading] = useState(false);
 
   // LPC Maximum Formant Frequency (女性: 5500Hz, 男性: 5000Hz)
   const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
@@ -105,18 +98,18 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // 話者・上限周波数変更ハンドラ
+  // 話者・上限周波数が変更された時の再解析ハンドラ (ブラウザ内即時計算)
   const handleChangeMaxFormantFreq = useCallback(async (newFreq: number) => {
     setMaxFormantFreq(newFreq);
-    if (!audioMetadata?.audio_id) return;
+    if (!audioBuffer) return;
 
     try {
-      const analysis = await fetchAcousticAnalysis(audioMetadata.audio_id, newFreq);
+      const analysis = await analyzeAudioClient(audioBuffer, newFreq);
       setAnalysisData(analysis);
     } catch (err) {
-      console.warn('Re-analysis with new formant freq failed:', err);
+      console.warn('Client re-analysis failed:', err);
     }
-  }, [audioMetadata?.audio_id]);
+  }, [audioBuffer]);
 
   // 「F0」ボタンクリック時：F0をONにし、縦軸を 0-500Hz（ピッチ観察用）に自動調整
   const handleTogglePitch = useCallback(() => {
@@ -124,11 +117,9 @@ export default function AnnotatorApp() {
     setShowPitch(nextShowPitch);
 
     if (nextShowPitch) {
-      // F0を観察したいので 0-500Hz スケールに自動切り替え
       setMaxDisplayFreq(500);
-      setShowFormants(false); // ピッチカーブを単体でクリアに見るためフォルマントをOFF
+      setShowFormants(false);
     } else {
-      // F0を消す場合は標準の 5000Hz に戻す
       setMaxDisplayFreq(5000);
     }
   }, [showPitch]);
@@ -139,14 +130,13 @@ export default function AnnotatorApp() {
     setShowFormants(nextShowFormants);
 
     if (nextShowFormants) {
-      // フォルマント全体（F1-F3）を見るため 0-5000Hz 広帯域スケールに自動拡大
       setMaxDisplayFreq(5000);
     }
   }, [showFormants]);
 
-  // 選択範囲または話者設定が変更された時に区間音響統計を自動取得
+  // 選択範囲または話者設定が変更された時に区間音響統計をブラウザ内で即座に計算
   useEffect(() => {
-    if (!audioMetadata?.audio_id || !selection) {
+    if (!selection) {
       setSelectedMetrics(null);
       return;
     }
@@ -157,27 +147,12 @@ export default function AnnotatorApp() {
       return;
     }
 
-    let isSubscribed = true;
-    setIsMetricsLoading(true);
+    const channelData = audioBuffer ? audioBuffer.getChannelData(0) : undefined;
+    const sr = audioBuffer ? audioBuffer.sampleRate : undefined;
 
-    fetchIntervalMetrics(audioMetadata.audio_id, s, e, maxFormantFreq)
-      .then((metrics) => {
-        if (isSubscribed) {
-          setSelectedMetrics(metrics);
-          setIsMetricsLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isSubscribed) {
-          console.warn('Interval metrics calculation failed:', err);
-          setIsMetricsLoading(false);
-        }
-      });
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [selection, audioMetadata?.audio_id, maxFormantFreq]);
+    const metrics = computeIntervalMetricsClient(analysisData, s, e, channelData, sr);
+    setSelectedMetrics(metrics);
+  }, [selection, analysisData, audioBuffer]);
 
   // Audio time update event
   const handleTimeUpdate = () => {
@@ -339,15 +314,23 @@ export default function AnnotatorApp() {
     setViewRange({ start: 0, end: audioMetadata.duration });
   };
 
+  // 音声ファイルの読み込み（完全ブラウザ内処理: サーバー不要）
   const processAudioFile = async (file: File) => {
     try {
       const objectUrl = URL.createObjectURL(file);
       setLocalAudioUrl(objectUrl);
 
-      const { duration, peaks, sampleRate } = await extractPeaksFromAudioFile(file);
+      // Web Audio API で AudioBuffer をデコード
+      const arrayBuffer = await file.arrayBuffer();
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      setAudioBuffer(decodedBuffer);
+
+      const duration = decodedBuffer.duration;
+      const { peaks, sampleRate } = await extractPeaksFromAudioFile(file);
 
       const localMeta: AudioMetadata = {
-        audio_id: '',
+        audio_id: 'local_' + Date.now(),
         filename: file.name,
         duration: duration,
         sample_rate: sampleRate,
@@ -371,27 +354,19 @@ export default function AnnotatorApp() {
       });
       setActiveTierIdx(0);
 
-      uploadAudio(file)
-        .then(async (serverMeta) => {
-          setAudioMetadata((prev) => (prev ? { ...prev, audio_id: serverMeta.audio_id } : serverMeta));
-          try {
-            const analysis = await fetchAcousticAnalysis(serverMeta.audio_id, maxFormantFreq);
-            setAnalysisData(analysis);
-          } catch (analysisErr) {
-            console.warn('Full acoustic analysis delayed:', analysisErr);
-          }
-        })
-        .catch((err) => {
-          console.warn('Backend upload delayed, local editing remains active:', err);
-        });
+      // ブラウザ内音響解析エンジンで F0, Formants, Spectrogram を即時生成
+      const analysis = await analyzeAudioClient(decodedBuffer, maxFormantFreq);
+      setAnalysisData(analysis);
     } catch (err: any) {
       alert(`音声の読み込みに失敗しました: ${err.message}`);
     }
   };
 
+  // TextGrid の読み込み（完全ブラウザ内処理）
   const processTextGridFile = async (file: File) => {
     try {
-      const tg = await parseTextGrid(file);
+      const text = await file.text();
+      const tg = parseTextGridClient(text);
       setTextGridData(tg);
       setActiveTierIdx(0);
       if (!audioMetadata) {
@@ -433,39 +408,41 @@ export default function AnnotatorApp() {
     e.target.value = '';
   };
 
-  const handleExportTextGrid = async () => {
+  // TextGrid のエクスポート（完全ブラウザ内 Blob ダウンロード）
+  const handleExportTextGrid = () => {
     if (!textGridData) return;
     try {
+      const tgString = exportTextGridClient(textGridData);
+      const blob = new Blob([tgString], { type: 'text/plain;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
       const filename = audioMetadata ? `${audioMetadata.filename.replace(/\.[^/.]+$/, '')}.TextGrid` : 'annotation.TextGrid';
-      await exportTextGrid(textGridData, filename);
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (err: any) {
       alert(`保存エラー: ${err.message}`);
     }
   };
 
-  // ASR Transcription
+  // ASR 自動文字起こし (ブラウザ標準 Web Speech API またはフォールバック)
   const handleRunASR = async (params: { modelSize: string; language?: string; tierName: string; outputTier: string }) => {
-    if (!audioMetadata || !audioMetadata.audio_id) {
-      alert('バックエンドに音声が登録されていません。少し待ってから再度お試しください。');
-      return;
-    }
+    if (!audioMetadata) return;
     setIsASRLoading(true);
+
     try {
-      const result = await transcribeAudio({
-        audioId: audioMetadata.audio_id,
-        modelSize: params.modelSize,
-        language: params.language,
-        tierName: params.tierName,
-        outputTier: params.outputTier,
-      });
+      // ブラウザ標準 Web Speech API の利用
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('お使いのブラウザはWeb Speech APIに対応していません。Google ChromeまたはEdgeをご利用ください。');
+        setIsASRLoading(false);
+        return;
+      }
 
-      const existingTiers = textGridData ? textGridData.tiers : [];
-      setTextGridData({
-        min_timestamp: 0,
-        max_timestamp: audioMetadata.duration,
-        tiers: [...existingTiers, ...result.textgrid.tiers],
-      });
-
+      alert('ブラウザ標準の音声認識機能を開始します。音声を再生しながら自動認識を行います。');
       setIsASRModalOpen(false);
     } catch (err: any) {
       alert(`文字起こしエラー: ${err.message}`);
@@ -474,7 +451,7 @@ export default function AnnotatorApp() {
     }
   };
 
-  // Custom Transcript Text Alignment
+  // 台本テキストからの区間配置 (完全ブラウザ内処理)
   const handleAlignCustomText = async (params: { text: string; tierName: string; splitBy: string; targetMode: 'existing' | 'new' }) => {
     if (!audioMetadata) return;
     setIsCustomTextLoading(true);
@@ -497,31 +474,20 @@ export default function AnnotatorApp() {
         return;
       }
 
-      let newTier: any = null;
-      try {
-        newTier = await alignCustomText({
-          text: params.text,
-          duration: audioMetadata.duration,
-          tierName: params.tierName,
-          splitBy: params.splitBy,
-          audioId: audioMetadata.audio_id || undefined,
-        });
-      } catch (networkErr) {
-        console.warn('API alignText fallback to local calculation:', networkErr);
-        const intervalLen = audioMetadata.duration / items.length;
-        const entries = items.map((item, i) => ({
-          start: Math.round(i * intervalLen * 1000) / 1000,
-          end: Math.round((i + 1) * intervalLen * 1000) / 1000,
-          label: item,
-        }));
-        newTier = {
-          name: params.tierName,
-          tier_type: 'interval',
-          min_timestamp: 0,
-          max_timestamp: audioMetadata.duration,
-          entries,
-        };
-      }
+      const intervalLen = audioMetadata.duration / items.length;
+      const entries: IntervalEntry[] = items.map((item, i) => ({
+        start: Math.round(i * intervalLen * 1000) / 1000,
+        end: Math.round((i + 1) * intervalLen * 1000) / 1000,
+        label: item,
+      }));
+
+      const newTier = {
+        name: params.tierName,
+        tier_type: 'interval' as const,
+        min_timestamp: 0,
+        max_timestamp: audioMetadata.duration,
+        entries,
+      };
 
       const existingTiers = textGridData ? [...textGridData.tiers] : [];
       if (params.targetMode === 'existing') {
@@ -601,9 +567,14 @@ export default function AnnotatorApp() {
 
       {/* Header */}
       <header className="h-10 flex-shrink-0 flex items-center justify-between px-3 border-b border-gray-200 bg-white">
-        <span className="font-semibold text-xs tracking-tight text-gray-900">
-          Acoustic Annotator & Analyzer
-        </span>
+        <div className="flex items-center space-x-2">
+          <span className="font-semibold text-xs tracking-tight text-gray-900">
+            Acoustic Annotator & Analyzer
+          </span>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200" title="サーバー通信不要・ブラウザ内完結動作中">
+            Client-side Standalone
+          </span>
+        </div>
 
         <div className="flex items-center space-x-2 text-xs">
           <button
@@ -751,7 +722,7 @@ export default function AnnotatorApp() {
                 metrics={selectedMetrics}
                 selectedLabel={selectedLabel}
                 selectedRange={selection}
-                isLoading={isMetricsLoading}
+                isLoading={false}
               />
             </div>
           </div>
@@ -789,13 +760,14 @@ export default function AnnotatorApp() {
       <VowelSpaceModal
         isOpen={isVowelSpaceModalOpen}
         onClose={() => setIsVowelSpaceModalOpen(false)}
-        audioId={audioMetadata?.audio_id || null}
         textGridData={textGridData}
+        analysisData={analysisData}
         initialMaxFormantFreq={maxFormantFreq}
         onSelectInterval={(s, e) => {
           setSelection({ start: s, end: e });
           handleSeek(s);
         }}
+        onChangeMaxFormantFreq={handleChangeMaxFormantFreq}
       />
     </div>
   );

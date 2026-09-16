@@ -1,17 +1,18 @@
 ﻿'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { X, Download, RefreshCw, User } from 'lucide-react';
-import { TextGridData, IntervalEntry } from '@/types';
-import { fetchIntervalMetrics } from '@/lib/api';
+import { TextGridData, IntervalEntry, AcousticAnalysisData } from '@/types';
+import { computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 
 interface VowelSpaceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  audioId: string | null;
   textGridData: TextGridData | null;
+  analysisData: AcousticAnalysisData | null;
   initialMaxFormantFreq?: number;
   onSelectInterval?: (start: number, end: number) => void;
+  onChangeMaxFormantFreq?: (freq: number) => void;
 }
 
 interface VowelPoint {
@@ -27,14 +28,13 @@ interface VowelPoint {
 export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
   isOpen,
   onClose,
-  audioId,
   textGridData,
+  analysisData,
   initialMaxFormantFreq = 5500,
   onSelectInterval,
+  onChangeMaxFormantFreq,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [points, setPoints] = useState<VowelPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [maxFormantFreq, setMaxFormantFreq] = useState<number>(initialMaxFormantFreq);
 
   useEffect(() => {
@@ -52,9 +52,9 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
     return vowels.has(clean);
   };
 
-  const extractAllVowels = async (freq = maxFormantFreq) => {
-    if (!audioId || !textGridData) return;
-    setIsLoading(true);
+  // ブラウザメモリ内の analysisData から即座に全母音の F1/F2 を計算
+  const points: VowelPoint[] = useMemo(() => {
+    if (!textGridData || !analysisData) return [];
     const collected: VowelPoint[] = [];
 
     for (const tier of textGridData.tiers) {
@@ -62,36 +62,25 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
       for (const entry of tier.entries as IntervalEntry[]) {
         const lbl = entry.label.trim();
         if (lbl && isVowel(lbl)) {
-          try {
-            const metrics = await fetchIntervalMetrics(audioId, entry.start, entry.end, freq);
-            if (metrics.f1 && metrics.f2) {
-              collected.push({
-                label: lbl,
-                start: entry.start,
-                end: entry.end,
-                f1: metrics.f1,
-                f2: metrics.f2,
-                duration_ms: metrics.duration_ms,
-                mean_f0: metrics.mean_f0,
-              });
-            }
-          } catch (e) {
-            console.warn('Failed to extract metrics for', lbl, e);
+          const metrics = computeIntervalMetricsClient(analysisData, entry.start, entry.end);
+          if (metrics.f1 && metrics.f2) {
+            collected.push({
+              label: lbl,
+              start: entry.start,
+              end: entry.end,
+              f1: metrics.f1,
+              f2: metrics.f2,
+              duration_ms: metrics.duration_ms,
+              mean_f0: metrics.mean_f0,
+            });
           }
         }
       }
     }
+    return collected;
+  }, [textGridData, analysisData]);
 
-    setPoints(collected);
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    if (isOpen && audioId && textGridData) {
-      extractAllVowels(maxFormantFreq);
-    }
-  }, [isOpen, audioId, textGridData, maxFormantFreq]);
-
+  // F1-F2 母音四辺形キャンバス描画
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -205,7 +194,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white flex-shrink-0">
           <div>
             <h2 className="text-sm font-bold text-gray-900">F1-F2 母音空間プロット (Vowel Space Chart)</h2>
-            <p className="text-[11px] text-gray-500">TextGrid内の母音区間からフォルマント中央値を自動抽出し、音響母音四辺形を描画</p>
+            <p className="text-[11px] text-gray-500">TextGrid内の母音区間からフォルマント中央値を自動抽出し、音響母音四辺形を描画（ブラウザ内完全自律）</p>
           </div>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 rounded">
             <X className="w-4 h-4" />
@@ -218,9 +207,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
               <canvas ref={canvasRef} width={460} height={380} className="block" />
             </div>
 
-            {/* Controls Toolbar under Canvas */}
             <div className="flex flex-wrap items-center justify-between w-full max-w-[460px] mt-3 gap-2">
-              {/* 話者・声道長プリセット切替 */}
               <div className="flex items-center space-x-1.5 border border-gray-300 rounded px-2 py-1 bg-gray-50 text-xs">
                 <User className="w-3.5 h-3.5 text-gray-600" />
                 <span className="text-gray-600 font-medium">話者設定:</span>
@@ -229,7 +216,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
                   onChange={(e) => {
                     const val = parseFloat(e.target.value);
                     setMaxFormantFreq(val);
-                    extractAllVowels(val);
+                    if (onChangeMaxFormantFreq) onChangeMaxFormantFreq(val);
                   }}
                   className="bg-white px-1.5 py-0.5 rounded border border-gray-300 font-semibold text-gray-900 outline-none cursor-pointer"
                 >
@@ -239,24 +226,14 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
                 </select>
               </div>
 
-              <div className="flex items-center space-x-1.5">
-                <button
-                  onClick={() => extractAllVowels(maxFormantFreq)}
-                  disabled={isLoading}
-                  className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-                  再計算
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  disabled={points.length === 0}
-                  className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-50"
-                >
-                  <Download className="w-3.5 h-3.5 mr-1" />
-                  CSV出力
-                </button>
-              </div>
+              <button
+                onClick={handleExportCSV}
+                disabled={points.length === 0}
+                className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5 mr-1" />
+                CSV出力
+              </button>
             </div>
           </div>
 
@@ -297,7 +274,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
                 </table>
               ) : (
                 <div className="p-6 text-center text-gray-400 text-xs">
-                  {isLoading ? '解析中...' : '母音区間（a, i, u, e, o など）が検出されませんでした。'}
+                  母音区間（a, i, u, e, o など）が検出されませんでした。
                 </div>
               )}
             </div>
