@@ -50,9 +50,10 @@ export interface AcousticAnalysisData {
   duration: number;
   time_step: number;
   max_frequency: number;
+  max_formant_freq: number;
   times: number[];
   frequencies: number[];
-  spectrogram: number[][]; // [freq_bin, time_frame] in dB
+  spectrogram: number[][];
   pitch: PitchData;
   formants: FormantData;
 }
@@ -66,4 +67,5 @@ export interface IntervalMetrics {
   f2: number | null;
   f3: number | null;
   mean_intensity: number | null;
+  max_formant_freq?: number;
 }

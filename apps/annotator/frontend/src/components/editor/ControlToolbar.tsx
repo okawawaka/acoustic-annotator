@@ -13,6 +13,7 @@ import {
   Mic,
   FileText,
   Activity,
+  User,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -25,10 +26,12 @@ interface ControlToolbarProps {
   hasAudio: boolean;
   showPitch: boolean;
   showFormants: boolean;
+  maxFormantFreq: number;
   onTogglePlay: () => void;
   onPlaySelection: () => void;
   onToggleLoop: () => void;
   onChangePlaybackRate: (rate: number) => void;
+  onChangeMaxFormantFreq: (freq: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -51,10 +54,12 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   hasAudio,
   showPitch,
   showFormants,
+  maxFormantFreq,
   onTogglePlay,
   onPlaySelection,
   onToggleLoop,
   onChangePlaybackRate,
+  onChangeMaxFormantFreq,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -79,6 +84,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
   return (
     <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-white border-b border-gray-200 text-xs text-gray-800 gap-2">
+      {/* Playback Controls */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onTogglePlay}
@@ -131,6 +137,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         )}
       </div>
 
+      {/* Editing, Speaker Preset & Visual Overlays */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onInsertBoundary}
@@ -142,6 +149,22 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           境界挿入 [Enter]
         </button>
 
+        {/* 話者・声道長プリセット (Praat Maximum Formant 設定) */}
+        <div className="flex items-center space-x-1 border border-gray-300 rounded px-1.5 py-0.5 bg-white text-[11px]" title="話者の声道長に応じたLPCフォルマント上限周波数（女性: 5500Hz / 男性: 5000Hz）">
+          <User className="w-3 h-3 text-gray-500" />
+          <span className="text-gray-500">話者:</span>
+          <select
+            value={maxFormantFreq}
+            onChange={(e) => onChangeMaxFormantFreq(parseFloat(e.target.value))}
+            className="bg-transparent font-medium text-gray-800 outline-none cursor-pointer"
+          >
+            <option value="5500">女性 (5500Hz)</option>
+            <option value="5000">男性 (5000Hz)</option>
+            <option value="6000">子供 (6000Hz)</option>
+          </select>
+        </div>
+
+        {/* Pitch / Formant Toggles */}
         <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden text-[11px]">
           <button
             onClick={onTogglePitch}
@@ -163,6 +186,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           </button>
         </div>
 
+        {/* Zoom */}
         <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden">
           <button
             onClick={onZoomIn}
@@ -188,6 +212,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         </div>
       </div>
 
+      {/* Analysis Tools & Export */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onOpenVowelSpaceModal}

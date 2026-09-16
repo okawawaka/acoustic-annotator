@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { X, Download, RefreshCw } from 'lucide-react';
+import { X, Download, RefreshCw, User } from 'lucide-react';
 import { TextGridData, IntervalEntry } from '@/types';
 import { fetchIntervalMetrics } from '@/lib/api';
 
@@ -10,6 +10,7 @@ interface VowelSpaceModalProps {
   onClose: () => void;
   audioId: string | null;
   textGridData: TextGridData | null;
+  initialMaxFormantFreq?: number;
   onSelectInterval?: (start: number, end: number) => void;
 }
 
@@ -28,11 +29,17 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
   onClose,
   audioId,
   textGridData,
+  initialMaxFormantFreq = 5500,
   onSelectInterval,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [points, setPoints] = useState<VowelPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [maxFormantFreq, setMaxFormantFreq] = useState<number>(initialMaxFormantFreq);
+
+  useEffect(() => {
+    setMaxFormantFreq(initialMaxFormantFreq);
+  }, [initialMaxFormantFreq]);
 
   const isVowel = (label: string): boolean => {
     const clean = label.trim().toLowerCase();
@@ -45,7 +52,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
     return vowels.has(clean);
   };
 
-  const extractAllVowels = async () => {
+  const extractAllVowels = async (freq = maxFormantFreq) => {
     if (!audioId || !textGridData) return;
     setIsLoading(true);
     const collected: VowelPoint[] = [];
@@ -56,7 +63,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
         const lbl = entry.label.trim();
         if (lbl && isVowel(lbl)) {
           try {
-            const metrics = await fetchIntervalMetrics(audioId, entry.start, entry.end);
+            const metrics = await fetchIntervalMetrics(audioId, entry.start, entry.end, freq);
             if (metrics.f1 && metrics.f2) {
               collected.push({
                 label: lbl,
@@ -81,9 +88,9 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
 
   useEffect(() => {
     if (isOpen && audioId && textGridData) {
-      extractAllVowels();
+      extractAllVowels(maxFormantFreq);
     }
-  }, [isOpen, audioId, textGridData]);
+  }, [isOpen, audioId, textGridData, maxFormantFreq]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -168,7 +175,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
 
   const handleExportCSV = () => {
     if (points.length === 0) return;
-    const headers = ['Label', 'Start(s)', 'End(s)', 'Duration(ms)', 'F1(Hz)', 'F2(Hz)', 'Mean_F0(Hz)'];
+    const headers = ['Label', 'Start(s)', 'End(s)', 'Duration(ms)', 'F1(Hz)', 'F2(Hz)', 'Mean_F0(Hz)', 'LPC_MaxFormant(Hz)'];
     const rows = points.map((p) => [
       p.label,
       p.start.toFixed(3),
@@ -177,6 +184,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
       p.f1.toFixed(1),
       p.f2.toFixed(1),
       p.mean_f0 ? p.mean_f0.toFixed(1) : '',
+      String(maxFormantFreq),
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -184,7 +192,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'vowel_formants.csv';
+    a.download = `vowel_formants_${maxFormantFreq}Hz.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -209,29 +217,53 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
             <div className="border border-gray-200 rounded p-2 bg-white shadow-sm">
               <canvas ref={canvasRef} width={460} height={380} className="block" />
             </div>
-            <div className="flex items-center space-x-2 mt-3">
-              <button
-                onClick={extractAllVowels}
-                disabled={isLoading}
-                className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-                再計算
-              </button>
-              <button
-                onClick={handleExportCSV}
-                disabled={points.length === 0}
-                className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-50"
-              >
-                <Download className="w-3.5 h-3.5 mr-1" />
-                CSV出力
-              </button>
+
+            {/* Controls Toolbar under Canvas */}
+            <div className="flex flex-wrap items-center justify-between w-full max-w-[460px] mt-3 gap-2">
+              {/* 話者・声道長プリセット切替 */}
+              <div className="flex items-center space-x-1.5 border border-gray-300 rounded px-2 py-1 bg-gray-50 text-xs">
+                <User className="w-3.5 h-3.5 text-gray-600" />
+                <span className="text-gray-600 font-medium">話者設定:</span>
+                <select
+                  value={maxFormantFreq}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setMaxFormantFreq(val);
+                    extractAllVowels(val);
+                  }}
+                  className="bg-white px-1.5 py-0.5 rounded border border-gray-300 font-semibold text-gray-900 outline-none cursor-pointer"
+                >
+                  <option value="5500">成人女性 (5500 Hz)</option>
+                  <option value="5000">成人男性 (5000 Hz)</option>
+                  <option value="6000">子供 (6000 Hz)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center space-x-1.5">
+                <button
+                  onClick={() => extractAllVowels(maxFormantFreq)}
+                  disabled={isLoading}
+                  className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                  再計算
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  disabled={points.length === 0}
+                  className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-50"
+                >
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                  CSV出力
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="w-full md:w-72 flex flex-col border border-gray-200 rounded overflow-hidden text-xs">
             <div className="bg-gray-50 px-3 py-2 font-semibold text-gray-700 border-b border-gray-200 flex justify-between">
               <span>計測母音一覧 ({points.length}件)</span>
+              <span className="font-mono text-[10px] text-gray-500">LPC {maxFormantFreq}Hz</span>
             </div>
             <div className="flex-1 overflow-y-auto max-h-[380px]">
               {points.length > 0 ? (

@@ -117,8 +117,8 @@ export async function alignCustomText(params: {
   return res.json();
 }
 
-export async function fetchAcousticAnalysis(audioId: string): Promise<AcousticAnalysisData> {
-  const res = await fetch(getApiBaseUrl() + "/api/analysis/" + audioId + "/full", {
+export async function fetchAcousticAnalysis(audioId: string, maxFormantFreq = 5500.0): Promise<AcousticAnalysisData> {
+  const res = await fetch(getApiBaseUrl() + "/api/analysis/" + audioId + "/full?max_formant_freq=" + maxFormantFreq, {
     method: "POST",
   });
 
@@ -129,13 +129,13 @@ export async function fetchAcousticAnalysis(audioId: string): Promise<AcousticAn
   return res.json();
 }
 
-export async function fetchIntervalMetrics(audioId: string, start: number, end: number): Promise<IntervalMetrics> {
+export async function fetchIntervalMetrics(audioId: string, start: number, end: number, maxFormantFreq = 5500.0): Promise<IntervalMetrics> {
   const res = await fetch(getApiBaseUrl() + "/api/analysis/" + audioId + "/interval", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ start, end }),
+    body: JSON.stringify({ start, end, max_formant_freq: maxFormantFreq }),
   });
 
   if (!res.ok) {

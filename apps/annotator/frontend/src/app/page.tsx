@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { OverviewMinimap } from '@/components/editor/OverviewMinimap';
@@ -37,6 +37,9 @@ export default function AnnotatorApp() {
   const [selectedMetrics, setSelectedMetrics] = useState<IntervalMetrics | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+
+  // LPC Maximum Formant Frequency (Praat標準: 女性 5500Hz, 男性 5000Hz)
+  const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -99,7 +102,20 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // 選択範囲が変更されたときに区間音響統計（F0, F1-F3, Intensity, ms）を自動取得
+  // 話者・上限周波数が変更された時の再解析ハンドラ
+  const handleChangeMaxFormantFreq = useCallback(async (newFreq: number) => {
+    setMaxFormantFreq(newFreq);
+    if (!audioMetadata?.audio_id) return;
+
+    try {
+      const analysis = await fetchAcousticAnalysis(audioMetadata.audio_id, newFreq);
+      setAnalysisData(analysis);
+    } catch (err) {
+      console.warn('Re-analysis with new formant freq failed:', err);
+    }
+  }, [audioMetadata?.audio_id]);
+
+  // 選択範囲または話者設定が変更された時に区間音響統計（F0, F1-F3, Intensity, ms）を自動取得
   useEffect(() => {
     if (!audioMetadata?.audio_id || !selection) {
       setSelectedMetrics(null);
@@ -115,7 +131,7 @@ export default function AnnotatorApp() {
     let isSubscribed = true;
     setIsMetricsLoading(true);
 
-    fetchIntervalMetrics(audioMetadata.audio_id, s, e)
+    fetchIntervalMetrics(audioMetadata.audio_id, s, e, maxFormantFreq)
       .then((metrics) => {
         if (isSubscribed) {
           setSelectedMetrics(metrics);
@@ -132,7 +148,7 @@ export default function AnnotatorApp() {
     return () => {
       isSubscribed = false;
     };
-  }, [selection, audioMetadata?.audio_id]);
+  }, [selection, audioMetadata?.audio_id, maxFormantFreq]);
 
   // Audio time update event
   const handleTimeUpdate = () => {
@@ -326,12 +342,11 @@ export default function AnnotatorApp() {
       });
       setActiveTierIdx(0);
 
-      // バックエンドへのアップロードと音響特徴量自動抽出
       uploadAudio(file)
         .then(async (serverMeta) => {
           setAudioMetadata((prev) => (prev ? { ...prev, audio_id: serverMeta.audio_id } : serverMeta));
           try {
-            const analysis = await fetchAcousticAnalysis(serverMeta.audio_id);
+            const analysis = await fetchAcousticAnalysis(serverMeta.audio_id, maxFormantFreq);
             setAnalysisData(analysis);
           } catch (analysisErr) {
             console.warn('Full acoustic analysis delayed:', analysisErr);
@@ -608,6 +623,7 @@ export default function AnnotatorApp() {
                 hasAudio={true}
                 showPitch={showPitch}
                 showFormants={showFormants}
+                maxFormantFreq={maxFormantFreq}
                 onTogglePlay={handleTogglePlay}
                 onPlaySelection={handlePlaySelection}
                 onToggleLoop={() => setIsLooping(!isLooping)}
@@ -615,6 +631,7 @@ export default function AnnotatorApp() {
                   setPlaybackRate(rate);
                   if (audioRef.current) audioRef.current.playbackRate = rate;
                 }}
+                onChangeMaxFormantFreq={handleChangeMaxFormantFreq}
                 onZoomIn={handleZoomIn}
                 onZoomOut={handleZoomOut}
                 onResetZoom={handleResetZoom}
@@ -742,6 +759,7 @@ export default function AnnotatorApp() {
         onClose={() => setIsVowelSpaceModalOpen(false)}
         audioId={audioMetadata?.audio_id || null}
         textGridData={textGridData}
+        initialMaxFormantFreq={maxFormantFreq}
         onSelectInterval={(s, e) => {
           setSelection({ start: s, end: e });
           handleSeek(s);

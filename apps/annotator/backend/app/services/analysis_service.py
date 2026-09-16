@@ -6,7 +6,12 @@ from pathlib import Path
 
 class AnalysisService:
     @staticmethod
-    def analyze_audio(audio_path: Path, max_freq: float = 5000.0, time_step: float = 0.01) -> Dict[str, Any]:
+    def analyze_audio(
+        audio_path: Path,
+        max_freq: float = 5000.0,
+        max_formant_freq: float = 5500.0,
+        time_step: float = 0.01
+    ) -> Dict[str, Any]:
         sound = parselmouth.Sound(str(audio_path))
         duration = sound.duration
 
@@ -19,11 +24,11 @@ class AnalysisService:
             pitch_times.append(round(float(t), 3))
             pitch_values.append(round(float(val), 2) if (val is not None and not np.isnan(val)) else None)
 
-        # 2. Praat Formants (Burg法)
+        # 2. Praat Formants (Burg法) - 声道長・話者上限周波数 (女性: 5500Hz, 男性: 5000Hz)
         formant = sound.to_formant_burg(
             time_step=time_step,
             max_number_of_formants=5,
-            maximum_formant=5500.0,
+            maximum_formant=max_formant_freq,
             window_length=0.025,
             pre_emphasis_from=50.0
         )
@@ -42,18 +47,17 @@ class AnalysisService:
 
         # 3. Praat Spectrogram (STFT)
         spectrogram = sound.to_spectrogram(
-            window_length=0.005,  # 5ms ワイドバンド (音声学標準)
+            window_length=0.005,
             maximum_frequency=max_freq,
             time_step=time_step,
-            frequency_step=50.0   # 50Hz刻み = 100 bins (0~5000Hz)
+            frequency_step=50.0
         )
         
         times = [round(float(x), 3) for x in spectrogram.xs()]
         freqs = [round(float(y), 1) for y in spectrogram.ys()]
-        vals = spectrogram.values  # shape: (n_freqs, n_times)
+        vals = spectrogram.values
         num_freqs, num_times = vals.shape
         
-        # 0〜80dB の範囲でクリップして軽量配列化
         matrix = []
         for j in range(num_freqs):
             row = []
@@ -67,6 +71,7 @@ class AnalysisService:
             "duration": round(duration, 3),
             "time_step": time_step,
             "max_frequency": max_freq,
+            "max_formant_freq": max_formant_freq,
             "times": times,
             "frequencies": freqs,
             "spectrogram": matrix,
@@ -83,7 +88,12 @@ class AnalysisService:
         }
 
     @staticmethod
-    def extract_interval_metrics(audio_path: Path, start_time: float, end_time: float) -> Dict[str, Any]:
+    def extract_interval_metrics(
+        audio_path: Path,
+        start_time: float,
+        end_time: float,
+        max_formant_freq: float = 5500.0
+    ) -> Dict[str, Any]:
         sound = parselmouth.Sound(str(audio_path))
         dur_total = sound.duration
         s = max(0.0, min(dur_total, start_time))
@@ -109,9 +119,10 @@ class AnalysisService:
         min_f0 = call(pitch, "Get minimum", 0, 0, "Hertz", "Parabolic")
         max_f0 = call(pitch, "Get maximum", 0, 0, "Hertz", "Parabolic")
 
+        # LPC Burg 法 - 指定された上限周波数でフォルマント推定
         formant = part.to_formant_burg(
             max_number_of_formants=5,
-            maximum_formant=5500.0,
+            maximum_formant=max_formant_freq,
             window_length=0.025
         )
         part_dur = part.duration
@@ -137,5 +148,6 @@ class AnalysisService:
             "f1": clean_val(f1, 1),
             "f2": clean_val(f2, 1),
             "f3": clean_val(f3, 1),
-            "mean_intensity": clean_val(mean_int, 1)
+            "mean_intensity": clean_val(mean_int, 1),
+            "max_formant_freq": max_formant_freq
         }
