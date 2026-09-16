@@ -1,8 +1,8 @@
-import { AudioMetadata, TextGridData, Tier } from "@/types";
+﻿import { AudioMetadata, TextGridData, Tier, AcousticAnalysisData, IntervalMetrics } from "@/types";
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
-    return `http://${window.location.hostname}:8000`;
+    return "http://" + window.location.hostname + ":8000";
   }
   return "http://localhost:8000";
 }
@@ -11,13 +11,13 @@ export async function uploadAudio(file: File): Promise<AudioMetadata> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${getApiBaseUrl()}/api/audio/upload`, {
+  const res = await fetch(getApiBaseUrl() + "/api/audio/upload", {
     method: "POST",
     body: formData,
   });
 
   if (!res.ok) {
-    throw new Error(`Upload failed: ${res.statusText}`);
+    throw new Error("Upload failed: " + res.statusText);
   }
   return res.json();
 }
@@ -26,19 +26,19 @@ export async function parseTextGrid(file: File): Promise<TextGridData> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${getApiBaseUrl()}/api/textgrid/parse`, {
+  const res = await fetch(getApiBaseUrl() + "/api/textgrid/parse", {
     method: "POST",
     body: formData,
   });
 
   if (!res.ok) {
-    throw new Error(`Parse TextGrid failed: ${res.statusText}`);
+    throw new Error("Parse TextGrid failed: " + res.statusText);
   }
   return res.json();
 }
 
 export async function exportTextGrid(data: TextGridData, filename = "annotation.TextGrid") {
-  const res = await fetch(`${getApiBaseUrl()}/api/textgrid/export`, {
+  const res = await fetch(getApiBaseUrl() + "/api/textgrid/export", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -47,7 +47,7 @@ export async function exportTextGrid(data: TextGridData, filename = "annotation.
   });
 
   if (!res.ok) {
-    throw new Error(`Export TextGrid failed: ${res.statusText}`);
+    throw new Error("Export TextGrid failed: " + res.statusText);
   }
 
   const blob = await res.blob();
@@ -68,7 +68,7 @@ export async function transcribeAudio(params: {
   tierName?: string;
   outputTier?: string;
 }): Promise<{ language: string; language_probability: number; textgrid: TextGridData }> {
-  const res = await fetch(`${getApiBaseUrl()}/api/asr/transcribe`, {
+  const res = await fetch(getApiBaseUrl() + "/api/asr/transcribe", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -84,7 +84,7 @@ export async function transcribeAudio(params: {
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Transcription failed: ${res.statusText}`);
+    throw new Error(errorData.detail || ("Transcription failed: " + res.statusText));
   }
   return res.json();
 }
@@ -96,7 +96,7 @@ export async function alignCustomText(params: {
   splitBy: string;
   audioId?: string;
 }): Promise<Tier> {
-  const res = await fetch(`${getApiBaseUrl()}/api/textgrid/align_text`, {
+  const res = await fetch(getApiBaseUrl() + "/api/textgrid/align_text", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -112,7 +112,35 @@ export async function alignCustomText(params: {
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Text alignment failed: ${res.statusText}`);
+    throw new Error(errorData.detail || ("Text alignment failed: " + res.statusText));
+  }
+  return res.json();
+}
+
+export async function fetchAcousticAnalysis(audioId: string): Promise<AcousticAnalysisData> {
+  const res = await fetch(getApiBaseUrl() + "/api/analysis/" + audioId + "/full", {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || ("Acoustic analysis failed: " + res.statusText));
+  }
+  return res.json();
+}
+
+export async function fetchIntervalMetrics(audioId: string, start: number, end: number): Promise<IntervalMetrics> {
+  const res = await fetch(getApiBaseUrl() + "/api/analysis/" + audioId + "/interval", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ start, end }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || ("Interval analysis failed: " + res.statusText));
   }
   return res.json();
 }

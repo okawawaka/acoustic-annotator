@@ -33,3 +33,37 @@ export interface AudioMetadata {
   channels: number;
   peaks: number[];
 }
+
+export interface PitchData {
+  times: number[];
+  values: (number | null)[];
+}
+
+export interface FormantData {
+  times: number[];
+  f1: (number | null)[];
+  f2: (number | null)[];
+  f3: (number | null)[];
+}
+
+export interface AcousticAnalysisData {
+  duration: number;
+  time_step: number;
+  max_frequency: number;
+  times: number[];
+  frequencies: number[];
+  spectrogram: number[][]; // [freq_bin, time_frame] in dB
+  pitch: PitchData;
+  formants: FormantData;
+}
+
+export interface IntervalMetrics {
+  duration_ms: number;
+  mean_f0: number | null;
+  min_f0: number | null;
+  max_f0: number | null;
+  f1: number | null;
+  f2: number | null;
+  f3: number | null;
+  mean_intensity: number | null;
+}

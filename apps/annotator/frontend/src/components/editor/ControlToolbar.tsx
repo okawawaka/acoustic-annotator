@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import {
@@ -12,6 +12,7 @@ import {
   SplitSquareVertical,
   Mic,
   FileText,
+  Activity,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -22,6 +23,8 @@ interface ControlToolbarProps {
   duration: number;
   selection: { start: number; end: number } | null;
   hasAudio: boolean;
+  showPitch: boolean;
+  showFormants: boolean;
   onTogglePlay: () => void;
   onPlaySelection: () => void;
   onToggleLoop: () => void;
@@ -32,6 +35,9 @@ interface ControlToolbarProps {
   onInsertBoundary: () => void;
   onOpenASRModal: () => void;
   onOpenCustomTextModal: () => void;
+  onOpenVowelSpaceModal: () => void;
+  onTogglePitch: () => void;
+  onToggleFormants: () => void;
   onExportTextGrid: () => void;
 }
 
@@ -43,6 +49,8 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   duration,
   selection,
   hasAudio,
+  showPitch,
+  showFormants,
   onTogglePlay,
   onPlaySelection,
   onToggleLoop,
@@ -53,6 +61,9 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onInsertBoundary,
   onOpenASRModal,
   onOpenCustomTextModal,
+  onOpenVowelSpaceModal,
+  onTogglePitch,
+  onToggleFormants,
   onExportTextGrid,
 }) => {
   const formatTime = (time: number) => {
@@ -68,7 +79,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
   return (
     <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-white border-b border-gray-200 text-xs text-gray-800 gap-2">
-      {/* Playback Controls */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onTogglePlay}
@@ -121,7 +131,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         )}
       </div>
 
-      {/* Editing & Zoom */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onInsertBoundary}
@@ -132,6 +141,27 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           <SplitSquareVertical className="w-3.5 h-3.5 mr-1 text-gray-600" />
           境界挿入 [Enter]
         </button>
+
+        <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden text-[11px]">
+          <button
+            onClick={onTogglePitch}
+            className={`px-2 py-1 font-mono transition-colors ${
+              showPitch ? 'bg-blue-50 text-blue-700 font-bold border-r border-blue-200' : 'text-gray-500 hover:bg-gray-50 border-r border-gray-300'
+            }`}
+            title="基本周波数 (F0) の青色実線表示切替"
+          >
+            F0
+          </button>
+          <button
+            onClick={onToggleFormants}
+            className={`px-2 py-1 font-mono transition-colors ${
+              showFormants ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+            title="フォルマント (F1-3) の赤点表示切替"
+          >
+            F1-3
+          </button>
+        </div>
 
         <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden">
           <button
@@ -158,8 +188,17 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center space-x-1.5">
+        <button
+          onClick={onOpenVowelSpaceModal}
+          disabled={!hasAudio}
+          className="flex items-center px-2 py-1 rounded border border-blue-200 bg-blue-50/50 hover:bg-blue-100/60 text-blue-800 font-medium disabled:opacity-30 transition-colors"
+          title="F1-F2音響母音四辺形マップを描画"
+        >
+          <Activity className="w-3.5 h-3.5 mr-1 text-blue-700" />
+          母音空間 (F1-F2)
+        </button>
+
         <button
           onClick={onOpenCustomTextModal}
           disabled={!hasAudio}
@@ -167,7 +206,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           title="既存のテキスト（台本）から自動で区間を配置"
         >
           <FileText className="w-3.5 h-3.5 mr-1 text-gray-600" />
-          台本から区間作成
+          台本配置
         </button>
 
         <button

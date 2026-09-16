@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useRef } from 'react';
 import { Tier, IntervalEntry, PointEntry } from '@/types';
@@ -15,7 +15,7 @@ interface TextGridTimelineProps {
   onSelectTier: (idx: number) => void;
   onHoverTimeChange: (time: number | null) => void;
   onUpdateTiers: (tiers: Tier[]) => void;
-  onSelectInterval: (start: number, end: number) => void;
+  onSelectInterval: (start: number, end: number, label?: string) => void;
 }
 
 export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
@@ -321,7 +321,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectTier(tierIdx);
-                          onSelectInterval(entry.start, entry.end);
+                          onSelectInterval(entry.start, entry.end, entry.label);
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();

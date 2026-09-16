@@ -3,18 +3,41 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { OverviewMinimap } from '@/components/editor/OverviewMinimap';
 import { WaveformCanvas } from '@/components/editor/WaveformCanvas';
+import { SpectrogramCanvas } from '@/components/editor/SpectrogramCanvas';
 import { TextGridTimeline } from '@/components/editor/TextGridTimeline';
 import { ControlToolbar } from '@/components/editor/ControlToolbar';
+import { AcousticInspector } from '@/components/editor/AcousticInspector';
 import { ASRModal } from '@/components/editor/ASRModal';
 import { CustomTextModal } from '@/components/editor/CustomTextModal';
-import { AudioMetadata, TextGridData, IntervalEntry, PointEntry } from '@/types';
-import { uploadAudio, parseTextGrid, exportTextGrid, transcribeAudio, alignCustomText } from '@/lib/api';
+import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
+import {
+  AudioMetadata,
+  TextGridData,
+  IntervalEntry,
+  PointEntry,
+  AcousticAnalysisData,
+  IntervalMetrics,
+} from '@/types';
+import {
+  uploadAudio,
+  parseTextGrid,
+  exportTextGrid,
+  transcribeAudio,
+  alignCustomText,
+  fetchAcousticAnalysis,
+  fetchIntervalMetrics,
+} from '@/lib/api';
 import { extractPeaksFromAudioFile } from '@/lib/audioUtils';
 import { Upload, Music, FileText } from 'lucide-react';
 
 export default function AnnotatorApp() {
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
   const [textGridData, setTextGridData] = useState<TextGridData | null>(null);
+  const [analysisData, setAnalysisData] = useState<AcousticAnalysisData | null>(null);
+  const [selectedMetrics, setSelectedMetrics] = useState<IntervalMetrics | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -22,10 +45,18 @@ export default function AnnotatorApp() {
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [viewRange, setViewRange] = useState({ start: 0, end: 10 });
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+
+  // Overlays
+  const [showPitch, setShowPitch] = useState(true);
+  const [showFormants, setShowFormants] = useState(true);
+
+  // Modals
   const [isASRModalOpen, setIsASRModalOpen] = useState(false);
   const [isASRLoading, setIsASRLoading] = useState(false);
   const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState(false);
   const [isCustomTextLoading, setIsCustomTextLoading] = useState(false);
+  const [isVowelSpaceModalOpen, setIsVowelSpaceModalOpen] = useState(false);
+
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [activeTierIdx, setActiveTierIdx] = useState<number>(0);
   const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
@@ -33,7 +64,6 @@ export default function AnnotatorApp() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const textGridInputRef = useRef<HTMLInputElement | null>(null);
-  const workspaceRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (audioMetadata) {
@@ -42,7 +72,6 @@ export default function AnnotatorApp() {
     }
   }, [audioMetadata]);
 
-  // Keep activeTierIdx within valid bounds
   useEffect(() => {
     if (textGridData && textGridData.tiers.length > 0) {
       if (activeTierIdx >= textGridData.tiers.length) {
@@ -51,7 +80,7 @@ export default function AnnotatorApp() {
     }
   }, [textGridData, activeTierIdx]);
 
-  // Extract all boundaries from TextGrid for waveform projection
+  // Extract all boundaries from TextGrid for waveform & spectrogram projection
   const projectedBoundaries = useMemo(() => {
     if (!textGridData) return [];
     const set = new Set<number>();
@@ -70,7 +99,42 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // Audio time update event with Auto-Scroll on playback (preserves constant window span)
+  // 選択範囲が変更されたときに区間音響統計（F0, F1-F3, Intensity, ms）を自動取得
+  useEffect(() => {
+    if (!audioMetadata?.audio_id || !selection) {
+      setSelectedMetrics(null);
+      return;
+    }
+    const s = Math.min(selection.start, selection.end);
+    const e = Math.max(selection.start, selection.end);
+    if (e - s < 0.015) {
+      setSelectedMetrics(null);
+      return;
+    }
+
+    let isSubscribed = true;
+    setIsMetricsLoading(true);
+
+    fetchIntervalMetrics(audioMetadata.audio_id, s, e)
+      .then((metrics) => {
+        if (isSubscribed) {
+          setSelectedMetrics(metrics);
+          setIsMetricsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isSubscribed) {
+          console.warn('Interval metrics calculation failed:', err);
+          setIsMetricsLoading(false);
+        }
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [selection, audioMetadata?.audio_id]);
+
+  // Audio time update event
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const time = audioRef.current.currentTime;
@@ -138,7 +202,6 @@ export default function AnnotatorApp() {
     setCurrentTime(time);
   };
 
-  // Insert boundary ONLY into the currently active tier
   const handleInsertBoundary = useCallback(() => {
     if (!textGridData || textGridData.tiers.length === 0) return;
     const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
@@ -263,9 +326,16 @@ export default function AnnotatorApp() {
       });
       setActiveTierIdx(0);
 
+      // バックエンドへのアップロードと音響特徴量自動抽出
       uploadAudio(file)
-        .then((serverMeta) => {
+        .then(async (serverMeta) => {
           setAudioMetadata((prev) => (prev ? { ...prev, audio_id: serverMeta.audio_id } : serverMeta));
+          try {
+            const analysis = await fetchAcousticAnalysis(serverMeta.audio_id);
+            setAnalysisData(analysis);
+          } catch (analysisErr) {
+            console.warn('Full acoustic analysis delayed:', analysisErr);
+          }
         })
         .catch((err) => {
           console.warn('Backend upload delayed, local editing remains active:', err);
@@ -329,7 +399,7 @@ export default function AnnotatorApp() {
     }
   };
 
-  // ASR Transcription (Complete from start to finish with selectable output tier)
+  // ASR Transcription
   const handleRunASR = async (params: { modelSize: string; language?: string; tierName: string; outputTier: string }) => {
     if (!audioMetadata || !audioMetadata.audio_id) {
       alert('バックエンドに音声が登録されていません。少し待ってから再度お試しください。');
@@ -360,16 +430,14 @@ export default function AnnotatorApp() {
     }
   };
 
-  // Custom Transcript Alignment from User Text (Target existing Word tier or New tier, with client-side fallback)
+  // Custom Transcript Text Alignment
   const handleAlignCustomText = async (params: { text: string; tierName: string; splitBy: string; targetMode: 'existing' | 'new' }) => {
     if (!audioMetadata) return;
     setIsCustomTextLoading(true);
 
     try {
-      // Split text helper (client-side fallback & generation)
       const parseTextItems = (txt: string, split: string) => {
         if (split === 'char') {
-          // Split character by character, ignoring whitespace and newlines
           return Array.from(txt.replace(/\s+/g, ''));
         } else if (split === 'word') {
           return txt.trim().split(/[\s、。,\.]+/).filter((w) => w.length > 0);
@@ -489,7 +557,9 @@ export default function AnnotatorApp() {
 
       {/* Header */}
       <header className="h-10 flex-shrink-0 flex items-center justify-between px-3 border-b border-gray-200 bg-white">
-        <span className="font-semibold text-xs tracking-tight text-gray-900">Acoustic Annotator</span>
+        <span className="font-semibold text-xs tracking-tight text-gray-900">
+          Acoustic Annotator & Analyzer
+        </span>
 
         <div className="flex items-center space-x-2 text-xs">
           <button
@@ -510,9 +580,10 @@ export default function AnnotatorApp() {
       </header>
 
       {/* Main Workspace */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-white" onWheel={handleWheel}>
+      <main className="flex-1 flex overflow-hidden bg-white">
         {audioMetadata ? (
-          <div ref={workspaceRef} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden" onWheel={handleWheel}>
+            {/* Minimap */}
             <div className="flex-shrink-0">
               <OverviewMinimap
                 peaks={audioMetadata.peaks}
@@ -525,6 +596,7 @@ export default function AnnotatorApp() {
               />
             </div>
 
+            {/* Toolbar */}
             <div className="flex-shrink-0">
               <ControlToolbar
                 isPlaying={isPlaying}
@@ -534,6 +606,8 @@ export default function AnnotatorApp() {
                 duration={audioMetadata.duration}
                 selection={selection}
                 hasAudio={true}
+                showPitch={showPitch}
+                showFormants={showFormants}
                 onTogglePlay={handleTogglePlay}
                 onPlaySelection={handlePlaySelection}
                 onToggleLoop={() => setIsLooping(!isLooping)}
@@ -547,45 +621,89 @@ export default function AnnotatorApp() {
                 onInsertBoundary={handleInsertBoundary}
                 onOpenASRModal={() => setIsASRModalOpen(true)}
                 onOpenCustomTextModal={() => setIsCustomTextModalOpen(true)}
+                onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
+                onTogglePitch={() => setShowPitch(!showPitch)}
+                onToggleFormants={() => setShowFormants(!showFormants)}
                 onExportTextGrid={handleExportTextGrid}
               />
             </div>
 
-            <div className="flex-shrink-0 bg-white">
-              <WaveformCanvas
-                peaks={audioMetadata.peaks}
-                duration={audioMetadata.duration}
-                currentTime={currentTime}
-                selection={selection}
-                viewRange={viewRange}
-                boundaries={projectedBoundaries}
-                hoverTime={hoverTime}
-                onHoverTimeChange={setHoverTime}
-                onSeek={handleSeek}
-                onSelectRange={setSelection}
-                height={150}
-              />
-            </div>
+            {/* Middle Split: Timelines & Visualizers */}
+            <div className="flex-1 flex overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
+                {/* Waveform */}
+                <div className="flex-shrink-0 bg-white">
+                  <WaveformCanvas
+                    peaks={audioMetadata.peaks}
+                    duration={audioMetadata.duration}
+                    currentTime={currentTime}
+                    selection={selection}
+                    viewRange={viewRange}
+                    boundaries={projectedBoundaries}
+                    hoverTime={hoverTime}
+                    onHoverTimeChange={setHoverTime}
+                    onSeek={handleSeek}
+                    onSelectRange={(r) => {
+                      setSelection(r);
+                      setSelectedLabel(null);
+                    }}
+                    height={110}
+                  />
+                </div>
 
-            <div className="flex-1 overflow-y-auto bg-white">
-              {textGridData && (
-                <TextGridTimeline
-                  tiers={textGridData.tiers}
-                  duration={audioMetadata.duration}
-                  currentTime={currentTime}
-                  viewRange={viewRange}
-                  selection={selection}
-                  hoverTime={hoverTime}
-                  activeTierIdx={activeTierIdx}
-                  onSelectTier={setActiveTierIdx}
-                  onHoverTimeChange={setHoverTime}
-                  onUpdateTiers={(updated) => setTextGridData({ ...textGridData, tiers: updated })}
-                  onSelectInterval={(s, e) => {
-                    setSelection({ start: s, end: e });
-                    handleSeek(s);
-                  }}
-                />
-              )}
+                {/* Spectrogram (0-5kHz) with Pitch & Formant Overlays */}
+                <div className="flex-shrink-0 bg-white">
+                  <SpectrogramCanvas
+                    analysisData={analysisData}
+                    duration={audioMetadata.duration}
+                    currentTime={currentTime}
+                    selection={selection}
+                    viewRange={viewRange}
+                    boundaries={projectedBoundaries}
+                    hoverTime={hoverTime}
+                    showPitch={showPitch}
+                    showFormants={showFormants}
+                    onHoverTimeChange={setHoverTime}
+                    onSeek={handleSeek}
+                    onSelectRange={(r) => {
+                      setSelection(r);
+                      setSelectedLabel(null);
+                    }}
+                    height={140}
+                  />
+                </div>
+
+                {/* TextGrid Timeline */}
+                <div className="flex-1 min-h-[160px] bg-white">
+                  {textGridData && (
+                    <TextGridTimeline
+                      tiers={textGridData.tiers}
+                      duration={audioMetadata.duration}
+                      currentTime={currentTime}
+                      viewRange={viewRange}
+                      selection={selection}
+                      hoverTime={hoverTime}
+                      activeTierIdx={activeTierIdx}
+                      onSelectTier={setActiveTierIdx}
+                      onHoverTimeChange={setHoverTime}
+                      onUpdateTiers={(updated) => setTextGridData({ ...textGridData, tiers: updated })}
+                      onSelectInterval={(s, e, label) => {
+                        setSelection({ start: s, end: e });
+                        setSelectedLabel(label || null);
+                        handleSeek(s);
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Right Side: Acoustic Inspector Panel */}
+              <AcousticInspector
+                metrics={selectedMetrics}
+                selectedLabel={selectedLabel}
+                selectedRange={selection}
+                isLoading={isMetricsLoading}
+              />
             </div>
           </div>
         ) : (
@@ -602,7 +720,7 @@ export default function AnnotatorApp() {
         )}
       </main>
 
-      {/* ASR Modal */}
+      {/* Modals */}
       <ASRModal
         isOpen={isASRModalOpen}
         onClose={() => setIsASRModalOpen(false)}
@@ -611,13 +729,23 @@ export default function AnnotatorApp() {
         duration={audioMetadata ? audioMetadata.duration : 0}
       />
 
-      {/* Custom Transcript Text Alignment Modal */}
       <CustomTextModal
         isOpen={isCustomTextModalOpen}
         onClose={() => setIsCustomTextModalOpen(false)}
         onAlignText={handleAlignCustomText}
         isLoading={isCustomTextLoading}
         existingTierNames={textGridData ? textGridData.tiers.map((t) => t.name) : ['Word']}
+      />
+
+      <VowelSpaceModal
+        isOpen={isVowelSpaceModalOpen}
+        onClose={() => setIsVowelSpaceModalOpen(false)}
+        audioId={audioMetadata?.audio_id || null}
+        textGridData={textGridData}
+        onSelectInterval={(s, e) => {
+          setSelection({ start: s, end: e });
+          handleSeek(s);
+        }}
       />
     </div>
   );
