@@ -3,6 +3,7 @@ name = "acoustic-annotator-backend"
 version = "0.1.0"
 description = "Acoustic Annotator Backend API with TextGrid and Faster-Whisper ASR"
 readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110.0",
