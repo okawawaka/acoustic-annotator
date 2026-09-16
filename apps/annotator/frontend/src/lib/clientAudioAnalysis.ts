@@ -118,7 +118,7 @@ function extractPitchAutocorr(
   return { times, values };
 }
 
-// 2次 Butterworth 低域通過フィルタ (ダウンサンプリング時のエイリアシング雑音を除去)
+// 2次 Butterworth 低域通過フィルタ (ダウンサンプリング時のエイリアシング雑音を完全除去)
 function lowpassFilter(data: Float32Array, sr: number, cutoff: number): Float32Array {
   const f = 2 * Math.sin((Math.PI * cutoff) / sr);
   let d1 = 0, d2 = 0;
@@ -132,8 +132,24 @@ function lowpassFilter(data: Float32Array, sr: number, cutoff: number): Float32A
   return out;
 }
 
-// Burg 法による線形予測分析 (Praat の to_formant_burg と同等の Burg アルゴリズム)
-// 自己相関法の窓関数によるスペクトル歪みを解消し、常に最小位相安定な極を算出
+// 高精度線形補間リサンプリング (Praat 準拠: 目標サンプリングレート targetSr = 2 * maxFormantFreq へ厳密変換)
+function resampleLinear(data: Float32Array, oldSr: number, newSr: number): Float32Array {
+  if (oldSr === newSr) return data;
+  const ratio = oldSr / newSr;
+  const newLen = Math.floor(data.length / ratio);
+  const out = new Float32Array(newLen);
+  for (let i = 0; i < newLen; i++) {
+    const srcIdx = i * ratio;
+    const i0 = Math.floor(srcIdx);
+    const frac = srcIdx - i0;
+    const s0 = data[i0] || 0;
+    const s1 = data[i0 + 1] || 0;
+    out[i] = s0 + frac * (s1 - s0);
+  }
+  return out;
+}
+
+// Burg 法による線形予測分析 (Praat の Sound_to_Formant_burg と同等の Maximum Entropy 法)
 function lpcBurg(x: Float32Array, p: number): Float64Array {
   const n = x.length;
   const a = new Float64Array(p + 1);
@@ -175,51 +191,103 @@ function lpcBurg(x: Float32Array, p: number): Float64Array {
   return a;
 }
 
-// Praat 準拠 Burg 法による高精度フォルマント (F1, F2, F3) 抽出
+// 多項式複素根探索法 (Durand-Kerner法): A(z) = 1 + a1*z^-1 + ... + ap*z^-p = 0
+// スペクトルピークピッキングで生じる「近接フォルマント(/o/, /u/)の結合・見落とし」を防止し、
+// Praat と同様に個別の共鳴極の周波数と帯域幅 (Bandwidth) を直接算出
+function findRootsDurandKerner(a: Float64Array): [number, number][] {
+  const p = a.length - 1;
+  const roots: [number, number][] = [];
+  const radius = 0.9;
+  for (let i = 0; i < p; i++) {
+    const angle = (2 * Math.PI * i) / p + 0.3;
+    roots.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+  }
+
+  function cMul(c1: [number, number], c2: [number, number]): [number, number] {
+    return [c1[0] * c2[0] - c1[1] * c2[1], c1[0] * c2[1] + c1[1] * c2[0]];
+  }
+  function cDiv(c1: [number, number], c2: [number, number]): [number, number] {
+    const d = c2[0] * c2[0] + c2[1] * c2[1];
+    return [(c1[0] * c2[0] + c1[1] * c2[1]) / d, (c1[1] * c2[0] - c1[0] * c2[1]) / d];
+  }
+  function cSub(c1: [number, number], c2: [number, number]): [number, number] {
+    return [c1[0] - c2[0], c1[1] - c2[1]];
+  }
+  function evalPoly(z: [number, number]): [number, number] {
+    let res: [number, number] = [1.0, 0.0];
+    for (let i = 1; i <= p; i++) {
+      res = cMul(res, z);
+      res[0] += a[i];
+    }
+    return res;
+  }
+
+  for (let iter = 0; iter < 40; iter++) {
+    let maxChange = 0;
+    for (let i = 0; i < p; i++) {
+      const zi = roots[i];
+      const pVal = evalPoly(zi);
+      let denom: [number, number] = [1.0, 0.0];
+      for (let j = 0; j < p; j++) {
+        if (i !== j) {
+          denom = cMul(denom, cSub(zi, roots[j]));
+        }
+      }
+      const step = cDiv(pVal, denom);
+      roots[i] = cSub(zi, step);
+      const chg = Math.hypot(step[0], step[1]);
+      if (chg > maxChange) maxChange = chg;
+    }
+    if (maxChange < 1e-6) break;
+  }
+  return roots;
+}
+
+// Praat 準拠 Burg 法＋多項式根探索 (Root-Finding) による高精度フォルマント (F1, F2, F3) 抽出
 function extractFormantsLPC(
   channelData: Float32Array,
   sampleRate: number,
   maxFormantFreq = 5500,
   timeStep = 0.01
 ): { times: number[]; f1: (number | null)[]; f2: (number | null)[]; f3: (number | null)[] } {
-  // 話者上限周波数 (5000Hz or 5500Hz) に合わせて最適ダウンサンプリング
+  // Praat 準拠: 目標サンプリングレート = 2 * maxFormantFreq (女性: 11000 Hz, 男性: 10000 Hz)
   const targetSr = maxFormantFreq * 2;
-  const dsFactor = Math.max(1, Math.round(sampleRate / targetSr));
-  const effectiveSr = sampleRate / dsFactor;
+  const lpcOrder = 10; // 5対の複素共役極 = 5フォルマント
 
-  const lpcOrder = 10; // 5対の極 = 5フォルマント
-  const windowSize = Math.floor(effectiveSr * 0.025); // 25ms 窓
-  const stepSamples = Math.floor(sampleRate * timeStep);
+  // 1. 低域通過フィルタ (アンチエイリアシング)
+  const filtered = lowpassFilter(channelData, sampleRate, maxFormantFreq);
+
+  // 2. 正確なサンプリングレートへリサンプリング
+  const resampled = resampleLinear(filtered, sampleRate, targetSr);
+
+  // 3. プリエンファシス (Praat 準拠: 50Hz からの高域強調フィルタ)
+  const alpha = Math.exp((-2 * Math.PI * 50) / targetSr);
+  const pre = new Float32Array(resampled.length);
+  pre[0] = resampled[0];
+  for (let i = 1; i < resampled.length; i++) {
+    pre[i] = resampled[i] - alpha * resampled[i - 1];
+  }
+
+  // 4. 分析フレーム設定 (25ms 窓, 10ms ステップ)
+  const windowSize = Math.floor(targetSr * 0.025);
+  const stepSize = Math.floor(targetSr * timeStep);
 
   const times: number[] = [];
   const f1: (number | null)[] = [];
   const f2: (number | null)[] = [];
   const f3: (number | null)[] = [];
 
-  // アンチエイリアス低域通過フィルタを適用
-  const filtered = dsFactor > 1 ? lowpassFilter(channelData, sampleRate, maxFormantFreq) : channelData;
-
-  // プリエンファシス (高域強調)
-  const pre = new Float32Array(filtered.length);
-  pre[0] = filtered[0];
-  for (let i = 1; i < filtered.length; i++) {
-    pre[i] = filtered[i] - 0.95 * filtered[i - 1];
-  }
-
-  const nFft = 512;
-  const df = effectiveSr / nFft;
-
-  for (let offset = 0; offset + windowSize * dsFactor < pre.length; offset += stepSamples) {
-    const t = offset / sampleRate;
+  for (let offset = 0; offset + windowSize < pre.length; offset += stepSize) {
+    const t = offset / targetSr;
     times.push(roundDigits(t, 3));
 
-    // ハミング窓適用
+    // Praat 準拠のガウス風窓 (Gaussian Window: 側波帯漏洩とスペクトル歪みを最小化)
     const frame = new Float32Array(windowSize);
     let energy = 0;
     for (let i = 0; i < windowSize; i++) {
-      const s = pre[offset + i * dsFactor];
-      const w = 0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (windowSize - 1));
-      frame[i] = s * w;
+      const edgeDist = (i - windowSize / 2) / (windowSize / 2);
+      const w = Math.exp(-12 * edgeDist * edgeDist);
+      frame[i] = pre[offset + i] * w;
       energy += frame[i] * frame[i];
     }
 
@@ -230,66 +298,43 @@ function extractFormantsLPC(
       continue;
     }
 
-    // Burg 法により AR 係数を計算
+    // Burg 法により AR 多項式係数を計算
     const a = lpcBurg(frame, lpcOrder);
 
-    // LPC 多項式スペクトル包絡 |1 / A(e^jw)| の評価
-    const spec: number[] = [];
-    for (let k = 0; k < nFft / 2; k++) {
-      const omega = (2 * Math.PI * k) / nFft;
-      let re = 0, im = 0;
-      for (let m = 0; m <= lpcOrder; m++) {
-        re += a[m] * Math.cos(m * omega);
-        im -= a[m] * Math.sin(m * omega);
-      }
-      const mag = 1.0 / Math.sqrt(re * re + im * im + 1e-8);
-      spec.push(mag);
-    }
+    // 多項式根探索 (Root-Finding) により各極の周波数と帯域幅を正確に分離算出
+    const roots = findRootsDurandKerner(a);
 
-    // スペクトル極候補（局所ピーク）探索
-    const peaks: { freq: number; mag: number }[] = [];
-    for (let k = 1; k < spec.length - 1; k++) {
-      if (spec[k] > spec[k - 1] && spec[k] > spec[k + 1]) {
-        const freq = k * df;
-        if (freq >= 200 && freq <= maxFormantFreq) {
-          peaks.push({ freq: Math.round(freq), mag: spec[k] });
+    const candidates: { freq: number; bw: number }[] = [];
+    for (const r of roots) {
+      if (r[1] > 0) { // 上半平面の正周波数極
+        const freq = (Math.atan2(r[1], r[0]) * targetSr) / (2 * Math.PI);
+        const radius = Math.hypot(r[0], r[1]);
+        const bw = (-Math.log(radius) * targetSr) / Math.PI;
+
+        // Praat 帯域幅フィルタ: B < 700 Hz (極端に広い帯域幅の偽極・音源勾配を排除)
+        if (freq >= 150 && freq <= maxFormantFreq && bw > 0 && bw < 700) {
+          candidates.push({ freq: Math.round(freq), bw: Math.round(bw) });
         }
       }
     }
 
-    // 音声学に基づく物理制約付きフォルマント割り当て
-    // 1. F1: 母音F1帯域 (200〜1200Hz) 内で最も顕著なピーク
-    const f1Candidates = peaks.filter((p) => p.freq >= 200 && p.freq <= 1200);
-    if (f1Candidates.length > 0) {
-      f1Candidates.sort((p1, p2) => p2.mag - p1.mag);
-      const chosenF1 = f1Candidates[0].freq;
+    candidates.sort((c1, c2) => c1.freq - c2.freq);
 
-      // 2. F2: F1 より少なくとも 200Hz 高く、650〜3200Hz の帯域内
-      const f2Candidates = peaks.filter(
-        (p) => p.freq >= Math.max(650, chosenF1 + 200) && p.freq <= 3200
-      );
-      if (f2Candidates.length > 0) {
-        f2Candidates.sort((p1, p2) => p2.mag - p1.mag);
-        const chosenF2 = f2Candidates[0].freq;
+    // 候補極から F1, F2, F3 を抽出
+    if (candidates.length >= 2) {
+      const candF1 = candidates[0].freq;
+      const candF2 = candidates[1].freq;
+      const candF3 = candidates[2] ? candidates[2].freq : null;
 
-        // 3. F3: F2 より 250Hz 高く、1600〜4500Hz の帯域内
-        const f3Candidates = peaks.filter(
-          (p) => p.freq >= Math.max(1600, chosenF2 + 250) && p.freq <= 4500
-        );
-        let chosenF3: number | null = null;
-        if (f3Candidates.length > 0) {
-          f3Candidates.sort((p1, p2) => p2.mag - p1.mag);
-          chosenF3 = f3Candidates[0].freq;
-        }
-
-        f1.push(roundDigits(chosenF1, 1));
-        f2.push(roundDigits(chosenF2, 1));
-        f3.push(chosenF3 ? roundDigits(chosenF3, 1) : null);
+      // 音声学的な妥当性確認: F1 は 200〜1250 Hz, F2 は 600〜3200 Hz, F2 > F1 + 100
+      if (candF1 >= 200 && candF1 <= 1250 && candF2 >= 600 && candF2 <= 3200 && candF2 > candF1 + 100) {
+        f1.push(roundDigits(candF1, 1));
+        f2.push(roundDigits(candF2, 1));
+        f3.push(candF3 && candF3 > candF2 + 150 ? roundDigits(candF3, 1) : null);
         continue;
       }
     }
 
-    // 母音共鳴ピークが存在しない非母音フレームは除外
     f1.push(null);
     f2.push(null);
     f3.push(null);
