@@ -13,6 +13,7 @@ interface SpectrogramCanvasProps {
   hoverTime?: number | null;
   showPitch?: boolean;
   showFormants?: boolean;
+  maxDisplayFreq?: number; // 500 (F0観察用) または 5000 (フォルマント用)
   onHoverTimeChange?: (time: number | null) => void;
   onSeek?: (time: number) => void;
   onSelectRange?: (range: { start: number; end: number } | null) => void;
@@ -29,6 +30,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
   hoverTime = null,
   showPitch = true,
   showFormants = true,
+  maxDisplayFreq = 5000,
   onHoverTimeChange,
   onSeek,
   onSelectRange,
@@ -55,6 +57,9 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     const span = viewRange.end - viewRange.start;
     if (span <= 0) return;
 
+    const currentMaxFreq = maxDisplayFreq; // 500Hz または 5000Hz
+
+    // 1. スペクトログラムの描画
     if (analysisData && analysisData.spectrogram.length > 0) {
       const { spectrogram, max_frequency } = analysisData;
       const numFreqs = spectrogram.length;
@@ -79,7 +84,8 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
         if (timeIdx < 0 || timeIdx >= numTimes) continue;
 
         for (let py = 0; py < h; py++) {
-          const f = (1.0 - py / h) * max_frequency;
+          // 現在の縦軸上限周波数 (currentMaxFreq) に基づいて周波数を計算
+          const f = (1.0 - py / h) * currentMaxFreq;
           const freqIdx = Math.floor(f / df);
           if (freqIdx < 0 || freqIdx >= numFreqs) continue;
 
@@ -101,30 +107,44 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       ctx.fillStyle = '#94a3b8';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('音声を読み込むとスペクトログラムと音響軌跡が自動生成されます', width / 2, h / 2);
+      ctx.fillText('音声を読み込むと音響データが描画されます', width / 2, h / 2);
     }
 
-    const maxFreq = analysisData?.max_frequency || 5000;
+    // 周波数グリッド線と目盛りラベル
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
-    for (let f = 1000; f < maxFreq; f += 1000) {
-      const y = h - (f / maxFreq) * h;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
+    ctx.fillStyle = '#64748b';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
 
-      ctx.fillStyle = '#64748b';
-      ctx.font = '9px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText((f / 1000) + 'k', width - 4, y - 2);
+    if (currentMaxFreq <= 1000) {
+      // F0 拡大モード (0 - 500 Hz): 100Hz 刻み
+      for (let f = 100; f < currentMaxFreq; f += 100) {
+        const y = h - (f / currentMaxFreq) * h;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+        ctx.fillText(f + 'Hz', width - 4, y - 2);
+      }
+    } else {
+      // 広帯域モード (0 - 5000 Hz): 1000Hz 刻み
+      for (let f = 1000; f < currentMaxFreq; f += 1000) {
+        const y = h - (f / currentMaxFreq) * h;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+        ctx.fillText((f / 1000) + 'k', width - 4, y - 2);
+      }
     }
     ctx.setLineDash([]);
 
+    // 2. フォルマント (F1, F2, F3) 重畳描画 (赤点)
     if (showFormants && analysisData?.formants) {
       const { times, f1, f2, f3 } = analysisData.formants;
-      const pointRadius = 1.5;
+      const pointRadius = 1.8;
 
       for (let i = 0; i < times.length; i++) {
         const t = times[i];
@@ -133,8 +153,8 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
 
         const formants = [f1[i], f2[i], f3[i]];
         for (const freq of formants) {
-          if (freq && freq > 0 && freq <= maxFreq) {
-            const y = h - (freq / maxFreq) * h;
+          if (freq && freq > 0 && freq <= currentMaxFreq) {
+            const y = h - (freq / currentMaxFreq) * h;
             ctx.fillStyle = 'rgba(220, 38, 38, 0.85)';
             ctx.beginPath();
             ctx.arc(x, y, pointRadius, 0, 2 * Math.PI);
@@ -144,10 +164,11 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       }
     }
 
+    // 3. F0 (Pitch) 重畳描画 (青線)
     if (showPitch && analysisData?.pitch) {
       const { times, values } = analysisData.pitch;
       ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = currentMaxFreq <= 1000 ? 2.5 : 1.8; // 拡大時は線を太くして視認性アップ
       ctx.beginPath();
       let started = false;
 
@@ -157,8 +178,8 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
         const x = ((t - viewRange.start) / span) * width;
         const pitchHz = values[i];
 
-        if (pitchHz && pitchHz > 0 && pitchHz <= maxFreq) {
-          const y = h - (pitchHz / maxFreq) * h;
+        if (pitchHz && pitchHz > 0 && pitchHz <= currentMaxFreq) {
+          const y = h - (pitchHz / currentMaxFreq) * h;
           if (!started) {
             ctx.moveTo(x, y);
             started = true;
@@ -172,6 +193,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       ctx.stroke();
     }
 
+    // 4. TextGrid境界線（点線）
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
@@ -186,6 +208,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     }
     ctx.setLineDash([]);
 
+    // 5. 選択範囲ハイライト
     if (selection && selection.start !== selection.end) {
       const selStart = Math.min(selection.start, selection.end);
       const selEnd = Math.max(selection.start, selection.end);
@@ -201,6 +224,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       }
     }
 
+    // 6. ホバーインジケータ
     if (hoverTime !== null && hoverTime >= viewRange.start && hoverTime <= viewRange.end) {
       const hx = ((hoverTime - viewRange.start) / span) * width;
       ctx.strokeStyle = '#94a3b8';
@@ -211,6 +235,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       ctx.stroke();
     }
 
+    // 7. 再生位置カーソル (赤線)
     if (currentTime >= viewRange.start && currentTime <= viewRange.end) {
       const cx = ((currentTime - viewRange.start) / span) * width;
       ctx.strokeStyle = '#ef4444';
@@ -220,7 +245,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       ctx.lineTo(cx, h);
       ctx.stroke();
     }
-  }, [analysisData, currentTime, selection, viewRange, boundaries, hoverTime, showPitch, showFormants]);
+  }, [analysisData, currentTime, selection, viewRange, boundaries, hoverTime, showPitch, showFormants, maxDisplayFreq]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -278,23 +303,34 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     isDraggingRef.current = false;
   };
 
+  const isPitchScale = maxDisplayFreq <= 1000;
+
   return (
     <div className="flex w-full border-b border-gray-200 bg-white select-none">
+      {/* Track Label Header (w-32) */}
       <div className="w-32 flex-shrink-0 flex flex-col justify-between p-2 border-r border-gray-200 bg-gray-50/50 text-xs">
         <div>
-          <div className="font-semibold text-gray-800 text-[11px] leading-tight">Spectrogram</div>
-          <div className="text-[10px] text-gray-500 font-mono">0 - 5.0 kHz</div>
+          <div className="font-semibold text-gray-800 text-[11px] leading-tight">
+            {isPitchScale ? 'Pitch (F0)' : 'Spectrogram'}
+          </div>
+          <div className="text-[10px] text-gray-500 font-mono">
+            {isPitchScale ? '0 - 500 Hz' : '0 - 5.0 kHz'}
+          </div>
         </div>
 
         <div className="space-y-1 mt-2">
-          <div className="flex items-center text-[10px] text-blue-700 font-mono">
-            <span className="w-2.5 h-0.5 bg-blue-600 inline-block mr-1"></span>
-            F0 (Pitch)
-          </div>
-          <div className="flex items-center text-[10px] text-red-600 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block mr-1"></span>
-            Formants (F1-3)
-          </div>
+          {showPitch && (
+            <div className="flex items-center text-[10px] text-blue-700 font-mono font-medium">
+              <span className="w-2.5 h-0.5 bg-blue-600 inline-block mr-1"></span>
+              F0 (Pitch)
+            </div>
+          )}
+          {showFormants && (
+            <div className="flex items-center text-[10px] text-red-600 font-mono font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block mr-1"></span>
+              Formants
+            </div>
+          )}
         </div>
       </div>
 

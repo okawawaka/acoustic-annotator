@@ -38,8 +38,11 @@ export default function AnnotatorApp() {
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [isMetricsLoading, setIsMetricsLoading] = useState(false);
 
-  // LPC Maximum Formant Frequency (Praat標準: 女性 5500Hz, 男性 5000Hz)
+  // LPC Maximum Formant Frequency (女性: 5500Hz, 男性: 5000Hz)
   const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
+
+  // 縦軸表示上限周波数 (F0単体観察時: 500Hz / フォルマント観察時: 5000Hz)
+  const [maxDisplayFreq, setMaxDisplayFreq] = useState<number>(5000);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -83,7 +86,7 @@ export default function AnnotatorApp() {
     }
   }, [textGridData, activeTierIdx]);
 
-  // Extract all boundaries from TextGrid for waveform & spectrogram projection
+  // TextGrid boundaries projection
   const projectedBoundaries = useMemo(() => {
     if (!textGridData) return [];
     const set = new Set<number>();
@@ -102,7 +105,7 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // 話者・上限周波数が変更された時の再解析ハンドラ
+  // 話者・上限周波数変更ハンドラ
   const handleChangeMaxFormantFreq = useCallback(async (newFreq: number) => {
     setMaxFormantFreq(newFreq);
     if (!audioMetadata?.audio_id) return;
@@ -115,7 +118,33 @@ export default function AnnotatorApp() {
     }
   }, [audioMetadata?.audio_id]);
 
-  // 選択範囲または話者設定が変更された時に区間音響統計（F0, F1-F3, Intensity, ms）を自動取得
+  // 「F0」ボタンクリック時：F0をONにし、縦軸を 0-500Hz（ピッチ観察用）に自動調整
+  const handleTogglePitch = useCallback(() => {
+    const nextShowPitch = !showPitch;
+    setShowPitch(nextShowPitch);
+
+    if (nextShowPitch) {
+      // F0を観察したいので 0-500Hz スケールに自動切り替え
+      setMaxDisplayFreq(500);
+      setShowFormants(false); // ピッチカーブを単体でクリアに見るためフォルマントをOFF
+    } else {
+      // F0を消す場合は標準の 5000Hz に戻す
+      setMaxDisplayFreq(5000);
+    }
+  }, [showPitch]);
+
+  // 「F1-3」ボタンクリック時：フォルマントをONにし、縦軸を 0-5000Hz（広帯域）に自動調整
+  const handleToggleFormants = useCallback(() => {
+    const nextShowFormants = !showFormants;
+    setShowFormants(nextShowFormants);
+
+    if (nextShowFormants) {
+      // フォルマント全体（F1-F3）を見るため 0-5000Hz 広帯域スケールに自動拡大
+      setMaxDisplayFreq(5000);
+    }
+  }, [showFormants]);
+
+  // 選択範囲または話者設定が変更された時に区間音響統計を自動取得
   useEffect(() => {
     if (!audioMetadata?.audio_id || !selection) {
       setSelectedMetrics(null);
@@ -623,6 +652,7 @@ export default function AnnotatorApp() {
                 hasAudio={true}
                 showPitch={showPitch}
                 showFormants={showFormants}
+                maxDisplayFreq={maxDisplayFreq}
                 maxFormantFreq={maxFormantFreq}
                 onTogglePlay={handleTogglePlay}
                 onPlaySelection={handlePlaySelection}
@@ -639,8 +669,9 @@ export default function AnnotatorApp() {
                 onOpenASRModal={() => setIsASRModalOpen(true)}
                 onOpenCustomTextModal={() => setIsCustomTextModalOpen(true)}
                 onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
-                onTogglePitch={() => setShowPitch(!showPitch)}
-                onToggleFormants={() => setShowFormants(!showFormants)}
+                onTogglePitch={handleTogglePitch}
+                onToggleFormants={handleToggleFormants}
+                onChangeDisplayFreq={setMaxDisplayFreq}
                 onExportTextGrid={handleExportTextGrid}
               />
             </div>
@@ -668,7 +699,7 @@ export default function AnnotatorApp() {
                   />
                 </div>
 
-                {/* Spectrogram (0-5kHz) with Pitch & Formant Overlays */}
+                {/* Spectrogram / Pitch Canvas (Dynamic Scale: 0-500Hz or 0-5000Hz) */}
                 <div className="flex-shrink-0 bg-white">
                   <SpectrogramCanvas
                     analysisData={analysisData}
@@ -680,6 +711,7 @@ export default function AnnotatorApp() {
                     hoverTime={hoverTime}
                     showPitch={showPitch}
                     showFormants={showFormants}
+                    maxDisplayFreq={maxDisplayFreq}
                     onHoverTimeChange={setHoverTime}
                     onSeek={handleSeek}
                     onSelectRange={(r) => {

@@ -26,6 +26,7 @@ interface ControlToolbarProps {
   hasAudio: boolean;
   showPitch: boolean;
   showFormants: boolean;
+  maxDisplayFreq: number;
   maxFormantFreq: number;
   onTogglePlay: () => void;
   onPlaySelection: () => void;
@@ -41,6 +42,7 @@ interface ControlToolbarProps {
   onOpenVowelSpaceModal: () => void;
   onTogglePitch: () => void;
   onToggleFormants: () => void;
+  onChangeDisplayFreq: (freq: number) => void;
   onExportTextGrid: () => void;
 }
 
@@ -54,6 +56,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   hasAudio,
   showPitch,
   showFormants,
+  maxDisplayFreq,
   maxFormantFreq,
   onTogglePlay,
   onPlaySelection,
@@ -69,6 +72,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onOpenVowelSpaceModal,
   onTogglePitch,
   onToggleFormants,
+  onChangeDisplayFreq,
   onExportTextGrid,
 }) => {
   const formatTime = (time: number) => {
@@ -137,7 +141,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         )}
       </div>
 
-      {/* Editing, Speaker Preset & Visual Overlays */}
+      {/* Editing, Speaker & Overlay/Scale Controls */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onInsertBoundary}
@@ -149,7 +153,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           境界挿入 [Enter]
         </button>
 
-        {/* 話者・声道長プリセット (Praat Maximum Formant 設定) */}
+        {/* 話者設定 */}
         <div className="flex items-center space-x-1 border border-gray-300 rounded px-1.5 py-0.5 bg-white text-[11px]" title="話者の声道長に応じたLPCフォルマント上限周波数（女性: 5500Hz / 男性: 5000Hz）">
           <User className="w-3 h-3 text-gray-500" />
           <span className="text-gray-500">話者:</span>
@@ -164,25 +168,25 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           </select>
         </div>
 
-        {/* Pitch / Formant Toggles */}
+        {/* F0 / F1-3 Buttons with Automatic Scale Synchronization */}
         <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden text-[11px]">
           <button
             onClick={onTogglePitch}
             className={`px-2 py-1 font-mono transition-colors ${
               showPitch ? 'bg-blue-50 text-blue-700 font-bold border-r border-blue-200' : 'text-gray-500 hover:bg-gray-50 border-r border-gray-300'
             }`}
-            title="基本周波数 (F0) の青色実線表示切替"
+            title="基本周波数 (F0) の表示切替（クリックで 0-500Hz ピッチスケールに連動）"
           >
-            F0
+            F0 (0-500Hz)
           </button>
           <button
             onClick={onToggleFormants}
             className={`px-2 py-1 font-mono transition-colors ${
               showFormants ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-500 hover:bg-gray-50'
             }`}
-            title="フォルマント (F1-3) の赤点表示切替"
+            title="フォルマント (F1-3) の表示切替（クリックで 0-5kHz 広帯域スケールに連動）"
           >
-            F1-3
+            F1-3 (0-5kHz)
           </button>
         </div>
 
@@ -191,21 +195,21 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           <button
             onClick={onZoomIn}
             className="p-1 text-gray-600 hover:bg-gray-100 border-r border-gray-300"
-            title="拡大"
+            title="時間軸の拡大"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onZoomOut}
             className="p-1 text-gray-600 hover:bg-gray-100 border-r border-gray-300"
-            title="縮小"
+            title="時間軸の縮小"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onResetZoom}
             className="p-1 text-gray-600 hover:bg-gray-100"
-            title="全体表示に戻す"
+            title="時間軸全体表示"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
