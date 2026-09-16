@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { OverviewMinimap } from '@/components/editor/OverviewMinimap';
@@ -7,7 +7,7 @@ import { SpectrogramCanvas } from '@/components/editor/SpectrogramCanvas';
 import { TextGridTimeline } from '@/components/editor/TextGridTimeline';
 import { ControlToolbar } from '@/components/editor/ControlToolbar';
 import { AcousticInspector } from '@/components/editor/AcousticInspector';
-import { ASRModal } from '@/components/editor/ASRModal';
+import { ASRModal, ASRModalRunParams } from '@/components/editor/ASRModal';
 import { CustomTextModal } from '@/components/editor/CustomTextModal';
 import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
 import {
@@ -18,9 +18,10 @@ import {
   AcousticAnalysisData,
   IntervalMetrics,
 } from '@/types';
-import { extractPeaksFromAudioFile } from '@/lib/audioUtils';
+import { extractPeaksFromAudioFile, audioBufferToWavBlob } from '@/lib/audioUtils';
 import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
+import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
 import { Upload, Music, FileText } from 'lucide-react';
 
 export default function AnnotatorApp() {
@@ -111,28 +112,15 @@ export default function AnnotatorApp() {
     }
   }, [audioBuffer]);
 
-  // 「F0」ボタンクリック時：F0をONにし、縦軸を 0-500Hz（ピッチ観察用）に自動調整
+  // 「F0」ボタンクリック時：F0表示のON/OFF切り替え（縦軸スケールは変更しない）
   const handleTogglePitch = useCallback(() => {
-    const nextShowPitch = !showPitch;
-    setShowPitch(nextShowPitch);
+    setShowPitch((prev) => !prev);
+  }, []);
 
-    if (nextShowPitch) {
-      setMaxDisplayFreq(500);
-      setShowFormants(false);
-    } else {
-      setMaxDisplayFreq(5000);
-    }
-  }, [showPitch]);
-
-  // 「F1-3」ボタンクリック時：フォルマントをONにし、縦軸を 0-5000Hz（広帯域）に自動調整
+  // 「F1-3」ボタンクリック時：フォルマント表示のON/OFF切り替え（縦軸スケールは変更しない）
   const handleToggleFormants = useCallback(() => {
-    const nextShowFormants = !showFormants;
-    setShowFormants(nextShowFormants);
-
-    if (nextShowFormants) {
-      setMaxDisplayFreq(5000);
-    }
-  }, [showFormants]);
+    setShowFormants((prev) => !prev);
+  }, []);
 
   // 選択範囲または話者設定が変更された時に区間音響統計をブラウザ内で即座に計算
   useEffect(() => {
@@ -338,21 +326,25 @@ export default function AnnotatorApp() {
         peaks: peaks,
       };
       setAudioMetadata(localMeta);
+      setViewRange({ start: 0, end: Math.min(10, duration) });
 
-      setTextGridData({
-        min_timestamp: 0,
-        max_timestamp: duration,
-        tiers: [
-          {
-            name: 'Word',
-            tier_type: 'interval',
-            min_timestamp: 0,
-            max_timestamp: duration,
-            entries: [{ start: 0, end: duration, label: '' }],
-          },
-        ],
-      });
-      setActiveTierIdx(0);
+      // 既にTextGridが読み込まれている場合はユーザーのTextGridデータを尊重・維持
+      if (!textGridData || textGridData.tiers.length === 0 || (textGridData.tiers.length === 1 && textGridData.tiers[0].entries.length <= 1 && !textGridData.tiers[0].entries[0]?.label)) {
+        setTextGridData({
+          min_timestamp: 0,
+          max_timestamp: duration,
+          tiers: [
+            {
+              name: 'Word',
+              tier_type: 'interval',
+              min_timestamp: 0,
+              max_timestamp: duration,
+              entries: [{ start: 0, end: duration, label: '' }],
+            },
+          ],
+        });
+        setActiveTierIdx(0);
+      }
 
       // ブラウザ内音響解析エンジンで F0, Formants, Spectrogram を即時生成
       const analysis = await analyzeAudioClient(decodedBuffer, maxFormantFreq);
@@ -362,16 +354,59 @@ export default function AnnotatorApp() {
     }
   };
 
-  // TextGrid の読み込み（完全ブラウザ内処理）
+  // TextGrid の読み込み（完全ブラウザ内処理: UTF-16LE/BE, UTF-8, Shift-JIS自動判定）
   const processTextGridFile = async (file: File) => {
     try {
-      const text = await file.text();
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let text = '';
+
+      if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+        text = new TextDecoder('utf-16le').decode(buf);
+      } else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+        text = new TextDecoder('utf-16be').decode(buf);
+      } else if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+        text = new TextDecoder('utf-8').decode(buf);
+      } else {
+        // Windows Praat で作成された BOM無しの UTF-16LE 検出（奇数バイトに \0 が多い場合）
+        let nullCount = 0;
+        for (let i = 1; i < Math.min(bytes.length, 100); i += 2) {
+          if (bytes[i] === 0) nullCount++;
+        }
+        if (nullCount > 20) {
+          text = new TextDecoder('utf-16le').decode(buf);
+        } else {
+          try {
+            text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+          } catch {
+            try {
+              text = new TextDecoder('shift-jis').decode(buf);
+            } catch {
+              text = new TextDecoder('utf-8').decode(buf);
+            }
+          }
+        }
+      }
+
       const tg = parseTextGridClient(text);
       setTextGridData(tg);
       setActiveTierIdx(0);
+
+      // 音声がまだ開かれていない場合でも、ダミーのタイムラインを生成して直ちにTextGridエディタを表示
       if (!audioMetadata) {
-        const span = Math.min(10, tg.max_timestamp);
-        setViewRange({ start: 0, end: span });
+        const dur = tg.max_timestamp > 0 ? tg.max_timestamp : 5.0;
+        const dummyMeta: AudioMetadata = {
+          audio_id: 'tg_only_' + Date.now(),
+          filename: file.name.replace(/\.[^/.]+$/, ''),
+          duration: dur,
+          sample_rate: 44100,
+          channels: 1,
+          peaks: new Array(1000).fill(0),
+        };
+        setAudioMetadata(dummyMeta);
+        setViewRange({ start: 0, end: Math.min(10, dur) });
+      } else {
+        setViewRange({ start: 0, end: Math.min(10, audioMetadata.duration) });
       }
     } catch (err: any) {
       alert(`TextGrid解析エラー: ${err.message}`);
@@ -428,24 +463,237 @@ export default function AnnotatorApp() {
     }
   };
 
-  // ASR 自動文字起こし (ブラウザ標準 Web Speech API またはフォールバック)
-  const handleRunASR = async (params: { modelSize: string; language?: string; tierName: string; outputTier: string }) => {
+  // ASR 自動文字起こし & 音響VAD自動区間分割 (完全ブラウザ内処理 / OpenAI Whisper API / Web Speech API)
+  const handleRunASR = async (params: ASRModalRunParams) => {
     if (!audioMetadata) return;
     setIsASRLoading(true);
 
     try {
-      // ブラウザ標準 Web Speech API の利用
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert('お使いのブラウザはWeb Speech APIに対応していません。Google ChromeまたはEdgeをご利用ください。');
-        setIsASRLoading(false);
-        return;
-      }
+      if (params.mode === 'vad') {
+        // Mode 1: 音響エネルギーVAD自動区間検出 (ブラウザ内即時計算)
+        if (!audioBuffer) {
+          throw new Error('音声信号データが読み込まれていません。音声を再度読み込んでください。');
+        }
 
-      alert('ブラウザ標準の音声認識機能を開始します。音声を再生しながら自動認識を行います。');
-      setIsASRModalOpen(false);
+        const channelData = audioBuffer.getChannelData(0);
+        const sr = audioBuffer.sampleRate;
+        const speechSegments = computeAcousticVAD(channelData, sr, {
+          minSilenceDuration: params.minSilenceDuration,
+        });
+
+        // 台本テキストがあれば単語や句単位に分解して各区間に配置
+        let scriptLabels: string[] = [];
+        if (params.scriptText) {
+          scriptLabels = params.scriptText
+            .split(/[\r\n、。,\.]+|\s+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+        }
+
+        const contiguousIntervals = createContiguousIntervalsFromSpeechSegments(
+          speechSegments,
+          audioMetadata.duration,
+          scriptLabels
+        );
+
+        const newTier = {
+          name: params.tierName || 'Speech',
+          tier_type: 'interval' as const,
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          entries: contiguousIntervals,
+        };
+
+        const existingTiers = textGridData ? [...textGridData.tiers] : [];
+        const foundIdx = existingTiers.findIndex((t) => t.name === newTier.name);
+        if (foundIdx !== -1) {
+          existingTiers[foundIdx] = newTier;
+          setActiveTierIdx(foundIdx);
+        } else {
+          existingTiers.push(newTier);
+          setActiveTierIdx(existingTiers.length - 1);
+        }
+
+        setTextGridData({
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          tiers: existingTiers,
+        });
+
+        setIsASRModalOpen(false);
+      } else if (params.mode === 'whisper_api') {
+        // Mode 2: OpenAI Whisper API
+        if (!audioBuffer) {
+          throw new Error('音声データが読み込まれていません。');
+        }
+        if (!params.apiKey) {
+          throw new Error('OpenAI APIキーを入力してください。');
+        }
+
+        const wavBlob = audioBufferToWavBlob(audioBuffer);
+        const formData = new FormData();
+        formData.append('file', wavBlob, 'audio.wav');
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'verbose_json');
+        formData.append('timestamp_granularities[]', 'word');
+        formData.append('timestamp_granularities[]', 'segment');
+        if (params.language) {
+          formData.append('language', params.language);
+        }
+
+        const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${params.apiKey}`,
+          },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.error?.message || `Whisper APIエラー (HTTP ${res.status})`);
+        }
+
+        const data = await res.json();
+        const existingTiers = textGridData ? [...textGridData.tiers] : [];
+
+        if (params.outputTier === 'word' || params.outputTier === 'both') {
+          const wordEntries: IntervalEntry[] = [];
+          if (data.words && data.words.length > 0) {
+            let curTime = 0;
+            for (const w of data.words) {
+              const start = Math.max(curTime, Math.round(w.start * 1000) / 1000);
+              const end = Math.max(start, Math.round(w.end * 1000) / 1000);
+              if (start > curTime) {
+                wordEntries.push({ start: curTime, end: start, label: '' });
+              }
+              wordEntries.push({ start, end, label: w.word.trim() });
+              curTime = end;
+            }
+            if (curTime < audioMetadata.duration) {
+              wordEntries.push({ start: curTime, end: audioMetadata.duration, label: '' });
+            }
+          }
+          if (wordEntries.length > 0) {
+            existingTiers.push({
+              name: `${params.tierName}_Word`,
+              tier_type: 'interval',
+              min_timestamp: 0,
+              max_timestamp: audioMetadata.duration,
+              entries: wordEntries,
+            });
+          }
+        }
+
+        if (params.outputTier === 'utterance' || params.outputTier === 'both') {
+          const uttEntries: IntervalEntry[] = [];
+          if (data.segments && data.segments.length > 0) {
+            let curTime = 0;
+            for (const s of data.segments) {
+              const start = Math.max(curTime, Math.round(s.start * 1000) / 1000);
+              const end = Math.max(start, Math.round(s.end * 1000) / 1000);
+              if (start > curTime) {
+                uttEntries.push({ start: curTime, end: start, label: '' });
+              }
+              uttEntries.push({ start, end, label: s.text.trim() });
+              curTime = end;
+            }
+            if (curTime < audioMetadata.duration) {
+              uttEntries.push({ start: curTime, end: audioMetadata.duration, label: '' });
+            }
+          }
+          if (uttEntries.length > 0) {
+            existingTiers.push({
+              name: `${params.tierName}_Utterance`,
+              tier_type: 'interval',
+              min_timestamp: 0,
+              max_timestamp: audioMetadata.duration,
+              entries: uttEntries,
+            });
+          }
+        }
+
+        setTextGridData({
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          tiers: existingTiers,
+        });
+        setActiveTierIdx(existingTiers.length - 1);
+        setIsASRModalOpen(false);
+      } else if (params.mode === 'web_speech') {
+        // Mode 3: Web Speech API
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          throw new Error('お使いのブラウザはWeb Speech APIに対応していません。Google ChromeまたはEdgeをご利用ください。');
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = params.language === 'ja' ? 'ja-JP' : params.language === 'en' ? 'en-US' : 'ja-JP';
+
+        const capturedUtterances: { start: number; end: number; text: string }[] = [];
+        let startTime = currentTime;
+
+        recognition.onresult = (event: any) => {
+          const now = audioRef.current ? audioRef.current.currentTime : currentTime;
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              const text = event.results[i][0].transcript.trim();
+              if (text) {
+                capturedUtterances.push({
+                  start: Math.round(startTime * 1000) / 1000,
+                  end: Math.round(now * 1000) / 1000,
+                  text,
+                });
+                startTime = now;
+              }
+            }
+          }
+        };
+
+        recognition.onend = () => {
+          if (capturedUtterances.length > 0) {
+            const entries: IntervalEntry[] = [];
+            let cur = 0;
+            for (const u of capturedUtterances) {
+              if (u.start > cur) {
+                entries.push({ start: cur, end: u.start, label: '' });
+              }
+              entries.push({ start: u.start, end: u.end, label: u.text });
+              cur = u.end;
+            }
+            if (cur < audioMetadata.duration) {
+              entries.push({ start: cur, end: audioMetadata.duration, label: '' });
+            }
+
+            const newTier = {
+              name: params.tierName || 'WebSpeech',
+              tier_type: 'interval' as const,
+              min_timestamp: 0,
+              max_timestamp: audioMetadata.duration,
+              entries,
+            };
+
+            const existingTiers = textGridData ? [...textGridData.tiers, newTier] : [newTier];
+            setTextGridData({
+              min_timestamp: 0,
+              max_timestamp: audioMetadata.duration,
+              tiers: existingTiers,
+            });
+            setActiveTierIdx(existingTiers.length - 1);
+          }
+        };
+
+        recognition.start();
+        setIsASRModalOpen(false);
+        if (audioRef.current) {
+          audioRef.current.play();
+          setIsPlaying(true);
+        }
+      }
     } catch (err: any) {
-      alert(`文字起こしエラー: ${err.message}`);
+      alert(`自動文字起こしエラー: ${err.message}`);
     } finally {
       setIsASRLoading(false);
     }

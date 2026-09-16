@@ -1,113 +1,218 @@
-﻿import { TextGridData, Tier, IntervalEntry, PointEntry } from "@/types";
+import { TextGridData, Tier, IntervalEntry, PointEntry } from "@/types";
 
+/**
+ * TextGridパーサー (クライアントサイド・完全ローカル動作)
+ * Praat 標準の Long 形式および Short 形式 ("ooTextFile")、
+ * UTF-8 / UTF-16 / Shift-JIS によるファイル読み込みに対応。
+ */
 export function parseTextGridClient(contentStr: string): TextGridData {
-  const lines = contentStr.split(/\r?\n/).map((l) => l.trim());
-  let idx = 0;
+  // UTF-8 / UTF-16 BOM除去および NULLバイト・改行コードの正規化
+  let cleaned = contentStr
+    .replace(/\0/g, "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
 
-  // Format detection
-  const isShortFormat = lines.some((l) => l.includes('"ooTextFile"'));
-  
-  // Find xmin and xmax
-  let minTime = 0.0;
-  let maxTime = 0.0;
-  
-  for (let i = 0; i < Math.min(20, lines.length); i++) {
-    const l = lines[i];
-    if (l.startsWith("xmin =") || l.startsWith("xmin=")) {
-      minTime = parseFloat(l.split("=")[1].trim()) || 0.0;
-    } else if (l.startsWith("xmax =") || l.startsWith("xmax=")) {
-      maxTime = parseFloat(l.split("=")[1].trim()) || 0.0;
+  const rawLines = cleaned.split("\n");
+  const lines: string[] = [];
+
+  for (let l of rawLines) {
+    l = l.trim();
+    if (l.length > 0) {
+      lines.push(l);
     }
   }
 
-  // Short textgrid fallback
-  if (isShortFormat && maxTime === 0.0 && lines.length > 5) {
-    minTime = parseFloat(lines[3]) || 0.0;
-    maxTime = parseFloat(lines[4]) || 0.0;
+  let xmin = 0.0;
+  let xmax = 0.0;
+
+  // Short形式の検出
+  const isShortFormat = lines.length > 0 && lines[0].replace(/"/g, "").trim() === "ooTextFile";
+
+  if (isShortFormat) {
+    xmin = parseFloat(lines[2]) || 0.0;
+    xmax = parseFloat(lines[3]) || 0.0;
+
+    const tiers: Tier[] = [];
+    let idx = 4;
+    while (idx < lines.length && !lines[idx].includes("<exists>")) {
+      idx++;
+    }
+    idx++; // skip <exists>
+    const numTiers = parseInt(lines[idx++], 10) || 0;
+
+    for (let t = 0; t < numTiers && idx < lines.length; t++) {
+      const typeStr = lines[idx++].replace(/"/g, "").trim();
+      const name = lines[idx++].replace(/"/g, "").trim();
+      const tMin = parseFloat(lines[idx++]) || xmin;
+      const tMax = parseFloat(lines[idx++]) || xmax;
+      const numEntries = parseInt(lines[idx++], 10) || 0;
+
+      if (typeStr === "IntervalTier") {
+        const entries: IntervalEntry[] = [];
+        for (let e = 0; e < numEntries && idx + 2 < lines.length; e++) {
+          const start = parseFloat(lines[idx++]) || 0;
+          const end = parseFloat(lines[idx++]) || 0;
+          const label = lines[idx++].replace(/^"|"$/g, "");
+          if (end >= start) {
+            entries.push({ start, end, label });
+          }
+        }
+        tiers.push({
+          name: name || `Tier_${t + 1}`,
+          tier_type: "interval",
+          min_timestamp: tMin,
+          max_timestamp: tMax,
+          entries,
+        });
+      } else {
+        const entries: PointEntry[] = [];
+        for (let e = 0; e < numEntries && idx + 1 < lines.length; e++) {
+          const time = parseFloat(lines[idx++]) || 0;
+          const label = lines[idx++].replace(/^"|"$/g, "");
+          entries.push({ time, label });
+        }
+        tiers.push({
+          name: name || `Tier_${t + 1}`,
+          tier_type: "point",
+          min_timestamp: tMin,
+          max_timestamp: tMax,
+          entries,
+        });
+      }
+    }
+
+    return {
+      min_timestamp: xmin,
+      max_timestamp: xmax > 0 ? xmax : (tiers.length > 0 ? Math.max(...tiers.map(t => t.max_timestamp)) : 1.0),
+      tiers: tiers.length > 0 ? tiers : [
+        {
+          name: "Word",
+          tier_type: "interval",
+          min_timestamp: xmin,
+          max_timestamp: xmax > 0 ? xmax : 1.0,
+          entries: [{ start: xmin, end: xmax > 0 ? xmax : 1.0, label: "" }],
+        }
+      ],
+    };
+  }
+
+  // Normal (Long) 形式の解析
+  for (let i = 0; i < Math.min(30, lines.length); i++) {
+    const line = lines[i];
+    if (line.startsWith("xmin")) {
+      const parts = line.split("=");
+      if (parts.length > 1) xmin = parseFloat(parts[1].trim()) || 0.0;
+    } else if (line.startsWith("xmax")) {
+      const parts = line.split("=");
+      if (parts.length > 1) xmax = parseFloat(parts[1].trim()) || 0.0;
+    }
   }
 
   const tiers: Tier[] = [];
-
-  // Robust parsing: IntervalTier and TextTier search
   let currentTier: Tier | null = null;
-  let inIntervals = false;
-  let inPoints = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (line.includes('class = "IntervalTier"') || line === '"IntervalTier"') {
+    if (/class\s*=\s*"IntervalTier"/i.test(line)) {
       if (currentTier) tiers.push(currentTier);
-      
       let name = "Tier";
-      let tMin = minTime;
-      let tMax = maxTime;
+      let tMin = xmin;
+      let tMax = xmax;
 
-      // Search ahead for tier metadata
-      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
-        if (lines[j].startsWith("name =") || lines[j].startsWith("name=")) {
-          name = lines[j].split("=")[1].replace(/"/g, "").trim();
-        } else if (lines[j].startsWith('"') && !lines[j].includes("=") && j === i + 1) {
-          name = lines[j].replace(/"/g, "").trim();
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        const sub = lines[j];
+        if (/name\s*=/i.test(sub)) {
+          name = sub.substring(sub.indexOf("=") + 1).replace(/"/g, "").trim();
+        } else if (/xmin\s*=/i.test(sub) && !/intervals/i.test(sub)) {
+          tMin = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || xmin;
+        } else if (/xmax\s*=/i.test(sub) && !/intervals/i.test(sub)) {
+          tMax = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || xmax;
+        } else if (/intervals\s*[:\[]/i.test(sub)) {
+          break;
         }
       }
 
       currentTier = {
-        name,
+        name: name || `Tier_${tiers.length + 1}`,
         tier_type: "interval",
         min_timestamp: tMin,
         max_timestamp: tMax,
         entries: [],
       };
-      inIntervals = true;
-      inPoints = false;
       continue;
     }
 
-    if (line.includes('class = "TextTier"') || line === '"TextTier"') {
+    if (/class\s*=\s*"TextTier"/i.test(line)) {
       if (currentTier) tiers.push(currentTier);
-      
       let name = "Tier";
-      for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
-        if (lines[j].startsWith("name =") || lines[j].startsWith("name=")) {
-          name = lines[j].split("=")[1].replace(/"/g, "").trim();
-        } else if (lines[j].startsWith('"') && !lines[j].includes("=") && j === i + 1) {
-          name = lines[j].replace(/"/g, "").trim();
+      let tMin = xmin;
+      let tMax = xmax;
+
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        const sub = lines[j];
+        if (/name\s*=/i.test(sub)) {
+          name = sub.substring(sub.indexOf("=") + 1).replace(/"/g, "").trim();
+        } else if (/xmin\s*=/i.test(sub) && !/points/i.test(sub)) {
+          tMin = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || xmin;
+        } else if (/xmax\s*=/i.test(sub) && !/points/i.test(sub)) {
+          tMax = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || xmax;
+        } else if (/points\s*[:\[]/i.test(sub)) {
+          break;
         }
       }
 
       currentTier = {
-        name,
+        name: name || `Tier_${tiers.length + 1}`,
         tier_type: "point",
-        min_timestamp: minTime,
-        max_timestamp: maxTime,
+        min_timestamp: tMin,
+        max_timestamp: tMax,
         entries: [],
       };
-      inIntervals = false;
-      inPoints = true;
       continue;
     }
 
-    // Interval entry parsing
-    if (inIntervals && currentTier && currentTier.tier_type === "interval") {
-      if (line.startsWith("intervals [") || line.startsWith("intervals:")) {
+    // Interval item
+    if (currentTier && currentTier.tier_type === "interval") {
+      if (/intervals\s*\[\s*\d+\s*\]/i.test(line)) {
         let start = 0;
         let end = 0;
         let label = "";
 
         for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
           const sub = lines[j];
-          if (sub.startsWith("xmin =") || sub.startsWith("xmin=")) {
-            start = parseFloat(sub.split("=")[1].trim()) || 0;
-          } else if (sub.startsWith("xmax =") || sub.startsWith("xmax=")) {
-            end = parseFloat(sub.split("=")[1].trim()) || 0;
-          } else if (sub.startsWith("text =") || sub.startsWith("text=")) {
+          if (/intervals\s*\[\s*\d+\s*\]/i.test(sub) || /item\s*\[/i.test(sub)) break;
+          if (/xmin\s*=/i.test(sub)) {
+            start = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || 0;
+          } else if (/xmax\s*=/i.test(sub)) {
+            end = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || 0;
+          } else if (/text\s*=/i.test(sub)) {
             label = sub.substring(sub.indexOf("=") + 1).trim().replace(/^"|"$/g, "");
           }
         }
-        if (end > start) {
+        if (end >= start) {
           (currentTier.entries as IntervalEntry[]).push({ start, end, label });
         }
+      }
+    }
+
+    // Point item
+    if (currentTier && currentTier.tier_type === "point") {
+      if (/points\s*\[\s*\d+\s*\]/i.test(line)) {
+        let time = 0;
+        let label = "";
+
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const sub = lines[j];
+          if (/points\s*\[\s*\d+\s*\]/i.test(sub) || /item\s*\[/i.test(sub)) break;
+          if (/(?:time|number)\s*=/i.test(sub)) {
+            time = parseFloat(sub.substring(sub.indexOf("=") + 1).trim()) || 0;
+          } else if (/(?:text|mark)\s*=/i.test(sub)) {
+            label = sub.substring(sub.indexOf("=") + 1).trim().replace(/^"|"$/g, "");
+          }
+        }
+        (currentTier.entries as PointEntry[]).push({ time, label });
       }
     }
   }
@@ -116,24 +221,31 @@ export function parseTextGridClient(contentStr: string): TextGridData {
     tiers.push(currentTier);
   }
 
-  // Fallback if no tiers found
-  if (tiers.length === 0) {
-    tiers.push({
-      name: "Word",
-      tier_type: "interval",
-      min_timestamp: minTime,
-      max_timestamp: maxTime || 1.0,
-      entries: [{ start: minTime, end: maxTime || 1.0, label: "" }],
-    });
+  // xmaxのフォールバック
+  if (xmax === 0 && tiers.length > 0) {
+    for (const t of tiers) {
+      if (t.max_timestamp > xmax) xmax = t.max_timestamp;
+    }
   }
 
   return {
-    min_timestamp: minTime,
-    max_timestamp: maxTime || 1.0,
-    tiers,
+    min_timestamp: xmin,
+    max_timestamp: xmax > 0 ? xmax : 1.0,
+    tiers: tiers.length > 0 ? tiers : [
+      {
+        name: "Word",
+        tier_type: "interval",
+        min_timestamp: xmin,
+        max_timestamp: xmax > 0 ? xmax : 1.0,
+        entries: [{ start: xmin, end: xmax > 0 ? xmax : 1.0, label: "" }],
+      }
+    ],
   };
 }
 
+/**
+ * TextGrid を Praat 標準 Long 形式の文字列にシリアライズして出力
+ */
 export function exportTextGridClient(data: TextGridData): string {
   const lines: string[] = [];
   lines.push('File type = "ooTextFile"');

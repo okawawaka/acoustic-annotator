@@ -14,6 +14,7 @@ import {
   FileText,
   Activity,
   User,
+  Sliders,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -33,6 +34,7 @@ interface ControlToolbarProps {
   onToggleLoop: () => void;
   onChangePlaybackRate: (rate: number) => void;
   onChangeMaxFormantFreq: (freq: number) => void;
+  onChangeDisplayFreq: (freq: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -42,7 +44,6 @@ interface ControlToolbarProps {
   onOpenVowelSpaceModal: () => void;
   onTogglePitch: () => void;
   onToggleFormants: () => void;
-  onChangeDisplayFreq: (freq: number) => void;
   onExportTextGrid: () => void;
 }
 
@@ -63,6 +64,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onToggleLoop,
   onChangePlaybackRate,
   onChangeMaxFormantFreq,
+  onChangeDisplayFreq,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -72,7 +74,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onOpenVowelSpaceModal,
   onTogglePitch,
   onToggleFormants,
-  onChangeDisplayFreq,
   onExportTextGrid,
 }) => {
   const formatTime = (time: number) => {
@@ -141,7 +142,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         )}
       </div>
 
-      {/* Editing, Speaker & Overlay/Scale Controls */}
+      {/* Editing, Speaker, Frequency Range & Overlays */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onInsertBoundary}
@@ -168,25 +169,42 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           </select>
         </div>
 
-        {/* F0 / F1-3 Buttons with Automatic Scale Synchronization */}
+        {/* 縦軸周波数レンジの手動切り替えセレクター */}
+        <div className="flex items-center space-x-1 border border-gray-300 rounded px-1.5 py-0.5 bg-white text-[11px]" title="音響キャンバスの縦軸上限周波数を手動設定（F0単体観察時は500Hz、フォルマント時は5000Hz等）">
+          <Sliders className="w-3 h-3 text-gray-500" />
+          <span className="text-gray-500">縦軸:</span>
+          <select
+            value={maxDisplayFreq}
+            onChange={(e) => onChangeDisplayFreq(parseFloat(e.target.value))}
+            className="bg-transparent font-medium text-gray-800 outline-none cursor-pointer"
+          >
+            <option value="500">0 - 500 Hz (F0/ピッチ拡大)</option>
+            <option value="800">0 - 800 Hz (高F0/女性ピッチ)</option>
+            <option value="3000">0 - 3000 Hz (F1-F2母音帯)</option>
+            <option value="5000">0 - 5000 Hz (標準広帯域/F1-3)</option>
+            <option value="8000">0 - 8000 Hz (子音・高周波)</option>
+          </select>
+        </div>
+
+        {/* Pitch / Formant Toggles (単なる表示ON/OFFトグル) */}
         <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden text-[11px]">
           <button
             onClick={onTogglePitch}
             className={`px-2 py-1 font-mono transition-colors ${
               showPitch ? 'bg-blue-50 text-blue-700 font-bold border-r border-blue-200' : 'text-gray-500 hover:bg-gray-50 border-r border-gray-300'
             }`}
-            title="基本周波数 (F0) の表示切替（クリックで 0-500Hz ピッチスケールに連動）"
+            title="基本周波数 (F0) の青色実線表示切替"
           >
-            F0 (0-500Hz)
+            F0
           </button>
           <button
             onClick={onToggleFormants}
             className={`px-2 py-1 font-mono transition-colors ${
               showFormants ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-500 hover:bg-gray-50'
             }`}
-            title="フォルマント (F1-3) の表示切替（クリックで 0-5kHz 広帯域スケールに連動）"
+            title="フォルマント (F1-3) の赤点表示切替"
           >
-            F1-3 (0-5kHz)
+            F1-3
           </button>
         </div>
 
