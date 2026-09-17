@@ -260,10 +260,10 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           onClick={onOpenASRModal}
           disabled={!hasAudio}
           className="flex items-center px-2.5 py-1 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white font-medium disabled:opacity-30 transition-colors"
-          title="Praat同様の無音自動検出(VAD)またはAI自動文字起こし"
+          title="Praat同様に波形の無音・発話区間を一瞬で自動検出してTextGridを作成"
         >
-          <Mic className="w-3.5 h-3.5 mr-1" />
-          自動区間分割 / 文字起こし
+          <SplitSquareVertical className="w-3.5 h-3.5 mr-1" />
+          無音自動分割 (VAD)
         </button>
 
         <button
