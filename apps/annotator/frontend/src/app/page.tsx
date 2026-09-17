@@ -13,6 +13,7 @@ import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
 import {
   AudioMetadata,
   TextGridData,
+  Tier,
   IntervalEntry,
   PointEntry,
   AcousticAnalysisData,
@@ -23,6 +24,13 @@ import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
 import { Upload, Music, FileText } from 'lucide-react';
+
+interface HistorySnapshot {
+  textGridData: TextGridData;
+  selection: { start: number; end: number } | null;
+  selectedLabel: string | null;
+  activeTierIdx: number;
+}
 
 export default function AnnotatorApp() {
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
@@ -64,6 +72,99 @@ export default function AnnotatorApp() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const textGridInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Undo / Redo History State
+  const historyRef = useRef<HistorySnapshot[]>([]);
+  const futureRef = useRef<HistorySnapshot[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const isTypingSessionRef = useRef(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updateUndoRedoState = useCallback(() => {
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(futureRef.current.length > 0);
+  }, []);
+
+  const pushHistory = useCallback(
+    (currentTg: TextGridData | null) => {
+      if (!currentTg) return;
+      const snapshot: HistorySnapshot = {
+        textGridData: JSON.parse(JSON.stringify(currentTg)),
+        selection: selection ? { ...selection } : null,
+        selectedLabel: selectedLabel ?? null,
+        activeTierIdx,
+      };
+
+      const top = historyRef.current[historyRef.current.length - 1];
+      if (top && JSON.stringify(top.textGridData.tiers) === JSON.stringify(snapshot.textGridData.tiers)) {
+        return;
+      }
+
+      historyRef.current.push(snapshot);
+      if (historyRef.current.length > 50) {
+        historyRef.current.shift();
+      }
+      futureRef.current = [];
+      updateUndoRedoState();
+    },
+    [selection, selectedLabel, activeTierIdx, updateUndoRedoState]
+  );
+
+  const handleUndo = useCallback(() => {
+    if (historyRef.current.length === 0 || !textGridData) return;
+
+    const currentSnapshot: HistorySnapshot = {
+      textGridData: JSON.parse(JSON.stringify(textGridData)),
+      selection: selection ? { ...selection } : null,
+      selectedLabel: selectedLabel ?? null,
+      activeTierIdx,
+    };
+    futureRef.current.unshift(currentSnapshot);
+
+    const prevSnapshot = historyRef.current.pop()!;
+    updateUndoRedoState();
+
+    setTextGridData(prevSnapshot.textGridData);
+    setSelection(prevSnapshot.selection);
+    setSelectedLabel(prevSnapshot.selectedLabel);
+    if (prevSnapshot.activeTierIdx !== undefined) {
+      setActiveTierIdx(prevSnapshot.activeTierIdx);
+    }
+  }, [textGridData, selection, selectedLabel, activeTierIdx, updateUndoRedoState]);
+
+  const handleRedo = useCallback(() => {
+    if (futureRef.current.length === 0 || !textGridData) return;
+
+    const currentSnapshot: HistorySnapshot = {
+      textGridData: JSON.parse(JSON.stringify(textGridData)),
+      selection: selection ? { ...selection } : null,
+      selectedLabel: selectedLabel ?? null,
+      activeTierIdx,
+    };
+    historyRef.current.push(currentSnapshot);
+
+    const nextSnapshot = futureRef.current.shift()!;
+    updateUndoRedoState();
+
+    setTextGridData(nextSnapshot.textGridData);
+    setSelection(nextSnapshot.selection);
+    setSelectedLabel(nextSnapshot.selectedLabel);
+    if (nextSnapshot.activeTierIdx !== undefined) {
+      setActiveTierIdx(nextSnapshot.activeTierIdx);
+    }
+  }, [textGridData, selection, selectedLabel, activeTierIdx, updateUndoRedoState]);
+
+  const handleUpdateTiers = useCallback(
+    (updatedTiers: Tier[], saveHistory = true) => {
+      if (!textGridData) return;
+      if (saveHistory) {
+        pushHistory(textGridData);
+      }
+      setTextGridData({ ...textGridData, tiers: updatedTiers });
+    },
+    [textGridData, pushHistory]
+  );
 
   useEffect(() => {
     if (audioMetadata) {
@@ -216,6 +317,7 @@ export default function AnnotatorApp() {
     const targetTime = time !== undefined ? time : currentTime;
 
     let newSelectedRange: { start: number; end: number } | null = null;
+    let modified = false;
 
     const newTiers = textGridData.tiers.map((tier, idx) => {
       if (idx === targetIdx && tier.tier_type === 'interval') {
@@ -231,6 +333,7 @@ export default function AnnotatorApp() {
             const secondPart: IntervalEntry = { start: cur, end: original.end, label: '' };
             entries.splice(entryIdx, 1, firstPart, secondPart);
             newSelectedRange = { start: cur, end: original.end };
+            modified = true;
           }
         }
         return { ...tier, entries };
@@ -238,12 +341,15 @@ export default function AnnotatorApp() {
       return tier;
     });
 
+    if (!modified) return;
+
+    pushHistory(textGridData);
     setTextGridData({ ...textGridData, tiers: newTiers });
     if (newSelectedRange) {
       setSelection(newSelectedRange);
       setSelectedLabel('');
     }
-  }, [textGridData, currentTime, activeTierIdx]);
+  }, [textGridData, currentTime, activeTierIdx, pushHistory]);
 
   const handleInsertBoundary = useCallback(() => {
     handleInsertBoundaryAt();
@@ -252,6 +358,16 @@ export default function AnnotatorApp() {
   const handleUpdateSelectedLabel = useCallback((newLabel: string) => {
     setSelectedLabel(newLabel);
     if (!textGridData || !selection) return;
+
+    if (!isTypingSessionRef.current) {
+      pushHistory(textGridData);
+      isTypingSessionRef.current = true;
+    }
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingSessionRef.current = false;
+    }, 800);
+
     const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
     const newTiers = textGridData.tiers.map((tier, idx) => {
       if (idx === targetIdx && tier.tier_type === 'interval') {
@@ -267,7 +383,7 @@ export default function AnnotatorApp() {
       return tier;
     });
     setTextGridData({ ...textGridData, tiers: newTiers });
-  }, [textGridData, selection, activeTierIdx]);
+  }, [textGridData, selection, activeTierIdx, pushHistory]);
 
   const handleSelectPrevInterval = useCallback(() => {
     if (!textGridData || textGridData.tiers.length === 0) return;
@@ -329,6 +445,7 @@ export default function AnnotatorApp() {
     );
 
     if (curIdx > 0) {
+      pushHistory(textGridData);
       const prev = entries[curIdx - 1];
       const cur = entries[curIdx];
       const merged: IntervalEntry = {
@@ -343,6 +460,7 @@ export default function AnnotatorApp() {
       setSelection({ start: merged.start, end: merged.end });
       setSelectedLabel(merged.label || '');
     } else if (curIdx === 0 && entries.length > 1) {
+      pushHistory(textGridData);
       const cur = entries[0];
       const next = entries[1];
       const merged: IntervalEntry = {
@@ -357,10 +475,34 @@ export default function AnnotatorApp() {
       setSelection({ start: merged.start, end: merged.end });
       setSelectedLabel(merged.label || '');
     }
-  }, [textGridData, activeTierIdx, selection]);
+  }, [textGridData, activeTierIdx, selection, pushHistory]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      if (isCtrlOrMeta && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const isInputActive = activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName);
+        if (!isInputActive) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            handleRedo();
+          } else {
+            handleUndo();
+          }
+          return;
+        }
+      } else if (isCtrlOrMeta && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const isInputActive = activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName);
+        if (!isInputActive) {
+          e.preventDefault();
+          handleRedo();
+          return;
+        }
+      }
+
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
         return;
       }
@@ -399,6 +541,8 @@ export default function AnnotatorApp() {
     handleSelectNextInterval,
     handleSelectPrevInterval,
     handleDeleteBoundary,
+    handleUndo,
+    handleRedo,
   ]);
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -651,6 +795,7 @@ export default function AnnotatorApp() {
         setActiveTierIdx(existingTiers.length - 1);
       }
 
+      pushHistory(textGridData);
       setTextGridData({
         min_timestamp: 0,
         max_timestamp: audioMetadata.duration,
@@ -718,6 +863,7 @@ export default function AnnotatorApp() {
         setActiveTierIdx(existingTiers.length - 1);
       }
 
+      pushHistory(textGridData);
       setTextGridData({
         min_timestamp: 0,
         max_timestamp: audioMetadata.duration,
@@ -857,6 +1003,10 @@ export default function AnnotatorApp() {
                 onTogglePitch={handleTogglePitch}
                 onToggleFormants={handleToggleFormants}
                 onChangeDisplayFreq={setMaxDisplayFreq}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
                 onExportTextGrid={handleExportTextGrid}
               />
             </div>
@@ -921,7 +1071,7 @@ export default function AnnotatorApp() {
                       activeTierIdx={activeTierIdx}
                       onSelectTier={setActiveTierIdx}
                       onHoverTimeChange={setHoverTime}
-                      onUpdateTiers={(updated) => setTextGridData({ ...textGridData, tiers: updated })}
+                      onUpdateTiers={handleUpdateTiers}
                       onSelectInterval={(s, e, label) => {
                         setSelection({ start: s, end: e });
                         setSelectedLabel(label || null);
@@ -933,6 +1083,11 @@ export default function AnnotatorApp() {
                       onSelectPrevInterval={handleSelectPrevInterval}
                       onSelectNextInterval={handleSelectNextInterval}
                       onPlaySelection={handlePlaySelection}
+                      canUndo={canUndo}
+                      canRedo={canRedo}
+                      onUndo={handleUndo}
+                      onRedo={handleRedo}
+                      onBoundaryDragStart={() => pushHistory(textGridData)}
                     />
                   )}
                 </div>

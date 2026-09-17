@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Tier, IntervalEntry, PointEntry } from '@/types';
-import { Plus, Trash2, Check, Scissors } from 'lucide-react';
+import { Plus, Trash2, Check, Scissors, Undo2, Redo2 } from 'lucide-react';
 
 const QUICK_IPA_SYMBOLS = [
   { sym: 'ɯ', name: '非円唇後舌狭母音 (日本語「う」)' },
@@ -122,7 +122,7 @@ interface TextGridTimelineProps {
   activeTierIdx: number;
   onSelectTier: (idx: number) => void;
   onHoverTimeChange: (time: number | null) => void;
-  onUpdateTiers: (tiers: Tier[]) => void;
+  onUpdateTiers: (tiers: Tier[], saveHistory?: boolean) => void;
   onSelectInterval: (start: number, end: number, label?: string) => void;
   onSeek?: (time: number) => void;
   onUpdateSelectedLabel?: (label: string) => void;
@@ -131,6 +131,11 @@ interface TextGridTimelineProps {
   onSelectPrevInterval?: () => void;
   onSelectNextInterval?: () => void;
   onPlaySelection?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onBoundaryDragStart?: () => void;
 }
 
 export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
@@ -153,6 +158,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   onSelectPrevInterval,
   onSelectNextInterval,
   onPlaySelection,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
+  onBoundaryDragStart,
 }) => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -219,13 +229,13 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       max_timestamp: duration,
       entries: type === 'interval' ? [{ start: 0, end: duration, label: '' }] : [],
     };
-    onUpdateTiers([...tiers, newTier]);
+    onUpdateTiers([...tiers, newTier], true);
   };
 
   const handleDeleteTier = (idx: number) => {
     const tierName = tiers[idx]?.name;
     if (confirm(`ティア「${tierName}」を削除しますか？`)) {
-      onUpdateTiers(tiers.filter((_, i) => i !== idx));
+      onUpdateTiers(tiers.filter((_, i) => i !== idx), true);
     }
   };
 
@@ -246,7 +256,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       targetTier.entries = entries;
     }
     newTiers[tierIdx] = targetTier;
-    onUpdateTiers(newTiers);
+    onUpdateTiers(newTiers, true);
   };
 
   const handleSplitInterval = (tierIdx: number) => {
@@ -267,7 +277,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
         );
         targetTier.entries = entries;
         newTiers[tierIdx] = targetTier;
-        onUpdateTiers(newTiers);
+        onUpdateTiers(newTiers, true);
       }
     }
   };
@@ -284,12 +294,13 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     targetEntry.label = editingText;
     targetTier.entries[entryIdx] = targetEntry;
     newTiers[tierIdx] = targetTier;
-    onUpdateTiers(newTiers);
+    onUpdateTiers(newTiers, true);
     setEditingKey(null);
   };
 
   const handleBoundaryDragStart = (e: React.PointerEvent, tierIdx: number, entryIdx: number) => {
     e.stopPropagation();
+    onBoundaryDragStart?.();
     const track = e.currentTarget.parentElement?.parentElement;
     if (!track) return;
     const rect = track.getBoundingClientRect();
@@ -321,7 +332,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
         }
         tier.entries = entries;
         updatedTiers[tierIdx] = tier;
-        onUpdateTiers(updatedTiers);
+        onUpdateTiers(updatedTiers, false);
       }
     };
 
@@ -366,7 +377,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
               value={selection ? (selectedLabel ?? '') : ''}
               onChange={(e) => onUpdateSelectedLabel?.(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' || e.key === 'Escape') {
                   e.preventDefault();
                   e.currentTarget.blur();
                 } else if (e.key === 'Tab') {
@@ -469,6 +480,24 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
         </div>
 
         <div className="flex items-center space-x-1.5 text-[11px] text-gray-700">
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium flex items-center transition-opacity"
+            title="元に戻す (Ctrl+Z)"
+          >
+            <Undo2 className="w-3 h-3 mr-0.5" />
+            元に戻す
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium flex items-center transition-opacity"
+            title="やり直す (Ctrl+Y / Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-3 h-3 mr-0.5" />
+            やり直す
+          </button>
           <button
             onClick={onSelectPrevInterval}
             disabled={!selection}

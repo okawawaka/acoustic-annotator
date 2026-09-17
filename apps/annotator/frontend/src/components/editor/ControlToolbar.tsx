@@ -15,6 +15,8 @@ import {
   Activity,
   User,
   Sliders,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -44,6 +46,10 @@ interface ControlToolbarProps {
   onOpenVowelSpaceModal: () => void;
   onTogglePitch: () => void;
   onToggleFormants: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onExportTextGrid: () => void;
 }
 
@@ -59,6 +65,10 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   showFormants,
   maxDisplayFreq,
   maxFormantFreq,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
   onTogglePlay,
   onPlaySelection,
   onToggleLoop,
@@ -152,6 +162,26 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         >
           <SplitSquareVertical className="w-3.5 h-3.5 mr-1 text-gray-600" />
           境界挿入 [Enter]
+        </button>
+
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30 transition-opacity"
+          title="元に戻す (Ctrl+Z)"
+        >
+          <Undo2 className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          元に戻す
+        </button>
+
+        <button
+          onClick={onRedo}
+          disabled={!canRedo}
+          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30 transition-opacity"
+          title="やり直す (Ctrl+Y / Ctrl+Shift+Z)"
+        >
+          <Redo2 className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          やり直す
         </button>
 
         {/* 話者設定 */}
