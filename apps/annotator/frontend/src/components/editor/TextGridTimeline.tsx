@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef } from 'react';
 import { Tier, IntervalEntry, PointEntry } from '@/types';
@@ -10,12 +10,19 @@ interface TextGridTimelineProps {
   currentTime: number;
   viewRange: { start: number; end: number };
   selection: { start: number; end: number } | null;
+  selectedLabel?: string | null;
   hoverTime: number | null;
   activeTierIdx: number;
   onSelectTier: (idx: number) => void;
   onHoverTimeChange: (time: number | null) => void;
   onUpdateTiers: (tiers: Tier[]) => void;
   onSelectInterval: (start: number, end: number, label?: string) => void;
+  onUpdateSelectedLabel?: (label: string) => void;
+  onInsertBoundaryAt?: (time: number) => void;
+  onDeleteBoundary?: () => void;
+  onSelectPrevInterval?: () => void;
+  onSelectNextInterval?: () => void;
+  onPlaySelection?: () => void;
 }
 
 export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
@@ -24,15 +31,23 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   currentTime,
   viewRange,
   selection,
+  selectedLabel,
   hoverTime,
   activeTierIdx,
   onSelectTier,
   onHoverTimeChange,
   onUpdateTiers,
   onSelectInterval,
+  onUpdateSelectedLabel,
+  onInsertBoundaryAt,
+  onDeleteBoundary,
+  onSelectPrevInterval,
+  onSelectNextInterval,
+  onPlaySelection,
 }) => {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const labelInputRef = useRef<HTMLInputElement>(null);
   
   const resizeRef = useRef<{
     tierIdx: number;
@@ -189,6 +204,98 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 
   return (
     <div className="flex flex-col w-full bg-white select-none border-b border-gray-200">
+      {/* Praat-style Quick Label & Operation Bar */}
+      <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-blue-50/60 border-b border-gray-200 text-xs gap-2">
+        <div className="flex items-center space-x-2 flex-1 min-w-[300px]">
+          <span className="text-gray-700 font-semibold whitespace-nowrap text-[11px]">
+            {selection
+              ? `[${tiers[activeTierIdx]?.name || 'Tier'}] ${(selection.end - selection.start).toFixed(3)}s (${Math.round((selection.end - selection.start) * 1000)}ms)`
+              : '区間未選択 (クリックで選択)'}
+          </span>
+          <div className="relative flex-1 max-w-[240px]">
+            <input
+              ref={labelInputRef}
+              type="text"
+              disabled={!selection}
+              value={selection ? (selectedLabel ?? '') : ''}
+              onChange={(e) => onUpdateSelectedLabel?.(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onPlaySelection?.();
+                } else if (e.key === 'Tab') {
+                  e.preventDefault();
+                  if (e.shiftKey) onSelectPrevInterval?.();
+                  else onSelectNextInterval?.();
+                } else if (e.altKey && e.code === 'ArrowRight') {
+                  e.preventDefault();
+                  onSelectNextInterval?.();
+                } else if (e.altKey && e.code === 'ArrowLeft') {
+                  e.preventDefault();
+                  onSelectPrevInterval?.();
+                } else if (e.altKey && (e.code === 'Backspace' || e.code === 'Delete')) {
+                  e.preventDefault();
+                  onDeleteBoundary?.();
+                }
+              }}
+              placeholder={selection ? "ラベル入力 (そのまま入力可)..." : "区間を選択してラベル入力"}
+              className="w-full px-2 py-1 bg-white border border-gray-300 rounded font-sans text-gray-900 text-xs font-semibold outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 disabled:bg-gray-100 disabled:text-gray-400"
+            />
+          </div>
+
+          {/* Quick Vowel Buttons */}
+          {selection && (
+            <div className="flex items-center space-x-1">
+              {['a', 'i', 'u', 'e', 'o', 'ɯ'].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => onUpdateSelectedLabel?.(v)}
+                  className="w-5 h-5 flex items-center justify-center font-bold text-xs bg-white border border-gray-300 hover:bg-blue-100 hover:border-blue-500 hover:text-blue-800 rounded transition-colors shadow-2xs"
+                  title={`ラベルを /${v}/ に設定`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-1.5 text-[11px] text-gray-700">
+          <button
+            onClick={onSelectPrevInterval}
+            disabled={!selection}
+            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium"
+            title="前の区間に移動 (Alt+←)"
+          >
+            ◀ 前 (Alt+←)
+          </button>
+          <button
+            onClick={onPlaySelection}
+            disabled={!selection}
+            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium text-blue-700"
+            title="区間再生 (Tab)"
+          >
+            ▶ 再生 (Tab)
+          </button>
+          <button
+            onClick={onSelectNextInterval}
+            disabled={!selection}
+            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium"
+            title="次の区間に移動 (Alt+→)"
+          >
+            次 (Alt+→) ▶
+          </button>
+          <button
+            onClick={onDeleteBoundary}
+            disabled={!selection}
+            className="px-2 py-0.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded disabled:opacity-30 font-medium"
+            title="境界を削除して直前区間と結合 (Alt+Del)"
+          >
+            境界削除
+          </button>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between px-3 py-1 bg-gray-100 border-b border-gray-200 text-xs">
         <span className="font-semibold text-gray-700">
           TextGrid ティア一覧 ({tiers.length}) - <span className="text-blue-700 font-medium">現在選択中: {tiers[activeTierIdx]?.name || '未選択'}</span>
@@ -299,6 +406,22 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   />
                 )}
 
+                {/* Praat-style Boundary Insert Handle on active tier playhead */}
+                {isActive && showPlayhead && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onInsertBoundaryAt) onInsertBoundaryAt(currentTime);
+                      else handleSplitInterval(tierIdx);
+                    }}
+                    style={{ left: `${timeToPercent(currentTime)}%` }}
+                    className="absolute top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center text-[11px] font-bold shadow z-30 transition-transform hover:scale-125 cursor-pointer"
+                    title="境界を挿入 (Enter)"
+                  >
+                    +
+                  </button>
+                )}
+
                 {tier.tier_type === 'interval' ? (
                   (tier.entries as IntervalEntry[]).map((entry, entryIdx) => {
                     if (entry.end < viewRange.start || entry.start > viewRange.end) return null;
@@ -322,6 +445,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                           e.stopPropagation();
                           onSelectTier(tierIdx);
                           onSelectInterval(entry.start, entry.end, entry.label);
+                          setTimeout(() => labelInputRef.current?.focus(), 30);
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
@@ -411,6 +535,12 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
             </div>
           );
         })}
+      </div>
+
+      {/* Shortcut Legend */}
+      <div className="px-3 py-1 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500 flex flex-wrap items-center justify-between gap-1">
+        <span>Praat 操作: <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Enter</kbd> 境界挿入 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Tab</kbd> 区間再生 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Alt+←/→</kbd> 区間移動 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Alt+Del</kbd> 境界削除 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Space</kbd> 再生/停止</span>
+        <span className="text-blue-700 font-medium">※区間を選択すると上のラベル枠に即時フォーカスされ直接タイピングできます</span>
       </div>
     </div>
   );

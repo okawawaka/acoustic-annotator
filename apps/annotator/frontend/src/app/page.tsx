@@ -210,13 +210,16 @@ export default function AnnotatorApp() {
     setCurrentTime(time);
   };
 
-  const handleInsertBoundary = useCallback(() => {
+  const handleInsertBoundaryAt = useCallback((time?: number) => {
     if (!textGridData || textGridData.tiers.length === 0) return;
     const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
+    const targetTime = time !== undefined ? time : currentTime;
+
+    let newSelectedRange: { start: number; end: number } | null = null;
 
     const newTiers = textGridData.tiers.map((tier, idx) => {
       if (idx === targetIdx && tier.tier_type === 'interval') {
-        const cur = currentTime;
+        const cur = targetTime;
         const entries = [...tier.entries];
         const entryIdx = entries.findIndex(
           (e) => 'start' in e && e.start <= cur && e.end >= cur
@@ -224,12 +227,10 @@ export default function AnnotatorApp() {
         if (entryIdx !== -1) {
           const original = entries[entryIdx] as IntervalEntry;
           if (cur - original.start > 0.01 && original.end - cur > 0.01) {
-            entries.splice(
-              entryIdx,
-              1,
-              { start: original.start, end: cur, label: original.label },
-              { start: cur, end: original.end, label: '' }
-            );
+            const firstPart: IntervalEntry = { start: original.start, end: cur, label: original.label };
+            const secondPart: IntervalEntry = { start: cur, end: original.end, label: '' };
+            entries.splice(entryIdx, 1, firstPart, secondPart);
+            newSelectedRange = { start: cur, end: original.end };
           }
         }
         return { ...tier, entries };
@@ -238,7 +239,125 @@ export default function AnnotatorApp() {
     });
 
     setTextGridData({ ...textGridData, tiers: newTiers });
+    if (newSelectedRange) {
+      setSelection(newSelectedRange);
+      setSelectedLabel('');
+    }
   }, [textGridData, currentTime, activeTierIdx]);
+
+  const handleInsertBoundary = useCallback(() => {
+    handleInsertBoundaryAt();
+  }, [handleInsertBoundaryAt]);
+
+  const handleUpdateSelectedLabel = useCallback((newLabel: string) => {
+    setSelectedLabel(newLabel);
+    if (!textGridData || !selection) return;
+    const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
+    const newTiers = textGridData.tiers.map((tier, idx) => {
+      if (idx === targetIdx && tier.tier_type === 'interval') {
+        const entries = (tier.entries as IntervalEntry[]).map((entry) => {
+          const match = Math.abs(entry.start - selection.start) < 0.005 && Math.abs(entry.end - selection.end) < 0.005;
+          if (match) {
+            return { ...entry, label: newLabel };
+          }
+          return entry;
+        });
+        return { ...tier, entries };
+      }
+      return tier;
+    });
+    setTextGridData({ ...textGridData, tiers: newTiers });
+  }, [textGridData, selection, activeTierIdx]);
+
+  const handleSelectPrevInterval = useCallback(() => {
+    if (!textGridData || textGridData.tiers.length === 0) return;
+    const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
+    const tier = textGridData.tiers[targetIdx];
+    if (tier.tier_type !== 'interval' || tier.entries.length === 0) return;
+    const entries = tier.entries as IntervalEntry[];
+
+    let curIdx = -1;
+    if (selection) {
+      curIdx = entries.findIndex(
+        e => Math.abs(e.start - selection.start) < 0.005 && Math.abs(e.end - selection.end) < 0.005
+      );
+    }
+    if (curIdx === -1) {
+      curIdx = entries.findIndex(e => e.start <= currentTime && e.end >= currentTime);
+    }
+
+    const prevIdx = curIdx > 0 ? curIdx - 1 : entries.length - 1;
+    const prev = entries[prevIdx];
+    setSelection({ start: prev.start, end: prev.end });
+    setSelectedLabel(prev.label || '');
+    handleSeek(prev.start);
+  }, [textGridData, activeTierIdx, selection, currentTime]);
+
+  const handleSelectNextInterval = useCallback(() => {
+    if (!textGridData || textGridData.tiers.length === 0) return;
+    const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
+    const tier = textGridData.tiers[targetIdx];
+    if (tier.tier_type !== 'interval' || tier.entries.length === 0) return;
+    const entries = tier.entries as IntervalEntry[];
+
+    let curIdx = -1;
+    if (selection) {
+      curIdx = entries.findIndex(
+        e => Math.abs(e.start - selection.start) < 0.005 && Math.abs(e.end - selection.end) < 0.005
+      );
+    }
+    if (curIdx === -1) {
+      curIdx = entries.findIndex(e => e.start <= currentTime && e.end >= currentTime);
+    }
+
+    const nextIdx = curIdx >= 0 && curIdx < entries.length - 1 ? curIdx + 1 : 0;
+    const next = entries[nextIdx];
+    setSelection({ start: next.start, end: next.end });
+    setSelectedLabel(next.label || '');
+    handleSeek(next.start);
+  }, [textGridData, activeTierIdx, selection, currentTime]);
+
+  const handleDeleteBoundary = useCallback(() => {
+    if (!textGridData || textGridData.tiers.length === 0 || !selection) return;
+    const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
+    const tier = textGridData.tiers[targetIdx];
+    if (tier.tier_type !== 'interval' || tier.entries.length <= 1) return;
+    const entries = [...(tier.entries as IntervalEntry[])];
+
+    const curIdx = entries.findIndex(
+      e => Math.abs(e.start - selection.start) < 0.005 && Math.abs(e.end - selection.end) < 0.005
+    );
+
+    if (curIdx > 0) {
+      const prev = entries[curIdx - 1];
+      const cur = entries[curIdx];
+      const merged: IntervalEntry = {
+        start: prev.start,
+        end: cur.end,
+        label: prev.label || cur.label,
+      };
+      entries.splice(curIdx - 1, 2, merged);
+
+      const newTiers = textGridData.tiers.map((t, idx) => (idx === targetIdx ? { ...t, entries } : t));
+      setTextGridData({ ...textGridData, tiers: newTiers });
+      setSelection({ start: merged.start, end: merged.end });
+      setSelectedLabel(merged.label || '');
+    } else if (curIdx === 0 && entries.length > 1) {
+      const cur = entries[0];
+      const next = entries[1];
+      const merged: IntervalEntry = {
+        start: cur.start,
+        end: next.end,
+        label: cur.label || next.label,
+      };
+      entries.splice(0, 2, merged);
+
+      const newTiers = textGridData.tiers.map((t, idx) => (idx === targetIdx ? { ...t, entries } : t));
+      setTextGridData({ ...textGridData, tiers: newTiers });
+      setSelection({ start: merged.start, end: merged.end });
+      setSelectedLabel(merged.label || '');
+    }
+  }, [textGridData, activeTierIdx, selection]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -251,16 +370,36 @@ export default function AnnotatorApp() {
         handleTogglePlay();
       } else if (e.code === 'Tab') {
         e.preventDefault();
-        handlePlaySelection();
+        if (e.shiftKey) {
+          handleSelectPrevInterval();
+        } else {
+          handlePlaySelection();
+        }
       } else if (e.code === 'Enter') {
         e.preventDefault();
-        handleInsertBoundary();
+        handleInsertBoundaryAt();
+      } else if (e.altKey && e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleSelectNextInterval();
+      } else if (e.altKey && e.code === 'ArrowLeft') {
+        e.preventDefault();
+        handleSelectPrevInterval();
+      } else if (e.altKey && (e.code === 'Backspace' || e.code === 'Delete')) {
+        e.preventDefault();
+        handleDeleteBoundary();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handlePlaySelection, handleInsertBoundary]);
+  }, [
+    handleTogglePlay,
+    handlePlaySelection,
+    handleInsertBoundaryAt,
+    handleSelectNextInterval,
+    handleSelectPrevInterval,
+    handleDeleteBoundary,
+  ]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (!audioMetadata) return;
@@ -950,6 +1089,7 @@ export default function AnnotatorApp() {
                       currentTime={currentTime}
                       viewRange={viewRange}
                       selection={selection}
+                      selectedLabel={selectedLabel}
                       hoverTime={hoverTime}
                       activeTierIdx={activeTierIdx}
                       onSelectTier={setActiveTierIdx}
@@ -960,6 +1100,12 @@ export default function AnnotatorApp() {
                         setSelectedLabel(label || null);
                         handleSeek(s);
                       }}
+                      onUpdateSelectedLabel={handleUpdateSelectedLabel}
+                      onInsertBoundaryAt={handleInsertBoundaryAt}
+                      onDeleteBoundary={handleDeleteBoundary}
+                      onSelectPrevInterval={handleSelectPrevInterval}
+                      onSelectNextInterval={handleSelectNextInterval}
+                      onPlaySelection={handlePlaySelection}
                     />
                   )}
                 </div>
