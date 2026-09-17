@@ -1,8 +1,115 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Tier, IntervalEntry, PointEntry } from '@/types';
 import { Plus, Trash2, Check, Scissors } from 'lucide-react';
+
+const QUICK_IPA_SYMBOLS = [
+  { sym: 'ɯ', name: '非円唇後舌狭母音 (日本語「う」)' },
+  { sym: 'ə', name: '曖昧母音 (シュワー)' },
+  { sym: 'ː', name: 'IPA長音記号 (三角コロン)' },
+  { sym: '̥', name: '無声音化記号' },
+  { sym: 'ɕ', name: '無声歯茎硬口蓋摩擦音 (「し」子音)' },
+  { sym: 'ʑ', name: '有声歯茎硬口蓋摩擦音 (「じ」子音)' },
+  { sym: 'ç', name: '無声硬口蓋摩擦音 (「ひ」子音)' },
+  { sym: 'ɸ', name: '無声両唇摩擦音 (「ふ」子音)' },
+  { sym: 'ɾ', name: '歯茎はじき音 (「ら行」子音)' },
+  { sym: 'ɴ', name: '口蓋垂鼻音 (語末「ん」)' },
+  { sym: 'ŋ', name: '軟口蓋鼻音 (鼻濁音/ン)' },
+  { sym: 'ɲ', name: '硬口蓋鼻音 (「に」子音)' },
+  { sym: 'ʔ', name: '声門破裂音 (促音/語頭)' },
+  { sym: 't͡ɕ', name: '無声歯茎硬口蓋破擦音 (「ち」)' },
+  { sym: 'd͡ʑ', name: '有声歯茎硬口蓋破擦音 (「じ」)' },
+  { sym: 't͡s', name: '無声歯茎破擦音 (「つ」)' },
+];
+
+const IPA_CATEGORIES: { category: string; symbols: { sym: string; name: string }[] }[] = [
+  {
+    category: '日本語・高頻度',
+    symbols: [
+      { sym: 'ɯ', name: '非円唇後舌狭母音 (う)' },
+      { sym: 'ə', name: '曖昧母音 (シュワー)' },
+      { sym: 'ː', name: 'IPA長音記号 (三角コロン)' },
+      { sym: '̥', name: '無声音化記号' },
+      { sym: 'ɕ', name: '無声歯茎硬口蓋摩擦音 (シ)' },
+      { sym: 'ʑ', name: '有声歯茎硬口蓋摩擦音 (ジ)' },
+      { sym: 'ç', name: '無声硬口蓋摩擦音 (ヒ)' },
+      { sym: 'ɸ', name: '無声両唇摩擦音 (フ)' },
+      { sym: 'ɾ', name: '歯茎はじき音 (ラ行)' },
+      { sym: 'ɴ', name: '口蓋垂鼻音 (語末ン)' },
+      { sym: 'ŋ', name: '軟口蓋鼻音 (鼻濁音)' },
+      { sym: 'ɲ', name: '硬口蓋鼻音 (ニ)' },
+      { sym: 'ʔ', name: '声門破裂音 (促音)' },
+      { sym: 't͡ɕ', name: '無声歯茎硬口蓋破擦音 (チ)' },
+      { sym: 'd͡ʑ', name: '有声歯茎硬口蓋破擦音 (ジ)' },
+      { sym: 't͡s', name: '無声歯茎破擦音 (ツ)' },
+      { sym: 'd͡z', name: '有声歯茎破擦音 (ズ)' },
+      { sym: 'β', name: '有声両唇摩擦音' },
+      { sym: 'ɣ', name: '有声軟口蓋摩擦音' },
+    ],
+  },
+  {
+    category: '母音',
+    symbols: [
+      { sym: 'ɯ', name: '非円唇後舌狭母音' },
+      { sym: 'ə', name: '曖昧母音 (シュワー)' },
+      { sym: 'ɪ', name: '準狭準前舌母音' },
+      { sym: 'ʊ', name: '準狭準後舌母音' },
+      { sym: 'ɛ', name: '半広前舌母音 (開いたエ)' },
+      { sym: 'ɔ', name: '半広後舌母音 (開いたオ)' },
+      { sym: 'æ', name: '準広前舌母音' },
+      { sym: 'ɑ', name: '非円唇後舌広母音' },
+      { sym: 'ʌ', name: '非円唇後舌半広母音' },
+      { sym: 'ɤ', name: '非円唇後舌半狭母音' },
+      { sym: 'ɨ', name: '非円唇中舌狭母音' },
+      { sym: 'ʉ', name: '円唇中舌狭母音' },
+      { sym: 'y', name: '円唇前舌狭母音' },
+      { sym: 'ø', name: '円唇前舌半狭母音' },
+      { sym: 'œ', name: '円唇前舌半広母音' },
+      { sym: 'ɒ', name: '円唇後舌広母音' },
+    ],
+  },
+  {
+    category: '子音',
+    symbols: [
+      { sym: 'ɕ', name: '無声歯茎硬口蓋摩擦音' },
+      { sym: 'ʑ', name: '有声歯茎硬口蓋摩擦音' },
+      { sym: 'ç', name: '無声硬口蓋摩擦音' },
+      { sym: 'ɸ', name: '無声両唇摩擦音' },
+      { sym: 'β', name: '有声両唇摩擦音' },
+      { sym: 'ɾ', name: '歯茎はじき音' },
+      { sym: 'ɹ', name: '歯茎接近音' },
+      { sym: 'ɴ', name: '口蓋垂鼻音' },
+      { sym: 'ŋ', name: '軟口蓋鼻音' },
+      { sym: 'ɲ', name: '硬口蓋鼻音' },
+      { sym: 'ɱ', name: '唇歯鼻音' },
+      { sym: 'ʔ', name: '声門破裂音' },
+      { sym: 'θ', name: '無声歯摩擦音' },
+      { sym: 'ð', name: '有声歯摩擦音' },
+      { sym: 'ʃ', name: '無声後部歯茎摩擦音' },
+      { sym: 'ʒ', name: '有声後部歯茎摩擦音' },
+      { sym: 'χ', name: '無声口蓋垂摩擦音' },
+      { sym: 'ʁ', name: '有声口蓋垂摩擦音' },
+      { sym: 'ɣ', name: '有声軟口蓋摩擦音' },
+    ],
+  },
+  {
+    category: '補助・記号',
+    symbols: [
+      { sym: 'ː', name: 'IPA長音記号 (三角コロン)' },
+      { sym: 'ˑ', name: '半長音' },
+      { sym: '̥', name: '無声音化記号' },
+      { sym: '̬', name: '有声音化記号' },
+      { sym: '̃', name: '鼻音化記号' },
+      { sym: 'ʰ', name: '有気音' },
+      { sym: 'ʲ', name: '口蓋化' },
+      { sym: 'ʷ', name: '唇音化' },
+      { sym: 'ˈ', name: '第1強勢' },
+      { sym: 'ˌ', name: '第2強勢' },
+      { sym: '.', name: '音節境界' },
+    ],
+  },
+];
 
 interface TextGridTimelineProps {
   tiers: Tier[];
@@ -48,6 +155,43 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const [showIpaPalette, setShowIpaPalette] = useState(false);
+  const [activeIpaTab, setActiveIpaTab] = useState(0);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) {
+        setShowIpaPalette(false);
+      }
+    };
+    if (showIpaPalette) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showIpaPalette]);
+
+  const handleInsertChar = (char: string) => {
+    if (!selection) return;
+    const input = labelInputRef.current;
+    if (!input) {
+      onUpdateSelectedLabel?.((selectedLabel ?? '') + char);
+      return;
+    }
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const currentVal = input.value;
+    const nextVal = currentVal.substring(0, start) + char + currentVal.substring(end);
+    onUpdateSelectedLabel?.(nextVal);
+
+    setTimeout(() => {
+      input.focus();
+      const newPos = start + char.length;
+      input.setSelectionRange(newPos, newPos);
+    }, 10);
+  };
   
   const resizeRef = useRef<{
     tierIdx: number;
@@ -243,19 +387,81 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
             />
           </div>
 
-          {/* Quick Vowel Buttons */}
+          {/* Quick IPA Buttons (Hard-to-type & High-frequency) */}
           {selection && (
-            <div className="flex items-center space-x-1">
-              {['a', 'i', 'u', 'e', 'o', 'ɯ'].map((v) => (
+            <div className="flex items-center space-x-1 flex-wrap gap-y-1">
+              <span className="text-[10px] text-gray-500 font-semibold ml-1 mr-0.5 whitespace-nowrap">IPA:</span>
+              {QUICK_IPA_SYMBOLS.map(({ sym, name }) => (
                 <button
-                  key={v}
-                  onClick={() => onUpdateSelectedLabel?.(v)}
-                  className="w-5 h-5 flex items-center justify-center font-bold text-xs bg-white border border-gray-300 hover:bg-blue-100 hover:border-blue-500 hover:text-blue-800 rounded transition-colors shadow-2xs"
-                  title={`ラベルを /${v}/ に設定`}
+                  key={sym}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleInsertChar(sym)}
+                  className="px-1.5 h-5 min-w-[20px] flex items-center justify-center font-sans text-[12px] font-semibold bg-white border border-gray-300 hover:bg-blue-100 hover:border-blue-500 hover:text-blue-800 rounded transition-colors shadow-2xs"
+                  title={`${sym} : ${name} (クリックでカーソル位置に挿入)`}
                 >
-                  {v}
+                  {sym}
                 </button>
               ))}
+
+              {/* Full IPA Palette Dropdown */}
+              <div className="relative" ref={paletteRef}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowIpaPalette(!showIpaPalette)}
+                  className={`px-1.5 h-5 flex items-center space-x-0.5 text-[11px] border rounded font-medium transition-colors shadow-2xs ${
+                    showIpaPalette
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
+                  }`}
+                  title="全IPA記号パレットを開く"
+                >
+                  <span>一覧</span>
+                  <span className="text-[9px]">▼</span>
+                </button>
+
+                {showIpaPalette && (
+                  <div className="absolute left-0 top-full mt-1 w-80 bg-white rounded-lg shadow-xl border border-gray-300 z-50 p-2.5 text-xs">
+                    <div className="flex border-b border-gray-200 mb-2 gap-1 pb-1 overflow-x-auto">
+                      {IPA_CATEGORIES.map((cat, idx) => (
+                        <button
+                          key={cat.category}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => setActiveIpaTab(idx)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap transition-colors ${
+                            activeIpaTab === idx
+                              ? 'bg-blue-600 text-white font-semibold'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {cat.category}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto p-1">
+                      {IPA_CATEGORIES[activeIpaTab].symbols.map(({ sym, name }) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleInsertChar(sym)}
+                          className="h-8 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 hover:bg-blue-100 hover:border-blue-400 hover:text-blue-800 rounded font-sans text-sm font-semibold transition-colors"
+                          title={`${sym} : ${name} (クリックで挿入)`}
+                        >
+                          <span>{sym}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-2 pt-1.5 border-t border-gray-200 text-[10px] text-gray-400 text-center">
+                      クリックすると現在のカーソル位置に直接挿入されます
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -540,7 +746,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       {/* Shortcut Legend */}
       <div className="px-3 py-1 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500 flex flex-wrap items-center justify-between gap-1">
         <span>Praat 操作: <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Enter</kbd> 境界挿入 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Tab</kbd> 区間再生 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Alt+←/→</kbd> 区間移動 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Alt+Del</kbd> 境界削除 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Space</kbd> 再生/停止</span>
-        <span className="text-blue-700 font-medium">※区間を選択すると上のラベル枠に即時フォーカスされ直接タイピングできます</span>
+        <span className="text-blue-700 font-medium">※IPAボタンでキーボード入力困難な音声記号（ɯ, ə, ɕ, ʑ, ç, ɸ, ɾ, ɴ, ŋ, ː 等）をワンクリック挿入可能</span>
       </div>
     </div>
   );
