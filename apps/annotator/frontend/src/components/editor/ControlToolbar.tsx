@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import {
@@ -260,9 +260,10 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           onClick={onOpenASRModal}
           disabled={!hasAudio}
           className="flex items-center px-2.5 py-1 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white font-medium disabled:opacity-30 transition-colors"
+          title="Praat同様の無音自動検出(VAD)またはAI自動文字起こし"
         >
           <Mic className="w-3.5 h-3.5 mr-1" />
-          自動文字起こし
+          自動区間分割 / 文字起こし
         </button>
 
         <button

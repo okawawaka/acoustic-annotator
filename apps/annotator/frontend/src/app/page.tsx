@@ -791,6 +791,10 @@ export default function AnnotatorApp() {
           }
         };
 
+        recognition.onerror = (event: any) => {
+          console.warn('SpeechRecognition error:', event.error);
+        };
+
         recognition.onend = () => {
           if (capturedUtterances.length > 0) {
             const entries: IntervalEntry[] = [];
@@ -821,15 +825,51 @@ export default function AnnotatorApp() {
               tiers: existingTiers,
             });
             setActiveTierIdx(existingTiers.length - 1);
+          } else {
+            // FALLBACK: When mic didn't capture speech (e.g. headphones, echo cancellation)
+            if (audioBuffer) {
+              const channelData = audioBuffer.getChannelData(0);
+              const sr = audioBuffer.sampleRate;
+              const speechSegments = computeAcousticVAD(channelData, sr, {
+                minSilenceDuration: params.minSilenceDuration || 0.25,
+              });
+              const contiguousIntervals = createContiguousIntervalsFromSpeechSegments(
+                speechSegments,
+                audioMetadata.duration,
+                []
+              );
+              const fallbackTier = {
+                name: params.tierName || 'Speech',
+                tier_type: 'interval' as const,
+                min_timestamp: 0,
+                max_timestamp: audioMetadata.duration,
+                entries: contiguousIntervals,
+              };
+              const existingTiers = textGridData ? [...textGridData.tiers, fallbackTier] : [fallbackTier];
+              setTextGridData({
+                min_timestamp: 0,
+                max_timestamp: audioMetadata.duration,
+                tiers: existingTiers,
+              });
+              setActiveTierIdx(existingTiers.length - 1);
+              alert(
+                'マイクから音声を検出できませんでした。\n（イヤホン装着時やノイズキャンセル機能により、スピーカーの音がマイクに届いていない可能性があります）\n\n代わりに音響エネルギー（VAD）による発話・無音区間の自動検出を実行し、TextGrid 区間を作成しました。'
+              );
+            }
           }
         };
 
-        recognition.start();
-        setIsASRModalOpen(false);
         if (audioRef.current) {
+          audioRef.current.onended = () => {
+            try {
+              recognition.stop();
+            } catch {}
+          };
           audioRef.current.play();
           setIsPlaying(true);
         }
+        recognition.start();
+        setIsASRModalOpen(false);
       }
     } catch (err: any) {
       alert(`自動文字起こしエラー: ${err.message}`);

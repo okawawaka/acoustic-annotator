@@ -102,22 +102,25 @@ export const ASRModal: React.FC<ASRModalProps> = ({
           {/* Mode Selection */}
           <div>
             <label className="block font-medium text-gray-700 mb-1.5">処理エンジンの選択</label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5 pt-1">
               <button
                 type="button"
                 onClick={() => {
                   setMode('vad');
                   if (tierName === 'Whisper') setTierName('Speech');
                 }}
-                className={`py-2 px-2 rounded border text-left flex flex-col items-center justify-center transition-colors ${
+                className={`py-2.5 px-2 rounded border text-left flex flex-col items-center justify-center transition-colors relative ${
                   mode === 'vad'
-                    ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold'
+                    ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold ring-1 ring-blue-500'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
+                <span className="absolute -top-2 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-xs">
+                  おすすめ・一番手軽
+                </span>
                 <Cpu className="w-4 h-4 mb-1 text-blue-600" />
-                <span className="text-[11px] leading-tight">音響VAD分割</span>
-                <span className="text-[9px] text-gray-600 font-normal">オフライン・即時</span>
+                <span className="text-[11px] leading-tight font-semibold">音響VAD分割</span>
+                <span className="text-[9px] text-gray-500 font-normal">API不要・即時</span>
               </button>
 
               <button
@@ -126,38 +129,39 @@ export const ASRModal: React.FC<ASRModalProps> = ({
                   setMode('whisper_api');
                   if (tierName === 'Speech') setTierName('Whisper');
                 }}
-                className={`py-2 px-2 rounded border text-left flex flex-col items-center justify-center transition-colors ${
+                className={`py-2.5 px-2 rounded border text-left flex flex-col items-center justify-center transition-colors ${
                   mode === 'whisper_api'
-                    ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold'
+                    ? 'bg-purple-50 border-purple-600 text-purple-900 font-semibold'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <Cloud className="w-4 h-4 mb-1 text-purple-600" />
                 <span className="text-[11px] leading-tight">Whisper API</span>
-                <span className="text-[9px] text-gray-600 font-normal">OpenAIクラウド</span>
+                <span className="text-[9px] text-gray-500 font-normal">要 API Key</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setMode('web_speech')}
-                className={`py-2 px-2 rounded border text-left flex flex-col items-center justify-center transition-colors ${
+                className={`py-2.5 px-2 rounded border text-left flex flex-col items-center justify-center transition-colors ${
                   mode === 'web_speech'
-                    ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold'
+                    ? 'bg-emerald-50 border-emerald-600 text-emerald-900 font-semibold'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <Radio className="w-4 h-4 mb-1 text-emerald-600" />
                 <span className="text-[11px] leading-tight">Web Speech</span>
-                <span className="text-[9px] text-gray-600 font-normal">ブラウザ認識</span>
+                <span className="text-[9px] text-gray-500 font-normal">マイク認識</span>
               </button>
             </div>
           </div>
 
           {/* Engine Specific Configuration */}
           {mode === 'vad' && (
-            <div className="space-y-2.5 p-2.5 bg-gray-50 rounded border border-gray-200">
-              <div className="text-[11px] text-gray-600 leading-relaxed">
-                Praat標準の <code className="bg-white px-1 py-0.5 rounded border border-gray-300">To TextGrid (silences)</code> と同様に、音響波形エネルギーから無音・発話区間を瞬時に自動検出してティアを作成します。
+            <div className="space-y-2.5 p-2.5 bg-blue-50/40 rounded border border-blue-200">
+              <div className="text-[11px] text-blue-900 leading-relaxed">
+                <span className="font-semibold">【APIキー・マイク・外部通信すべて不要】</span><br />
+                Praat の標準機能 <code className="bg-white px-1 py-0.5 rounded border border-blue-200">To TextGrid (silences)</code> と同様に、音声波形エネルギーから「声が出ている部分」と「無音（ポーズ）」を一瞬で自動検出して TextGrid 区間を作成します。
               </div>
 
               <div>
@@ -249,10 +253,12 @@ export const ASRModal: React.FC<ASRModalProps> = ({
           )}
 
           {mode === 'web_speech' && (
-            <div className="p-2.5 bg-gray-50 rounded border border-gray-200 text-[11px] text-gray-600 space-y-2">
-              <div>
-                ブラウザ（Google ChromeまたはEdge推奨）の標準マイク音声認識を使用します。
-                開始ボタンを押すと音声を再生しながら自動認識を行います。
+            <div className="p-2.5 bg-amber-50/60 rounded border border-amber-200 text-[11px] text-gray-700 space-y-2">
+              <div className="font-semibold text-amber-900">
+                ⚠️ マイク入力に関する注意事項:
+              </div>
+              <div className="text-gray-600 leading-relaxed">
+                ブラウザの標準マイク認識を使用します。イヤホン装着時やノイズキャンセル機能がある場合、スピーカーの音がマイクに届かず文字起こしがスキップされます。外部通信・マイク不要で確実に区間を作成したい場合は、上の「音響VAD分割」をご利用ください。
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-gray-700 mb-1">認識言語</label>
