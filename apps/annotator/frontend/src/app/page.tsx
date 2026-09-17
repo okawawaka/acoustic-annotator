@@ -925,8 +925,8 @@ export default function AnnotatorApp() {
                       onSelectInterval={(s, e, label) => {
                         setSelection({ start: s, end: e });
                         setSelectedLabel(label || null);
-                        handleSeek(s);
                       }}
+                      onSeek={handleSeek}
                       onUpdateSelectedLabel={handleUpdateSelectedLabel}
                       onInsertBoundaryAt={handleInsertBoundaryAt}
                       onDeleteBoundary={handleDeleteBoundary}

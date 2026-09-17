@@ -124,6 +124,7 @@ interface TextGridTimelineProps {
   onHoverTimeChange: (time: number | null) => void;
   onUpdateTiers: (tiers: Tier[]) => void;
   onSelectInterval: (start: number, end: number, label?: string) => void;
+  onSeek?: (time: number) => void;
   onUpdateSelectedLabel?: (label: string) => void;
   onInsertBoundaryAt?: (time: number) => void;
   onDeleteBoundary?: () => void;
@@ -145,6 +146,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   onHoverTimeChange,
   onUpdateTiers,
   onSelectInterval,
+  onSeek,
   onUpdateSelectedLabel,
   onInsertBoundaryAt,
   onDeleteBoundary,
@@ -366,7 +368,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  onPlaySelection?.();
+                  e.currentTarget.blur();
                 } else if (e.key === 'Tab') {
                   e.preventDefault();
                   if (e.shiftKey) onSelectPrevInterval?.();
@@ -382,7 +384,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   onDeleteBoundary?.();
                 }
               }}
-              placeholder={selection ? "ラベル入力 (そのまま入力可)..." : "区間を選択してラベル入力"}
+              placeholder={selection ? "ラベル (クリックで編集)..." : "区間を選択"}
               className="w-full px-2 py-1 bg-white border border-gray-300 rounded font-sans text-gray-900 text-xs font-semibold outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 disabled:bg-gray-100 disabled:text-gray-400"
             />
           </div>
@@ -595,6 +597,14 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 className="relative flex-1 h-full bg-white overflow-hidden cursor-crosshair"
                 onPointerMove={handleTrackPointerMove}
                 onPointerLeave={() => onHoverTimeChange(null)}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.clientX - rect.left;
+                  const ratio = rect.width > 0 ? Math.max(0, Math.min(1, clickX / rect.width)) : 0;
+                  const clickTime = roundTime(viewRange.start + ratio * viewSpan);
+                  onSelectTier(tierIdx);
+                  onSeek?.(clickTime);
+                }}
               >
                 {/* Synchronized Hover Hairline */}
                 {showHover && hoverPercent !== null && (
@@ -649,9 +659,13 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const clickX = e.clientX - rect.left;
+                          const ratio = rect.width > 0 ? Math.max(0, Math.min(1, clickX / rect.width)) : 0;
+                          const clickTime = roundTime(entry.start + ratio * (entry.end - entry.start));
                           onSelectTier(tierIdx);
                           onSelectInterval(entry.start, entry.end, entry.label);
-                          setTimeout(() => labelInputRef.current?.focus(), 30);
+                          onSeek?.(clickTime);
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
