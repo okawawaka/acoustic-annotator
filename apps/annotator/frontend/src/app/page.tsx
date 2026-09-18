@@ -23,7 +23,7 @@ import { extractPeaksFromAudioFile, audioBufferToWavBlob } from '@/lib/audioUtil
 import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
-import { Upload, Music, FileText } from 'lucide-react';
+import { Upload, Music, FileText, FolderOpen } from 'lucide-react';
 
 interface HistorySnapshot {
   textGridData: TextGridData;
@@ -70,8 +70,7 @@ export default function AnnotatorApp() {
   const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
-  const textGridInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Undo / Redo History State
   const historyRef = useRef<HistorySnapshot[]>([]);
@@ -585,114 +584,143 @@ export default function AnnotatorApp() {
     setViewRange({ start: 0, end: audioMetadata.duration });
   };
 
-  // 音声ファイルの読み込み（完全ブラウザ内処理: サーバー不要）
-  const processAudioFile = async (file: File) => {
-    try {
-      const objectUrl = URL.createObjectURL(file);
-      setLocalAudioUrl(objectUrl);
+  // TextGrid の読み込み（完全ブラウザ内処理: UTF-16LE/BE, UTF-8, Shift-JIS自動判定）
+  const parseTextGridFromFile = async (file: File): Promise<TextGridData> => {
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let text = '';
 
-      // Web Audio API で AudioBuffer をデコード
-      const arrayBuffer = await file.arrayBuffer();
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      setAudioBuffer(decodedBuffer);
+    if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+      text = new TextDecoder('utf-16le').decode(buf);
+    } else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+      text = new TextDecoder('utf-16be').decode(buf);
+    } else if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      text = new TextDecoder('utf-8').decode(buf);
+    } else {
+      // Windows Praat で作成された BOM無しの UTF-16LE 検出（奇数バイトに \0 が多い場合）
+      let nullCount = 0;
+      for (let i = 1; i < Math.min(bytes.length, 100); i += 2) {
+        if (bytes[i] === 0) nullCount++;
+      }
+      if (nullCount > 20) {
+        text = new TextDecoder('utf-16le').decode(buf);
+      } else {
+        try {
+          text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+        } catch {
+          try {
+            text = new TextDecoder('shift-jis').decode(buf);
+          } catch {
+            text = new TextDecoder('utf-8').decode(buf);
+          }
+        }
+      }
+    }
 
-      const duration = decodedBuffer.duration;
-      const { peaks, sampleRate } = await extractPeaksFromAudioFile(file);
+    return parseTextGridClient(text);
+  };
 
-      const localMeta: AudioMetadata = {
-        audio_id: 'local_' + Date.now(),
-        filename: file.name,
-        duration: duration,
-        sample_rate: sampleRate,
-        channels: 1,
-        peaks: peaks,
-      };
-      setAudioMetadata(localMeta);
-      setViewRange({ start: 0, end: Math.min(10, duration) });
+  // 音声およびTextGridの一括／個別読み込みハンドラー
+  const handleBatchFiles = async (files: File[]) => {
+    if (files.length === 0) return;
 
-      // 既にTextGridが読み込まれている場合はユーザーのTextGridデータを尊重・維持
+    const audioFile = files.find((f) => {
+      const lower = f.name.toLowerCase();
+      return f.type.startsWith('audio/') || !!lower.match(/\.(wav|mp3|ogg|flac|m4a|aac)$/);
+    });
+
+    const textGridFile = files.find((f) => f.name.toLowerCase().endsWith('.textgrid'));
+
+    if (!audioFile && !textGridFile) {
+      alert('対応する音声ファイル（.wav, .mp3 等）または TextGrid ファイル（.TextGrid）を選択してください。');
+      return;
+    }
+
+    let loadedDuration = audioMetadata?.duration || 0;
+
+    // 1. 音声ファイルが指定されている場合は先に読み込み・解析
+    if (audioFile) {
+      try {
+        const objectUrl = URL.createObjectURL(audioFile);
+        setLocalAudioUrl(objectUrl);
+
+        // Web Audio API で AudioBuffer をデコード
+        const arrayBuffer = await audioFile.arrayBuffer();
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        setAudioBuffer(decodedBuffer);
+
+        loadedDuration = decodedBuffer.duration;
+        const { peaks, sampleRate } = await extractPeaksFromAudioFile(audioFile);
+
+        const localMeta: AudioMetadata = {
+          audio_id: 'local_' + Date.now(),
+          filename: audioFile.name,
+          duration: loadedDuration,
+          sample_rate: sampleRate,
+          channels: 1,
+          peaks: peaks,
+        };
+        setAudioMetadata(localMeta);
+        setViewRange({ start: 0, end: Math.min(10, loadedDuration) });
+
+        // ブラウザ内音響解析エンジンで F0, Formants, Spectrogram を即時生成
+        const analysis = await analyzeAudioClient(decodedBuffer, maxFormantFreq);
+        setAnalysisData(analysis);
+      } catch (err: any) {
+        alert(`音声の読み込みに失敗しました: ${err.message}`);
+        return;
+      }
+    }
+
+    // 2. TextGridファイルが指定されている場合は読み込んで適用
+    if (textGridFile) {
+      try {
+        const tg = await parseTextGridFromFile(textGridFile);
+        historyRef.current = [];
+        futureRef.current = [];
+        updateUndoRedoState();
+        setTextGridData(tg);
+        setActiveTierIdx(0);
+
+        // 音声がまだ開かれていない場合、ダミーメタデータを生成してTextGridエディタを表示
+        if (!audioFile && !audioMetadata) {
+          const dur = tg.max_timestamp > 0 ? tg.max_timestamp : 5.0;
+          const dummyMeta: AudioMetadata = {
+            audio_id: 'tg_only_' + Date.now(),
+            filename: textGridFile.name.replace(/\.[^/.]+$/, ''),
+            duration: dur,
+            sample_rate: 44100,
+            channels: 1,
+            peaks: new Array(1000).fill(0),
+          };
+          setAudioMetadata(dummyMeta);
+          setViewRange({ start: 0, end: Math.min(10, dur) });
+        }
+      } catch (err: any) {
+        alert(`TextGrid解析エラー: ${err.message}`);
+      }
+    } else if (audioFile) {
+      // 音声のみ読み込まれ、TextGridがまだ無い（または空のデフォルトのみ）場合は初期Wordティアを作成
       if (!textGridData || textGridData.tiers.length === 0 || (textGridData.tiers.length === 1 && textGridData.tiers[0].entries.length <= 1 && !textGridData.tiers[0].entries[0]?.label)) {
+        historyRef.current = [];
+        futureRef.current = [];
+        updateUndoRedoState();
         setTextGridData({
           min_timestamp: 0,
-          max_timestamp: duration,
+          max_timestamp: loadedDuration,
           tiers: [
             {
               name: 'Word',
               tier_type: 'interval',
               min_timestamp: 0,
-              max_timestamp: duration,
-              entries: [{ start: 0, end: duration, label: '' }],
+              max_timestamp: loadedDuration,
+              entries: [{ start: 0, end: loadedDuration, label: '' }],
             },
           ],
         });
         setActiveTierIdx(0);
       }
-
-      // ブラウザ内音響解析エンジンで F0, Formants, Spectrogram を即時生成
-      const analysis = await analyzeAudioClient(decodedBuffer, maxFormantFreq);
-      setAnalysisData(analysis);
-    } catch (err: any) {
-      alert(`音声の読み込みに失敗しました: ${err.message}`);
-    }
-  };
-
-  // TextGrid の読み込み（完全ブラウザ内処理: UTF-16LE/BE, UTF-8, Shift-JIS自動判定）
-  const processTextGridFile = async (file: File) => {
-    try {
-      const buf = await file.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let text = '';
-
-      if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-        text = new TextDecoder('utf-16le').decode(buf);
-      } else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-        text = new TextDecoder('utf-16be').decode(buf);
-      } else if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-        text = new TextDecoder('utf-8').decode(buf);
-      } else {
-        // Windows Praat で作成された BOM無しの UTF-16LE 検出（奇数バイトに \0 が多い場合）
-        let nullCount = 0;
-        for (let i = 1; i < Math.min(bytes.length, 100); i += 2) {
-          if (bytes[i] === 0) nullCount++;
-        }
-        if (nullCount > 20) {
-          text = new TextDecoder('utf-16le').decode(buf);
-        } else {
-          try {
-            text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
-          } catch {
-            try {
-              text = new TextDecoder('shift-jis').decode(buf);
-            } catch {
-              text = new TextDecoder('utf-8').decode(buf);
-            }
-          }
-        }
-      }
-
-      const tg = parseTextGridClient(text);
-      setTextGridData(tg);
-      setActiveTierIdx(0);
-
-      // 音声がまだ開かれていない場合でも、ダミーのタイムラインを生成して直ちにTextGridエディタを表示
-      if (!audioMetadata) {
-        const dur = tg.max_timestamp > 0 ? tg.max_timestamp : 5.0;
-        const dummyMeta: AudioMetadata = {
-          audio_id: 'tg_only_' + Date.now(),
-          filename: file.name.replace(/\.[^/.]+$/, ''),
-          duration: dur,
-          sample_rate: 44100,
-          channels: 1,
-          peaks: new Array(1000).fill(0),
-        };
-        setAudioMetadata(dummyMeta);
-        setViewRange({ start: 0, end: Math.min(10, dur) });
-      } else {
-        setViewRange({ start: 0, end: Math.min(10, audioMetadata.duration) });
-      }
-    } catch (err: any) {
-      alert(`TextGrid解析エラー: ${err.message}`);
     }
   };
 
@@ -702,27 +730,12 @@ export default function AnnotatorApp() {
     setIsDraggingFile(false);
 
     const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-
-    for (const file of files) {
-      const lower = file.name.toLowerCase();
-      if (lower.endsWith('.textgrid')) {
-        processTextGridFile(file);
-      } else if (file.type.startsWith('audio/') || lower.match(/\.(wav|mp3|ogg|flac|m4a|aac)$/)) {
-        processAudioFile(file);
-      }
-    }
+    if (files.length > 0) handleBatchFiles(files);
   };
 
-  const handleAudioInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processAudioFile(file);
-    e.target.value = '';
-  };
-
-  const handleTextGridInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processTextGridFile(file);
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) handleBatchFiles(files);
     e.target.value = '';
   };
 
@@ -903,24 +916,18 @@ export default function AnnotatorApp() {
       )}
 
       <input
-        ref={audioInputRef}
+        ref={fileInputRef}
         type="file"
-        accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a"
+        multiple
+        accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a,.aac,.TextGrid,.textgrid"
         className="hidden"
-        onChange={handleAudioInput}
-      />
-      <input
-        ref={textGridInputRef}
-        type="file"
-        accept=".TextGrid,.textgrid"
-        className="hidden"
-        onChange={handleTextGridInput}
+        onChange={handleFileInput}
       />
 
       {isDraggingFile && (
         <div className="fixed inset-0 z-50 bg-blue-50/80 border-2 border-dashed border-blue-500 flex items-center justify-center pointer-events-none">
           <div className="bg-white px-6 py-4 rounded-lg shadow-lg border border-blue-200 text-sm font-semibold text-blue-700">
-            音声ファイルまたはTextGridをここにドロップ
+            音声ファイルまたはTextGridをここにドロップ（同時ドロップ対応）
           </div>
         </div>
       )}
@@ -938,18 +945,12 @@ export default function AnnotatorApp() {
 
         <div className="flex items-center space-x-2 text-xs">
           <button
-            onClick={() => audioInputRef.current?.click()}
-            className="flex items-center px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center px-2.5 py-1 rounded border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-800 font-medium shadow-2xs transition-colors"
+            title="音声ファイル（.wav 等）や TextGrid を開きます（同時に複数選択可能）"
           >
-            <Music className="w-3.5 h-3.5 mr-1" />
-            音声を開く
-          </button>
-          <button
-            onClick={() => textGridInputRef.current?.click()}
-            className="flex items-center px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
-          >
-            <FileText className="w-3.5 h-3.5 mr-1" />
-            TextGridを開く
+            <FolderOpen className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+            ファイルを開く
           </button>
         </div>
       </header>
@@ -1105,12 +1106,15 @@ export default function AnnotatorApp() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white">
             <div
-              onClick={() => audioInputRef.current?.click()}
-              className="p-8 border border-dashed border-gray-300 hover:border-gray-500 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100/60 transition-colors flex flex-col items-center max-w-xs w-full"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-8 border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/40 rounded-lg cursor-pointer bg-gray-50 transition-colors flex flex-col items-center max-w-sm w-full group"
             >
-              <Upload className="w-7 h-7 text-gray-400 mb-2" />
-              <div className="text-xs font-medium text-gray-800 mb-0.5">音声ファイルを読み込む</div>
-              <div className="text-[11px] text-gray-400">クリックまたはドラッグ＆ドロップ</div>
+              <FolderOpen className="w-8 h-8 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
+              <div className="text-sm font-semibold text-gray-800 mb-1">ファイルを開く</div>
+              <div className="text-xs text-gray-500 text-center leading-relaxed">
+                クリックまたはドラッグ＆ドロップ<br />
+                <span className="text-[11px] text-gray-400">（音声ファイルと TextGrid を同時に開けます）</span>
+              </div>
             </div>
           </div>
         )}
