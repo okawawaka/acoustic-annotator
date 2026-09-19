@@ -10,6 +10,7 @@ import { AcousticInspector } from '@/components/editor/AcousticInspector';
 import { ASRModal, ASRModalRunParams } from '@/components/editor/ASRModal';
 import { CustomTextModal } from '@/components/editor/CustomTextModal';
 import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
+import { RecordModal } from '@/components/editor/RecordModal';
 import {
   AudioMetadata,
   TextGridData,
@@ -23,7 +24,7 @@ import { extractPeaksFromAudioFile, audioBufferToWavBlob } from '@/lib/audioUtil
 import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
-import { Upload, Music, FileText, FolderOpen } from 'lucide-react';
+import { Upload, Music, FileText, FolderOpen, Mic } from 'lucide-react';
 
 interface HistorySnapshot {
   textGridData: TextGridData;
@@ -64,6 +65,7 @@ export default function AnnotatorApp() {
   const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState(false);
   const [isCustomTextLoading, setIsCustomTextLoading] = useState(false);
   const [isVowelSpaceModalOpen, setIsVowelSpaceModalOpen] = useState(false);
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [activeTierIdx, setActiveTierIdx] = useState<number>(0);
@@ -739,6 +741,11 @@ export default function AnnotatorApp() {
     e.target.value = '';
   };
 
+  const handleRecordComplete = async (file: File) => {
+    setIsRecordModalOpen(false);
+    await handleBatchFiles([file]);
+  };
+
   // TextGrid のエクスポート（完全ブラウザ内 Blob ダウンロード）
   const handleExportTextGrid = () => {
     if (!textGridData) return;
@@ -945,6 +952,14 @@ export default function AnnotatorApp() {
 
         <div className="flex items-center space-x-2 text-xs">
           <button
+            onClick={() => setIsRecordModalOpen(true)}
+            className="flex items-center px-2.5 py-1 rounded border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100/80 text-red-700 font-medium shadow-2xs transition-colors"
+            title="マイクから直接録音して分析を開始します"
+          >
+            <Mic className="w-3.5 h-3.5 mr-1.5 text-red-600" />
+            マイク録音
+          </button>
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center px-2.5 py-1 rounded border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-800 font-medium shadow-2xs transition-colors"
             title="音声ファイル（.wav 等）や TextGrid を開きます（同時に複数選択可能）"
@@ -1105,15 +1120,39 @@ export default function AnnotatorApp() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="p-8 border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/40 rounded-lg cursor-pointer bg-gray-50 transition-colors flex flex-col items-center max-w-sm w-full group"
-            >
-              <FolderOpen className="w-8 h-8 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
-              <div className="text-sm font-semibold text-gray-800 mb-1">ファイルを開く</div>
-              <div className="text-xs text-gray-500 text-center leading-relaxed">
-                クリックまたはドラッグ＆ドロップ<br />
-                <span className="text-[11px] text-gray-400">（音声ファイルと TextGrid を同時に開けます）</span>
+            <div className="text-center mb-6">
+              <h2 className="text-base font-bold text-gray-800 tracking-tight">音声分析・アノテーションの開始</h2>
+              <p className="text-xs text-gray-500 mt-1">ファイルを読み込むか、マイクでその場で録音して即座に分析を開始できます</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg w-full">
+              {/* Option 1: File Open */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="p-6 border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl cursor-pointer bg-gray-50 transition-all flex flex-col items-center group shadow-2xs hover:shadow-sm text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <FolderOpen className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="text-sm font-semibold text-gray-800 mb-1">ファイルを開く</div>
+                <div className="text-[11px] text-gray-500 leading-relaxed">
+                  クリックまたはドラッグ＆ドロップ<br />
+                  <span className="text-[10px] text-gray-400">（音声と TextGrid を同時に選択可能）</span>
+                </div>
+              </div>
+
+              {/* Option 2: Mic Recording */}
+              <div
+                onClick={() => setIsRecordModalOpen(true)}
+                className="p-6 border border-dashed border-gray-300 hover:border-red-400 hover:bg-red-50/40 rounded-xl cursor-pointer bg-gray-50 transition-all flex flex-col items-center group shadow-2xs hover:shadow-sm text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <Mic className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="text-sm font-semibold text-gray-800 mb-1">マイクで録音する</div>
+                <div className="text-[11px] text-gray-500 leading-relaxed">
+                  ブラウザで声を直接録音<br />
+                  <span className="text-[10px] text-gray-400">（波形・ピッチ・フォルマントを即時分析）</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1148,6 +1187,12 @@ export default function AnnotatorApp() {
           handleSeek(s);
         }}
         onChangeMaxFormantFreq={handleChangeMaxFormantFreq}
+      />
+
+      <RecordModal
+        isOpen={isRecordModalOpen}
+        onClose={() => setIsRecordModalOpen(false)}
+        onRecordComplete={handleRecordComplete}
       />
     </div>
   );
