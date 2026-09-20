@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { OverviewMinimap } from '@/components/editor/OverviewMinimap';
 import { WaveformCanvas } from '@/components/editor/WaveformCanvas';
 import { SpectrogramCanvas } from '@/components/editor/SpectrogramCanvas';
@@ -11,6 +11,7 @@ import { ASRModal, ASRModalRunParams } from '@/components/editor/ASRModal';
 import { CustomTextModal } from '@/components/editor/CustomTextModal';
 import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
 import { RecordModal } from '@/components/editor/RecordModal';
+
 import {
   AudioMetadata,
   TextGridData,
@@ -20,46 +21,36 @@ import {
   AcousticAnalysisData,
   IntervalMetrics,
 } from '@/types';
-import { extractPeaksFromAudioFile, audioBufferToWavBlob } from '@/lib/audioUtils';
-import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
+
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
-import { Upload, Music, FileText, FolderOpen, Mic } from 'lucide-react';
 
-interface HistorySnapshot {
-  textGridData: TextGridData;
-  selection: { start: number; end: number } | null;
-  selectedLabel: string | null;
-  activeTierIdx: number;
-}
+import { useTextGridHistory } from '@/hooks/useTextGridHistory';
+import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { useViewportZoom } from '@/hooks/useViewportZoom';
+import { useFileLoader } from '@/hooks/useFileLoader';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+
+import { FolderOpen, Mic } from 'lucide-react';
 
 export default function AnnotatorApp() {
+  // Core Domain State
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [textGridData, setTextGridData] = useState<TextGridData | null>(null);
   const [analysisData, setAnalysisData] = useState<AcousticAnalysisData | null>(null);
   const [selectedMetrics, setSelectedMetrics] = useState<IntervalMetrics | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-
-  // LPC Maximum Formant Frequency (女性: 5500Hz, 男性: 5000Hz)
-  const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
-
-  // 縦軸表示上限周波数 (F0単体観察時: 500Hz / フォルマント観察時: 5000Hz)
-  const [maxDisplayFreq, setMaxDisplayFreq] = useState<number>(5000);
-
-  const [currentTime, setCurrentTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [isLooping, setIsLooping] = useState(false);
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
-  const [viewRange, setViewRange] = useState({ start: 0, end: 10 });
-  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [activeTierIdx, setActiveTierIdx] = useState<number>(0);
 
-  // Overlays
+  // Analysis Configuration State
+  const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
+  const [maxDisplayFreq, setMaxDisplayFreq] = useState<number>(5000);
   const [showPitch, setShowPitch] = useState(true);
   const [showFormants, setShowFormants] = useState(true);
 
-  // Modals
+  // Modals Visibility State
   const [isASRModalOpen, setIsASRModalOpen] = useState(false);
   const [isASRLoading, setIsASRLoading] = useState(false);
   const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState(false);
@@ -67,113 +58,84 @@ export default function AnnotatorApp() {
   const [isVowelSpaceModalOpen, setIsVowelSpaceModalOpen] = useState(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [activeTierIdx, setActiveTierIdx] = useState<number>(0);
-  const [localAudioUrl, setLocalAudioUrl] = useState<string | null>(null);
+  // Custom Hook: Undo / Redo History
+  const {
+    canUndo,
+    canRedo,
+    pushHistory,
+    clearHistory,
+    handleUndo,
+    handleRedo,
+    recordTypingSession,
+    handleUpdateTiers,
+  } = useTextGridHistory({
+    textGridData,
+    setTextGridData,
+    selection,
+    setSelection,
+    selectedLabel,
+    setSelectedLabel,
+    activeTierIdx,
+    setActiveTierIdx,
+  });
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Custom Hook: Viewport Zoom & Panning
+  const {
+    viewRange,
+    setViewRange,
+    hoverTime,
+    setHoverTime,
+    handleZoomIn,
+    handleZoomOut,
+    handleResetZoom,
+    handleWheel,
+  } = useViewportZoom({
+    audioMetadata,
+    currentTime: 0,
+  });
 
-  // Undo / Redo History State
-  const historyRef = useRef<HistorySnapshot[]>([]);
-  const futureRef = useRef<HistorySnapshot[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const isTypingSessionRef = useRef(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Custom Hook: Audio Player & Playhead
+  const {
+    currentTime,
+    isPlaying,
+    playbackRate,
+    isLooping,
+    setIsLooping,
+    audioRef,
+    handleTimeUpdate,
+    handleTogglePlay,
+    handlePlaySelection,
+    handleSeek,
+    handleChangePlaybackRate,
+  } = useAudioPlayer({
+    audioMetadata,
+    viewRange,
+    setViewRange,
+    selection,
+  });
 
-  const updateUndoRedoState = useCallback(() => {
-    setCanUndo(historyRef.current.length > 0);
-    setCanRedo(futureRef.current.length > 0);
-  }, []);
+  // Custom Hook: File Loader & Encodings
+  const {
+    isDraggingFile,
+    localAudioUrl,
+    fileInputRef,
+    handleBatchFiles,
+    handleDrop,
+    handleFileInput,
+    handleExportTextGrid,
+  } = useFileLoader({
+    audioMetadata,
+    setAudioMetadata,
+    setAudioBuffer,
+    textGridData,
+    setTextGridData,
+    setActiveTierIdx,
+    maxFormantFreq,
+    setAnalysisData,
+    clearHistory,
+  });
 
-  const pushHistory = useCallback(
-    (currentTg: TextGridData | null) => {
-      if (!currentTg) return;
-      const snapshot: HistorySnapshot = {
-        textGridData: JSON.parse(JSON.stringify(currentTg)),
-        selection: selection ? { ...selection } : null,
-        selectedLabel: selectedLabel ?? null,
-        activeTierIdx,
-      };
-
-      const top = historyRef.current[historyRef.current.length - 1];
-      if (top && JSON.stringify(top.textGridData.tiers) === JSON.stringify(snapshot.textGridData.tiers)) {
-        return;
-      }
-
-      historyRef.current.push(snapshot);
-      if (historyRef.current.length > 50) {
-        historyRef.current.shift();
-      }
-      futureRef.current = [];
-      updateUndoRedoState();
-    },
-    [selection, selectedLabel, activeTierIdx, updateUndoRedoState]
-  );
-
-  const handleUndo = useCallback(() => {
-    if (historyRef.current.length === 0 || !textGridData) return;
-
-    const currentSnapshot: HistorySnapshot = {
-      textGridData: JSON.parse(JSON.stringify(textGridData)),
-      selection: selection ? { ...selection } : null,
-      selectedLabel: selectedLabel ?? null,
-      activeTierIdx,
-    };
-    futureRef.current.unshift(currentSnapshot);
-
-    const prevSnapshot = historyRef.current.pop()!;
-    updateUndoRedoState();
-
-    setTextGridData(prevSnapshot.textGridData);
-    setSelection(prevSnapshot.selection);
-    setSelectedLabel(prevSnapshot.selectedLabel);
-    if (prevSnapshot.activeTierIdx !== undefined) {
-      setActiveTierIdx(prevSnapshot.activeTierIdx);
-    }
-  }, [textGridData, selection, selectedLabel, activeTierIdx, updateUndoRedoState]);
-
-  const handleRedo = useCallback(() => {
-    if (futureRef.current.length === 0 || !textGridData) return;
-
-    const currentSnapshot: HistorySnapshot = {
-      textGridData: JSON.parse(JSON.stringify(textGridData)),
-      selection: selection ? { ...selection } : null,
-      selectedLabel: selectedLabel ?? null,
-      activeTierIdx,
-    };
-    historyRef.current.push(currentSnapshot);
-
-    const nextSnapshot = futureRef.current.shift()!;
-    updateUndoRedoState();
-
-    setTextGridData(nextSnapshot.textGridData);
-    setSelection(nextSnapshot.selection);
-    setSelectedLabel(nextSnapshot.selectedLabel);
-    if (nextSnapshot.activeTierIdx !== undefined) {
-      setActiveTierIdx(nextSnapshot.activeTierIdx);
-    }
-  }, [textGridData, selection, selectedLabel, activeTierIdx, updateUndoRedoState]);
-
-  const handleUpdateTiers = useCallback(
-    (updatedTiers: Tier[], saveHistory = true) => {
-      if (!textGridData) return;
-      if (saveHistory) {
-        pushHistory(textGridData);
-      }
-      setTextGridData({ ...textGridData, tiers: updatedTiers });
-    },
-    [textGridData, pushHistory]
-  );
-
-  useEffect(() => {
-    if (audioMetadata) {
-      const initSpan = Math.min(10, audioMetadata.duration);
-      setViewRange({ start: 0, end: initSpan });
-    }
-  }, [audioMetadata]);
-
+  // Keep active tier in valid bounds
   useEffect(() => {
     if (textGridData && textGridData.tiers.length > 0) {
       if (activeTierIdx >= textGridData.tiers.length) {
@@ -182,7 +144,7 @@ export default function AnnotatorApp() {
     }
   }, [textGridData, activeTierIdx]);
 
-  // TextGrid boundaries projection
+  // Projected boundary times across all tiers
   const projectedBoundaries = useMemo(() => {
     if (!textGridData) return [];
     const set = new Set<number>();
@@ -201,11 +163,10 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // 話者・上限周波数が変更された時の再解析ハンドラ (ブラウザ内即時計算)
+  // Re-analyze client-side when speaker max formant freq changes
   const handleChangeMaxFormantFreq = useCallback(async (newFreq: number) => {
     setMaxFormantFreq(newFreq);
     if (!audioBuffer) return;
-
     try {
       const analysis = await analyzeAudioClient(audioBuffer, newFreq);
       setAnalysisData(analysis);
@@ -214,17 +175,7 @@ export default function AnnotatorApp() {
     }
   }, [audioBuffer]);
 
-  // 「F0」ボタンクリック時：F0表示のON/OFF切り替え（縦軸スケールは変更しない）
-  const handleTogglePitch = useCallback(() => {
-    setShowPitch((prev) => !prev);
-  }, []);
-
-  // 「F1-3」ボタンクリック時：フォルマント表示のON/OFF切り替え（縦軸スケールは変更しない）
-  const handleToggleFormants = useCallback(() => {
-    setShowFormants((prev) => !prev);
-  }, []);
-
-  // 選択範囲または話者設定が変更された時に区間音響統計をブラウザ内で即座に計算
+  // Compute selected interval acoustic metrics on the fly
   useEffect(() => {
     if (!selection) {
       setSelectedMetrics(null);
@@ -239,79 +190,11 @@ export default function AnnotatorApp() {
 
     const channelData = audioBuffer ? audioBuffer.getChannelData(0) : undefined;
     const sr = audioBuffer ? audioBuffer.sampleRate : undefined;
-
     const metrics = computeIntervalMetricsClient(analysisData, s, e, channelData, sr);
     setSelectedMetrics(metrics);
   }, [selection, analysisData, audioBuffer]);
 
-  // Audio time update event
-  const handleTimeUpdate = () => {
-    if (!audioRef.current) return;
-    const time = audioRef.current.currentTime;
-    setCurrentTime(time);
-
-    if (isPlaying && time > viewRange.end) {
-      const span = viewRange.end - viewRange.start;
-      const totalDur = audioMetadata ? audioMetadata.duration : (textGridData ? textGridData.max_timestamp : time + span);
-      let newStart = time;
-      let newEnd = newStart + span;
-      if (newEnd > totalDur) {
-        newEnd = totalDur;
-        newStart = Math.max(0, newEnd - span);
-      }
-      setViewRange({ start: newStart, end: newEnd });
-    }
-
-    if (isLooping && selection && selection.start !== selection.end) {
-      const minSel = Math.min(selection.start, selection.end);
-      const maxSel = Math.max(selection.start, selection.end);
-      if (time >= maxSel) {
-        audioRef.current.currentTime = minSel;
-        audioRef.current.play();
-      }
-    }
-  };
-
-  const handleTogglePlay = useCallback(() => {
-    if (!audioRef.current || !audioMetadata) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play();
-      setIsPlaying(true);
-    }
-  }, [isPlaying, audioMetadata]);
-
-  const handlePlaySelection = useCallback(() => {
-    if (!audioRef.current || !audioMetadata || !selection) return;
-    const minSel = Math.min(selection.start, selection.end);
-    const maxSel = Math.max(selection.start, selection.end);
-    if (maxSel - minSel < 0.01) return;
-
-    audioRef.current.currentTime = minSel;
-    audioRef.current.play();
-    setIsPlaying(true);
-
-    const checkInterval = setInterval(() => {
-      if (!audioRef.current) {
-        clearInterval(checkInterval);
-        return;
-      }
-      if (audioRef.current.currentTime >= maxSel) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-        clearInterval(checkInterval);
-      }
-    }, 20);
-  }, [audioMetadata, selection]);
-
-  const handleSeek = (time: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = time;
-    setCurrentTime(time);
-  };
-
+  // Boundary Operations
   const handleInsertBoundaryAt = useCallback((time?: number) => {
     if (!textGridData || textGridData.tiers.length === 0) return;
     const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
@@ -350,24 +233,13 @@ export default function AnnotatorApp() {
       setSelection(newSelectedRange);
       setSelectedLabel('');
     }
-  }, [textGridData, currentTime, activeTierIdx, pushHistory]);
-
-  const handleInsertBoundary = useCallback(() => {
-    handleInsertBoundaryAt();
-  }, [handleInsertBoundaryAt]);
+  }, [textGridData, currentTime, activeTierIdx, pushHistory, setTextGridData]);
 
   const handleUpdateSelectedLabel = useCallback((newLabel: string) => {
     setSelectedLabel(newLabel);
     if (!textGridData || !selection) return;
 
-    if (!isTypingSessionRef.current) {
-      pushHistory(textGridData);
-      isTypingSessionRef.current = true;
-    }
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      isTypingSessionRef.current = false;
-    }, 800);
+    recordTypingSession();
 
     const targetIdx = Math.max(0, Math.min(activeTierIdx, textGridData.tiers.length - 1));
     const newTiers = textGridData.tiers.map((tier, idx) => {
@@ -384,7 +256,7 @@ export default function AnnotatorApp() {
       return tier;
     });
     setTextGridData({ ...textGridData, tiers: newTiers });
-  }, [textGridData, selection, activeTierIdx, pushHistory]);
+  }, [textGridData, selection, activeTierIdx, recordTypingSession, setTextGridData]);
 
   const handleSelectPrevInterval = useCallback(() => {
     if (!textGridData || textGridData.tiers.length === 0) return;
@@ -408,7 +280,7 @@ export default function AnnotatorApp() {
     setSelection({ start: prev.start, end: prev.end });
     setSelectedLabel(prev.label || '');
     handleSeek(prev.start);
-  }, [textGridData, activeTierIdx, selection, currentTime]);
+  }, [textGridData, activeTierIdx, selection, currentTime, handleSeek]);
 
   const handleSelectNextInterval = useCallback(() => {
     if (!textGridData || textGridData.tiers.length === 0) return;
@@ -432,7 +304,7 @@ export default function AnnotatorApp() {
     setSelection({ start: next.start, end: next.end });
     setSelectedLabel(next.label || '');
     handleSeek(next.start);
-  }, [textGridData, activeTierIdx, selection, currentTime]);
+  }, [textGridData, activeTierIdx, selection, currentTime, handleSeek]);
 
   const handleDeleteBoundary = useCallback(() => {
     if (!textGridData || textGridData.tiers.length === 0 || !selection) return;
@@ -476,297 +348,26 @@ export default function AnnotatorApp() {
       setSelection({ start: merged.start, end: merged.end });
       setSelectedLabel(merged.label || '');
     }
-  }, [textGridData, activeTierIdx, selection, pushHistory]);
+  }, [textGridData, activeTierIdx, selection, pushHistory, setTextGridData]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+  // Keyboard Shortcuts Registration
+  useKeyboardShortcuts({
+    onTogglePlay: handleTogglePlay,
+    onPlaySelection: handlePlaySelection,
+    onInsertBoundaryAt: () => handleInsertBoundaryAt(),
+    onSelectNextInterval: handleSelectNextInterval,
+    onSelectPrevInterval: handleSelectPrevInterval,
+    onDeleteBoundary: handleDeleteBoundary,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+  });
 
-      if (isCtrlOrMeta && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
-        const activeEl = document.activeElement as HTMLElement | null;
-        const isInputActive = activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName);
-        if (!isInputActive) {
-          e.preventDefault();
-          if (e.shiftKey) {
-            handleRedo();
-          } else {
-            handleUndo();
-          }
-          return;
-        }
-      } else if (isCtrlOrMeta && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
-        const activeEl = document.activeElement as HTMLElement | null;
-        const isInputActive = activeEl && ['INPUT', 'TEXTAREA'].includes(activeEl.tagName);
-        if (!isInputActive) {
-          e.preventDefault();
-          handleRedo();
-          return;
-        }
-      }
-
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
-        return;
-      }
-
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handleTogglePlay();
-      } else if (e.code === 'Tab') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleSelectPrevInterval();
-        } else {
-          handlePlaySelection();
-        }
-      } else if (e.code === 'Enter') {
-        e.preventDefault();
-        handleInsertBoundaryAt();
-      } else if (e.altKey && e.code === 'ArrowRight') {
-        e.preventDefault();
-        handleSelectNextInterval();
-      } else if (e.altKey && e.code === 'ArrowLeft') {
-        e.preventDefault();
-        handleSelectPrevInterval();
-      } else if (e.altKey && (e.code === 'Backspace' || e.code === 'Delete')) {
-        e.preventDefault();
-        handleDeleteBoundary();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    handleTogglePlay,
-    handlePlaySelection,
-    handleInsertBoundaryAt,
-    handleSelectNextInterval,
-    handleSelectPrevInterval,
-    handleDeleteBoundary,
-    handleUndo,
-    handleRedo,
-  ]);
-
-  const handleWheel = (e: React.WheelEvent) => {
-    if (!audioMetadata) return;
-    const dur = audioMetadata.duration;
-    const span = viewRange.end - viewRange.start;
-
-    let delta = e.deltaX !== 0 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
-    if (delta !== 0) {
-      e.preventDefault();
-      const deltaTime = (delta / 800) * span;
-      let newStart = Math.max(0, Math.min(dur - span, viewRange.start + deltaTime));
-      let newEnd = newStart + span;
-      setViewRange({ start: newStart, end: newEnd });
-    }
-  };
-
-  const handleZoomIn = () => {
-    const span = viewRange.end - viewRange.start;
-    const newSpan = Math.max(0.1, span * 0.7);
-    const mid = currentTime >= viewRange.start && currentTime <= viewRange.end ? currentTime : (viewRange.start + viewRange.end) / 2;
-    const dur = audioMetadata ? audioMetadata.duration : 10;
-    const s = Math.max(0, mid - newSpan / 2);
-    const e = Math.min(dur, s + newSpan);
-    setViewRange({ start: s, end: e });
-  };
-
-  const handleZoomOut = () => {
-    const span = viewRange.end - viewRange.start;
-    const dur = audioMetadata ? audioMetadata.duration : 10;
-    const newSpan = Math.min(dur, span * 1.4);
-    const mid = (viewRange.start + viewRange.end) / 2;
-    const s = Math.max(0, mid - newSpan / 2);
-    const e = Math.min(dur, s + newSpan);
-    setViewRange({ start: s, end: e });
-  };
-
-  const handleResetZoom = () => {
-    if (!audioMetadata) return;
-    setViewRange({ start: 0, end: audioMetadata.duration });
-  };
-
-  // TextGrid の読み込み（完全ブラウザ内処理: UTF-16LE/BE, UTF-8, Shift-JIS自動判定）
-  const parseTextGridFromFile = async (file: File): Promise<TextGridData> => {
-    const buf = await file.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let text = '';
-
-    if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-      text = new TextDecoder('utf-16le').decode(buf);
-    } else if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-      text = new TextDecoder('utf-16be').decode(buf);
-    } else if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-      text = new TextDecoder('utf-8').decode(buf);
-    } else {
-      // Windows Praat で作成された BOM無しの UTF-16LE 検出（奇数バイトに \0 が多い場合）
-      let nullCount = 0;
-      for (let i = 1; i < Math.min(bytes.length, 100); i += 2) {
-        if (bytes[i] === 0) nullCount++;
-      }
-      if (nullCount > 20) {
-        text = new TextDecoder('utf-16le').decode(buf);
-      } else {
-        try {
-          text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
-        } catch {
-          try {
-            text = new TextDecoder('shift-jis').decode(buf);
-          } catch {
-            text = new TextDecoder('utf-8').decode(buf);
-          }
-        }
-      }
-    }
-
-    return parseTextGridClient(text);
-  };
-
-  // 音声およびTextGridの一括／個別読み込みハンドラー
-  const handleBatchFiles = async (files: File[]) => {
-    if (files.length === 0) return;
-
-    const audioFile = files.find((f) => {
-      const lower = f.name.toLowerCase();
-      return f.type.startsWith('audio/') || !!lower.match(/\.(wav|mp3|ogg|flac|m4a|aac)$/);
-    });
-
-    const textGridFile = files.find((f) => f.name.toLowerCase().endsWith('.textgrid'));
-
-    if (!audioFile && !textGridFile) {
-      alert('対応する音声ファイル（.wav, .mp3 等）または TextGrid ファイル（.TextGrid）を選択してください。');
-      return;
-    }
-
-    let loadedDuration = audioMetadata?.duration || 0;
-
-    // 1. 音声ファイルが指定されている場合は先に読み込み・解析
-    if (audioFile) {
-      try {
-        const objectUrl = URL.createObjectURL(audioFile);
-        setLocalAudioUrl(objectUrl);
-
-        // Web Audio API で AudioBuffer をデコード
-        const arrayBuffer = await audioFile.arrayBuffer();
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        setAudioBuffer(decodedBuffer);
-
-        loadedDuration = decodedBuffer.duration;
-        const { peaks, sampleRate } = await extractPeaksFromAudioFile(audioFile);
-
-        const localMeta: AudioMetadata = {
-          audio_id: 'local_' + Date.now(),
-          filename: audioFile.name,
-          duration: loadedDuration,
-          sample_rate: sampleRate,
-          channels: 1,
-          peaks: peaks,
-        };
-        setAudioMetadata(localMeta);
-        setViewRange({ start: 0, end: Math.min(10, loadedDuration) });
-
-        // ブラウザ内音響解析エンジンで F0, Formants, Spectrogram を即時生成
-        const analysis = await analyzeAudioClient(decodedBuffer, maxFormantFreq);
-        setAnalysisData(analysis);
-      } catch (err: any) {
-        alert(`音声の読み込みに失敗しました: ${err.message}`);
-        return;
-      }
-    }
-
-    // 2. TextGridファイルが指定されている場合は読み込んで適用
-    if (textGridFile) {
-      try {
-        const tg = await parseTextGridFromFile(textGridFile);
-        historyRef.current = [];
-        futureRef.current = [];
-        updateUndoRedoState();
-        setTextGridData(tg);
-        setActiveTierIdx(0);
-
-        // 音声がまだ開かれていない場合、ダミーメタデータを生成してTextGridエディタを表示
-        if (!audioFile && !audioMetadata) {
-          const dur = tg.max_timestamp > 0 ? tg.max_timestamp : 5.0;
-          const dummyMeta: AudioMetadata = {
-            audio_id: 'tg_only_' + Date.now(),
-            filename: textGridFile.name.replace(/\.[^/.]+$/, ''),
-            duration: dur,
-            sample_rate: 44100,
-            channels: 1,
-            peaks: new Array(1000).fill(0),
-          };
-          setAudioMetadata(dummyMeta);
-          setViewRange({ start: 0, end: Math.min(10, dur) });
-        }
-      } catch (err: any) {
-        alert(`TextGrid解析エラー: ${err.message}`);
-      }
-    } else if (audioFile) {
-      // 音声のみ読み込まれ、TextGridがまだ無い（または空のデフォルトのみ）場合は初期Wordティアを作成
-      if (!textGridData || textGridData.tiers.length === 0 || (textGridData.tiers.length === 1 && textGridData.tiers[0].entries.length <= 1 && !textGridData.tiers[0].entries[0]?.label)) {
-        historyRef.current = [];
-        futureRef.current = [];
-        updateUndoRedoState();
-        setTextGridData({
-          min_timestamp: 0,
-          max_timestamp: loadedDuration,
-          tiers: [
-            {
-              name: 'Word',
-              tier_type: 'interval',
-              min_timestamp: 0,
-              max_timestamp: loadedDuration,
-              entries: [{ start: 0, end: loadedDuration, label: '' }],
-            },
-          ],
-        });
-        setActiveTierIdx(0);
-      }
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingFile(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) handleBatchFiles(files);
-  };
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) handleBatchFiles(files);
-    e.target.value = '';
-  };
-
+  // Modal Action Handlers
   const handleRecordComplete = async (file: File) => {
     setIsRecordModalOpen(false);
     await handleBatchFiles([file]);
   };
 
-  // TextGrid のエクスポート（完全ブラウザ内 Blob ダウンロード）
-  const handleExportTextGrid = () => {
-    if (!textGridData) return;
-    try {
-      const tgString = exportTextGridClient(textGridData);
-      const blob = new Blob([tgString], { type: 'text/plain;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const filename = audioMetadata ? `${audioMetadata.filename.replace(/\.[^/.]+$/, '')}.TextGrid` : 'annotation.TextGrid';
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert(`保存エラー: ${err.message}`);
-    }
-  };
-
-  // 音響VAD自動区間分割 (完全ブラウザ内処理: APIキー・マイク・外部通信不要)
   const handleRunASR = async (params: ASRModalRunParams) => {
     if (!audioMetadata) return;
     setIsASRLoading(true);
@@ -782,7 +383,6 @@ export default function AnnotatorApp() {
         minSilenceDuration: params.minSilenceDuration,
       });
 
-      // 台本テキストがあれば単語や句単位に分解して各区間に配置
       let scriptLabels: string[] = [];
       if (params.scriptText) {
         scriptLabels = params.scriptText
@@ -830,7 +430,6 @@ export default function AnnotatorApp() {
     }
   };
 
-  // 台本テキストからの区間配置 (完全ブラウザ内処理)
   const handleAlignCustomText = async (params: { text: string; tierName: string; splitBy: string; targetMode: 'existing' | 'new' }) => {
     if (!audioMetadata) return;
     setIsCustomTextLoading(true);
@@ -848,51 +447,77 @@ export default function AnnotatorApp() {
 
       const items = parseTextItems(params.text, params.splitBy);
       if (items.length === 0) {
-        alert('有効なテキストがありません。');
-        setIsCustomTextLoading(false);
+        alert('配置するテキスト項目が見つかりませんでした。');
         return;
       }
 
-      const intervalLen = audioMetadata.duration / items.length;
-      const entries: IntervalEntry[] = items.map((item, i) => ({
-        start: Math.round(i * intervalLen * 1000) / 1000,
-        end: Math.round((i + 1) * intervalLen * 1000) / 1000,
-        label: item,
-      }));
+      const dur = audioMetadata.duration;
+      let segments: { start: number; end: number; label: string }[] = [];
 
-      const newTier = {
-        name: params.tierName,
+      if (audioBuffer) {
+        const speechSegments = computeAcousticVAD(audioBuffer.getChannelData(0), audioBuffer.sampleRate, {
+          minSilenceDuration: 0.2,
+        });
+
+        if (speechSegments.length >= items.length) {
+          const step = speechSegments.length / items.length;
+          segments = items.map((item, idx) => {
+            const startSeg = speechSegments[Math.floor(idx * step)];
+            const endSeg = speechSegments[Math.min(speechSegments.length - 1, Math.floor((idx + 1) * step) - 1)];
+            return {
+              start: startSeg.start,
+              end: Math.max(startSeg.start + 0.05, endSeg.end),
+              label: item,
+            };
+          });
+        }
+      }
+
+      if (segments.length === 0) {
+        const step = dur / items.length;
+        segments = items.map((item, idx) => ({
+          start: idx * step,
+          end: (idx + 1) * step,
+          label: item,
+        }));
+      }
+
+      const resolvedIntervals = createContiguousIntervalsFromSpeechSegments(
+        segments,
+        dur,
+        segments.map((s) => s.label)
+      );
+
+      const targetTierName = params.tierName || 'Script';
+      const existingTiers = textGridData ? [...textGridData.tiers] : [];
+      const foundIdx = existingTiers.findIndex((t) => t.name === targetTierName);
+
+      const updatedTier = {
+        name: targetTierName,
         tier_type: 'interval' as const,
         min_timestamp: 0,
-        max_timestamp: audioMetadata.duration,
-        entries,
+        max_timestamp: dur,
+        entries: resolvedIntervals,
       };
 
-      const existingTiers = textGridData ? [...textGridData.tiers] : [];
-      if (params.targetMode === 'existing') {
-        const foundIdx = existingTiers.findIndex((t) => t.name === params.tierName);
-        if (foundIdx !== -1) {
-          existingTiers[foundIdx] = newTier;
-          setActiveTierIdx(foundIdx);
-        } else {
-          existingTiers.push(newTier);
-          setActiveTierIdx(existingTiers.length - 1);
-        }
+      if (foundIdx !== -1 && params.targetMode === 'existing') {
+        existingTiers[foundIdx] = updatedTier;
+        setActiveTierIdx(foundIdx);
       } else {
-        existingTiers.push(newTier);
+        existingTiers.push(updatedTier);
         setActiveTierIdx(existingTiers.length - 1);
       }
 
       pushHistory(textGridData);
       setTextGridData({
         min_timestamp: 0,
-        max_timestamp: audioMetadata.duration,
+        max_timestamp: dur,
         tiers: existingTiers,
       });
 
       setIsCustomTextModalOpen(false);
     } catch (err: any) {
-      alert(`台本区間の作成エラー: ${err.message}`);
+      alert(`台本配置エラー: ${err.message}`);
     } finally {
       setIsCustomTextLoading(false);
     }
@@ -900,16 +525,11 @@ export default function AnnotatorApp() {
 
   return (
     <div
-      className="flex flex-col h-screen w-screen overflow-hidden bg-white text-gray-900 font-sans"
+      className="flex flex-col h-screen w-screen overflow-hidden bg-white text-[#111111] font-sans"
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDraggingFile(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDraggingFile(false);
+        fileInputRef.current && (e.dataTransfer.dropEffect = 'copy');
       }}
       onDrop={handleDrop}
     >
@@ -918,7 +538,7 @@ export default function AnnotatorApp() {
           ref={audioRef}
           src={localAudioUrl}
           onTimeUpdate={handleTimeUpdate}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={() => handleTogglePlay()}
         />
       )}
 
@@ -1007,20 +627,17 @@ export default function AnnotatorApp() {
                 onTogglePlay={handleTogglePlay}
                 onPlaySelection={handlePlaySelection}
                 onToggleLoop={() => setIsLooping(!isLooping)}
-                onChangePlaybackRate={(rate) => {
-                  setPlaybackRate(rate);
-                  if (audioRef.current) audioRef.current.playbackRate = rate;
-                }}
+                onChangePlaybackRate={handleChangePlaybackRate}
                 onChangeMaxFormantFreq={handleChangeMaxFormantFreq}
                 onZoomIn={handleZoomIn}
                 onZoomOut={handleZoomOut}
                 onResetZoom={handleResetZoom}
-                onInsertBoundary={handleInsertBoundary}
+                onInsertBoundary={() => handleInsertBoundaryAt()}
                 onOpenASRModal={() => setIsASRModalOpen(true)}
                 onOpenCustomTextModal={() => setIsCustomTextModalOpen(true)}
                 onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
-                onTogglePitch={handleTogglePitch}
-                onToggleFormants={handleToggleFormants}
+                onTogglePitch={() => setShowPitch((prev) => !prev)}
+                onToggleFormants={() => setShowFormants((prev) => !prev)}
                 onChangeDisplayFreq={setMaxDisplayFreq}
                 canUndo={canUndo}
                 canRedo={canRedo}
