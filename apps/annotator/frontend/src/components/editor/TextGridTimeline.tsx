@@ -255,11 +255,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full bg-white select-none border-b border-gray-200">
+    <div className="flex flex-col w-full bg-white select-none border-b border-[#e0e0e6]">
       {/* Praat-style Quick Label & Operation Bar */}
-      <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-blue-50/60 border-b border-gray-200 text-xs gap-2">
+      <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-[#f0f0f4] border-b border-[#e0e0e6] text-xs gap-2">
         <div className="flex items-center space-x-2 flex-1 min-w-[300px]">
-          <span className="text-gray-700 font-semibold whitespace-nowrap text-[11px]">
+          <span className="text-[#111111] font-mono font-bold whitespace-nowrap text-[11px]">
             {selection
               ? `[${tiers[activeTierIdx]?.name || 'Tier'}] ${(selection.end - selection.start).toFixed(3)}s (${Math.round((selection.end - selection.start) * 1000)}ms)`
               : '区間未選択 (クリックで選択)'}
@@ -290,8 +290,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   onDeleteBoundary?.();
                 }
               }}
-              placeholder={selection ? "ラベル (クリックで編集)..." : "区間を選択"}
-              className="w-full px-2.5 py-1 bg-white border border-[#111111] font-sans text-[#111111] text-xs font-semibold outline-none focus:border-[#111111] disabled:bg-[#f0f0f4] disabled:text-[#aaaaaf]"
+              placeholder={selection ? "ラベル (Enter確定)..." : "区間を選択"}
+              className="w-full px-2.5 py-1 bg-white border border-[#111111] font-sans text-[#111111] text-xs font-semibold outline-none focus:ring-1 focus:ring-[#111111] disabled:bg-[#f0f0f4] disabled:text-[#aaaaaf]"
             />
           </div>
 
@@ -330,7 +330,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 </button>
 
                 {showIpaPalette && (
-                  <div className="absolute left-0 top-full mt-1 w-84 bg-white border-2 border-[#111111] z-50 p-3 text-xs">
+                  <div className="absolute left-0 top-full mt-1 w-84 bg-white border-2 border-[#111111] z-50 p-3 text-xs shadow-none">
                     <div className="flex border-b border-[#e0e0e6] mb-2 gap-1 pb-1 overflow-x-auto">
                       {IPA_CATEGORIES.map((cat, idx) => (
                         <button
@@ -374,29 +374,12 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           )}
         </div>
 
+        {/* Interval Operations */}
         <div className="flex items-center space-x-1.5 text-[11px] text-[#111111]">
-          <button
-            onClick={onUndo}
-            disabled={!canUndo}
-            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#f0f0f4] text-[#111111] disabled:opacity-20 font-medium flex items-center transition-colors"
-            title="元に戻す (Ctrl+Z)"
-          >
-            <Undo2 className="w-3 h-3 mr-0.5" />
-            元に戻す
-          </button>
-          <button
-            onClick={onRedo}
-            disabled={!canRedo}
-            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#f0f0f4] text-[#111111] disabled:opacity-20 font-medium flex items-center transition-colors"
-            title="やり直す (Ctrl+Y / Ctrl+Shift+Z)"
-          >
-            <Redo2 className="w-3 h-3 mr-0.5" />
-            やり直す
-          </button>
           <button
             onClick={onSelectPrevInterval}
             disabled={!selection}
-            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
+            className="px-2 py-1 bg-white border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
             title="前の区間に移動 (Alt+←)"
           >
             ◀ 前 (Alt+←)
@@ -412,7 +395,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           <button
             onClick={onSelectNextInterval}
             disabled={!selection}
-            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
+            className="px-2 py-1 bg-white border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
             title="次の区間に移動 (Alt+→)"
           >
             次 (Alt+→) ▶
@@ -448,27 +431,27 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col divide-y divide-gray-200">
+      <div className="flex flex-col divide-y divide-[#e0e0e6]">
         {tiers.map((tier, tierIdx) => {
           const isActive = tierIdx === activeTierIdx;
           return (
             <div
               key={tierIdx}
               className={`flex h-14 w-full relative group bg-white ${
-                isActive ? 'ring-1 ring-blue-500/50' : ''
+                isActive ? 'border-l-4 border-l-[#E30613]' : 'border-l-4 border-l-transparent'
               }`}
               onClick={() => onSelectTier(tierIdx)}
             >
               {/* Tier Left Header */}
               <div
                 className={`w-32 flex-shrink-0 border-r px-2 py-1 flex flex-col justify-between z-10 transition-colors cursor-pointer ${
-                  isActive ? 'bg-blue-50/70 border-blue-200' : 'bg-gray-50 border-gray-200'
+                  isActive ? 'bg-[#f0f0f4] border-[#111111]' : 'bg-[#fafafc] border-[#e0e0e6]'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span
                     className={`font-semibold text-xs truncate ${
-                      isActive ? 'text-blue-900' : 'text-gray-900'
+                      isActive ? 'text-[#111111] font-bold' : 'text-[#444448]'
                     }`}
                     title={tier.name}
                   >
@@ -479,8 +462,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       e.stopPropagation();
                       handleDeleteTier(tierIdx);
                     }}
-                    className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100"
-                    title="削除"
+                    className="text-[#aaaaaf] hover:text-[#E30613] opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="ティア削除"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -495,7 +478,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                           handleAddSelectionToTier(tierIdx);
                         }}
                         disabled={!selection}
-                        className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 disabled:opacity-30 bg-white"
+                        className="text-[10px] text-[#111111] hover:bg-[#111111] hover:text-white border border-[#e0e0e6] px-1 disabled:opacity-30 bg-white transition-colors"
                         title="選択範囲をこのティアに追加"
                       >
                         +区間
@@ -505,14 +488,14 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                           e.stopPropagation();
                           handleSplitInterval(tierIdx);
                         }}
-                        className="text-[10px] text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-1 bg-white"
+                        className="text-[10px] text-[#111111] hover:bg-[#111111] hover:text-white border border-[#e0e0e6] px-1 bg-white transition-colors"
                         title="現在位置で分割"
                       >
                         <Scissors className="w-2.5 h-2.5 inline" />
                       </button>
                     </>
                   )}
-                  <span className="text-[9px] text-gray-400 ml-auto">{tier.tier_type}</span>
+                  <span className="text-[9px] text-[#aaaaaf] ml-auto uppercase font-mono">{tier.tier_type}</span>
                 </div>
               </div>
 
@@ -533,7 +516,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 {/* Synchronized Hover Hairline */}
                 {showHover && hoverPercent !== null && (
                   <div
-                    className="absolute top-0 bottom-0 w-[1px] bg-gray-400 pointer-events-none z-10"
+                    className="absolute top-0 bottom-0 w-[1px] bg-[#aaaaaf] pointer-events-none z-10"
                     style={{ left: `${hoverPercent}%` }}
                   />
                 )}
@@ -541,7 +524,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 {/* Playhead */}
                 {showPlayhead && (
                   <div
-                    className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 z-20 pointer-events-none will-change-transform"
+                    className="absolute top-0 bottom-0 w-[1.5px] bg-[#E30613] z-20 pointer-events-none will-change-transform"
                     style={{ left: `${timeToPercent(currentTime)}%` }}
                   />
                 )}
@@ -555,7 +538,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       else handleSplitInterval(tierIdx);
                     }}
                     style={{ left: `${timeToPercent(currentTime)}%` }}
-                    className="absolute top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center text-[11px] font-bold shadow z-30 transition-transform hover:scale-125 cursor-pointer"
+                    className="absolute top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-[#111111] hover:bg-[#E30613] text-white flex items-center justify-center text-[11px] font-bold z-30 transition-transform hover:scale-125 cursor-pointer"
                     title="境界を挿入 (Enter)"
                   >
                     +
@@ -578,8 +561,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       <div
                         key={entryIdx}
                         style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                        className={`absolute top-0 bottom-0 border-r border-gray-400/80 flex items-center justify-center px-1 text-xs cursor-pointer ${
-                          isSelected ? 'bg-blue-50/90 font-semibold text-blue-900' : 'hover:bg-gray-50 text-gray-800'
+                        className={`absolute top-0 bottom-0 border-r border-[#777780]/60 flex items-center justify-center px-1 text-xs cursor-pointer ${
+                          isSelected ? 'bg-[#111111]/10 font-bold text-[#111111] ring-1 ring-inset ring-[#111111]' : 'hover:bg-[#f0f0f4] text-[#111111]'
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -607,14 +590,14 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                                 if (e.key === 'Enter') saveEditLabel(tierIdx, entryIdx);
                                 if (e.key === 'Escape') setEditingKey(null);
                               }}
-                              className="w-full bg-white border border-gray-400 text-gray-900 text-xs px-1 py-0.5 rounded outline-none"
+                              className="w-full bg-white border border-[#111111] text-[#111111] text-xs px-1 py-0.5 outline-none font-sans"
                             />
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 saveEditLabel(tierIdx, entryIdx);
                               }}
-                              className="ml-1 text-gray-600 hover:text-black"
+                              className="ml-1 text-[#111111] hover:text-[#E30613]"
                             >
                               <Check className="w-3 h-3" />
                             </button>
@@ -627,7 +610,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 
                         <div
                           onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
-                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-blue-500/40 z-10"
+                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-[#E30613]/40 z-10"
                           title="境界をドラッグして移動"
                         />
                       </div>
@@ -643,15 +626,15 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       <div
                         key={pointIdx}
                         style={{ left: `${leftPct}%` }}
-                        className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-gray-800 flex flex-col items-center justify-start cursor-pointer"
+                        className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-[#111111] flex flex-col items-center justify-start cursor-pointer"
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           startEditLabel(tierIdx, pointIdx, point.label);
                         }}
                       >
-                        <div className="w-2 h-2 rounded-full bg-gray-800 -mt-1" />
+                        <div className="w-2 h-2 rounded-full bg-[#111111] -mt-1" />
                         {isEditing ? (
-                          <div className="absolute top-2 bg-white p-1 rounded border border-gray-300 shadow z-30" onClick={(e) => e.stopPropagation()}>
+                          <div className="absolute top-2 bg-white p-1 border border-[#111111] z-30" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="text"
                               autoFocus
@@ -661,12 +644,12 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                                 if (e.key === 'Enter') saveEditLabel(tierIdx, pointIdx);
                                 if (e.key === 'Escape') setEditingKey(null);
                               }}
-                              className="text-xs bg-white text-gray-900 px-1 py-0.5 rounded border border-gray-300 outline-none"
+                              className="text-xs bg-white text-[#111111] px-1 py-0.5 border border-[#111111] outline-none"
                             />
                           </div>
                         ) : (
                           point.label && (
-                            <span className="absolute top-2 text-[10px] text-gray-800 whitespace-nowrap bg-white px-1 border border-gray-200 rounded">
+                            <span className="absolute top-2 text-[10px] text-[#111111] whitespace-nowrap bg-white px-1 border border-[#e0e0e6] font-mono">
                               {point.label}
                             </span>
                           )
@@ -682,9 +665,9 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       </div>
 
       {/* Shortcut Legend */}
-      <div className="px-3 py-1 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500 flex flex-wrap items-center justify-between gap-1">
-        <span>Praat 操作: <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Enter</kbd> 境界挿入 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Tab</kbd> 区間再生 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Alt+←/→</kbd> 区間移動 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Alt+Del</kbd> 境界削除 | <kbd className="px-1 py-0.5 bg-white border border-gray-300 rounded text-gray-700 font-mono text-[10px]">Space</kbd> 再生/停止</span>
-        <span className="text-blue-700 font-medium">※IPAボタンでキーボード入力困難な音声記号（ɯ, ə, ɕ, ʑ, ç, ɸ, ɾ, ɴ, ŋ, ː 等）をワンクリック挿入可能</span>
+      <div className="px-3 py-1 bg-[#f0f0f4] border-t border-[#e0e0e6] text-[11px] text-[#777780] flex flex-wrap items-center justify-between gap-1 font-mono">
+        <span>Praat 操作: <kbd className="px-1 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px]">Enter</kbd> 境界挿入 | <kbd className="px-1 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px]">Tab</kbd> 区間再生 | <kbd className="px-1 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px]">Alt+←/→</kbd> 区間移動 | <kbd className="px-1 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px]">Alt+Del</kbd> 境界削除 | <kbd className="px-1 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px]">Space</kbd> 再生/停止</span>
+        <span className="text-[#111111] font-sans font-bold">※IPAボタンでキーボード入力困難な音声記号（ɯ, ə, ɕ, ʑ, ç, ɸ, ɾ, ɴ, ŋ, ː 等）をワンクリック挿入可能</span>
       </div>
     </div>
   );

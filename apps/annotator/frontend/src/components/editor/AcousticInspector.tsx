@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { IntervalMetrics, AcousticAnalysisData } from '@/types';
-import { Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc } from 'lucide-react';
+import { Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc, Copy, Check } from 'lucide-react';
 
 interface AcousticInspectorProps {
   metrics: IntervalMetrics | null;
@@ -62,6 +62,49 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
     return { f0, semitones, f1, f2, f3, intensity: intVal };
   }, [analysisData, queryTime]);
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyTSV = () => {
+    if (!selectedRange) return;
+    const durMs = metrics ? metrics.duration_ms : (selectedRange.end - selectedRange.start) * 1000;
+    const headers = [
+      'Label',
+      'Start(s)',
+      'End(s)',
+      'Duration(ms)',
+      'Mean_F0(Hz)',
+      'Min_F0(Hz)',
+      'Max_F0(Hz)',
+      'Mean_F1(Hz)',
+      'Mean_F2(Hz)',
+      'Mean_F3(Hz)',
+      'Mean_Intensity(dB)',
+      'Min_Intensity(dB)',
+      'Max_Intensity(dB)',
+      'COG(Hz)',
+    ];
+    const row = [
+      selectedLabel || '',
+      selectedRange.start.toFixed(4),
+      selectedRange.end.toFixed(4),
+      durMs.toFixed(2),
+      metrics?.mean_f0 ? metrics.mean_f0.toFixed(1) : '',
+      metrics?.min_f0 ? metrics.min_f0.toFixed(1) : '',
+      metrics?.max_f0 ? metrics.max_f0.toFixed(1) : '',
+      metrics?.f1 ? metrics.f1.toFixed(1) : '',
+      metrics?.f2 ? metrics.f2.toFixed(1) : '',
+      metrics?.f3 ? metrics.f3.toFixed(1) : '',
+      metrics?.mean_intensity ? metrics.mean_intensity.toFixed(1) : '',
+      metrics?.min_intensity ? metrics.min_intensity.toFixed(1) : '',
+      metrics?.max_intensity ? metrics.max_intensity.toFixed(1) : '',
+      metrics?.spectral_moments?.cog ? metrics.spectral_moments.cog.toFixed(1) : '',
+    ];
+    const tsv = `${headers.join('\t')}\n${row.join('\t')}`;
+    navigator.clipboard.writeText(tsv);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="w-64 flex-shrink-0 border-l-2 border-[#111111] bg-white flex flex-col h-full overflow-y-auto text-[#111111]">
       {/* Header */}
@@ -97,15 +140,40 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
           </div>
         </div>
 
-        {/* View Spectral Slice Button */}
-        <button
-          onClick={() => onOpenSpectralSlice?.(selectedRange ? (selectedRange.start + selectedRange.end) / 2 : queryTime)}
-          className="w-full py-1.5 px-3 border-2 border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-2"
-          title="Praat 互換の FFT パワースペクトルと LPC スペクトル包絡線を表示"
-        >
-          <Layers className="w-3.5 h-3.5 text-[#E30613]" />
-          <span>Spectral Slice (断面)</span>
-        </button>
+        {/* Action Buttons: Spectral Slice & Copy TSV */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            onClick={() => onOpenSpectralSlice?.(selectedRange ? (selectedRange.start + selectedRange.end) / 2 : queryTime)}
+            className="py-1.5 px-2 border-2 border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1"
+            title="Praat 互換の FFT パワースペクトルと LPC スペクトル包絡線を表示"
+          >
+            <Layers className="w-3.5 h-3.5 text-[#E30613]" />
+            <span>断面</span>
+          </button>
+
+          <button
+            onClick={handleCopyTSV}
+            disabled={!selectedRange}
+            className={`py-1.5 px-2 border-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1 ${
+              copied
+                ? 'bg-[#10b981] border-[#10b981] text-white'
+                : 'bg-white border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-30 disabled:border-[#e0e0e6] disabled:text-[#aaaaaf] disabled:hover:bg-white'
+            }`}
+            title="選択区間の全分析メトリクスをTSV形式でクリップボードにコピー（Excel/R貼付用）"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>COPIED</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>TSV COPY</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {selectedRange ? (
           <>

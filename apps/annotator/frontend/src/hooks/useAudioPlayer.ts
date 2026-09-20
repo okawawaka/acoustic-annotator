@@ -62,13 +62,13 @@ export function useAudioPlayer({
     }
   }, [isPlaying, audioMetadata]);
 
-  const handlePlaySelection = useCallback(() => {
-    if (!audioRef.current || !audioMetadata || !selection) return;
-    const minSel = Math.min(selection.start, selection.end);
-    const maxSel = Math.max(selection.start, selection.end);
-    if (maxSel - minSel < 0.01) return;
+  const handlePlayRange = useCallback((start: number, end: number) => {
+    if (!audioRef.current || !audioMetadata) return;
+    const minTime = Math.max(0, Math.min(start, end));
+    const maxTime = Math.min(audioMetadata.duration, Math.max(start, end));
+    if (maxTime - minTime < 0.005) return;
 
-    audioRef.current.currentTime = minSel;
+    audioRef.current.currentTime = minTime;
     audioRef.current.play();
     setIsPlaying(true);
 
@@ -77,13 +77,18 @@ export function useAudioPlayer({
         clearInterval(checkInterval);
         return;
       }
-      if (audioRef.current.currentTime >= maxSel) {
+      if (audioRef.current.currentTime >= maxTime) {
         audioRef.current.pause();
         setIsPlaying(false);
         clearInterval(checkInterval);
       }
     }, 20);
-  }, [audioMetadata, selection]);
+  }, [audioMetadata]);
+
+  const handlePlaySelection = useCallback(() => {
+    if (!selection) return;
+    handlePlayRange(selection.start, selection.end);
+  }, [selection, handlePlayRange]);
 
   const handleSeek = useCallback((time: number) => {
     if (!audioRef.current) return;
@@ -110,6 +115,7 @@ export function useAudioPlayer({
     handleTimeUpdate,
     handleTogglePlay,
     handlePlaySelection,
+    handlePlayRange,
     handleSeek,
     handleChangePlaybackRate,
   };

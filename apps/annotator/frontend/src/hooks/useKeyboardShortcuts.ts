@@ -11,6 +11,7 @@ interface UseKeyboardShortcutsOptions {
   onDeleteBoundary: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onOpenShortcutsModal?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -22,6 +23,7 @@ export function useKeyboardShortcuts({
   onDeleteBoundary,
   onUndo,
   onRedo,
+  onOpenShortcutsModal,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -75,6 +77,9 @@ export function useKeyboardShortcuts({
       } else if (e.altKey && (e.code === 'Backspace' || e.code === 'Delete')) {
         e.preventDefault();
         onDeleteBoundary();
+      } else if (e.key === '?' || e.key === 'F1') {
+        e.preventDefault();
+        onOpenShortcutsModal?.();
       }
     };
 
@@ -89,5 +94,6 @@ export function useKeyboardShortcuts({
     onDeleteBoundary,
     onUndo,
     onRedo,
+    onOpenShortcutsModal,
   ]);
 }

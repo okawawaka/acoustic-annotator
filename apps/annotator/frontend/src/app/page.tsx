@@ -13,6 +13,8 @@ import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
 import { RecordModal } from '@/components/editor/RecordModal';
 import { SpectralSliceModal } from '@/components/editor/SpectralSliceModal';
 import { AnalysisSettingsModal } from '@/components/editor/AnalysisSettingsModal';
+import { ShortcutsModal } from '@/components/editor/ShortcutsModal';
+import { PlayBars } from '@/components/editor/PlayBars';
 import { EmptyLandingView } from '@/components/editor/EmptyLandingView';
 import { HeaderBar } from '@/components/layout/HeaderBar';
 
@@ -68,6 +70,7 @@ export default function AnnotatorApp() {
   const [isSpectralSliceOpen, setIsSpectralSliceOpen] = useState(false);
   const [spectralSliceTargetTime, setSpectralSliceTargetTime] = useState(0);
   const [isAnalysisSettingsOpen, setIsAnalysisSettingsOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
 
   // Custom Hook: Undo / Redo History
   const {
@@ -116,6 +119,7 @@ export default function AnnotatorApp() {
     handleTimeUpdate,
     handleTogglePlay,
     handlePlaySelection,
+    handlePlayRange,
     handleSeek,
     handleChangePlaybackRate,
   } = useAudioPlayer({
@@ -193,6 +197,7 @@ export default function AnnotatorApp() {
     onDeleteBoundary: handleDeleteBoundary,
     onUndo: handleUndo,
     onRedo: handleRedo,
+    onOpenShortcutsModal: () => setIsShortcutsModalOpen(true),
   });
 
   // Keep active tier in valid bounds
@@ -378,6 +383,7 @@ export default function AnnotatorApp() {
                 onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
                 onOpenSpectralSliceModal={() => handleOpenSpectralSlice()}
                 onOpenAnalysisSettingsModal={() => setIsAnalysisSettingsOpen(true)}
+                onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
                 onTogglePitch={() => setShowPitch((prev) => !prev)}
                 onToggleFormants={() => setShowFormants((prev) => !prev)}
                 onToggleIntensity={() => setShowIntensity((prev) => !prev)}
@@ -436,6 +442,15 @@ export default function AnnotatorApp() {
                     height={140}
                   />
                 </div>
+
+                {/* Praat-style Segment Play Bars (Window, Selection, Total) */}
+                <PlayBars
+                  duration={audioMetadata.duration}
+                  viewRange={viewRange}
+                  selection={selection}
+                  onPlayRange={handlePlayRange}
+                  onPlaySelection={handlePlaySelection}
+                />
 
                 {/* TextGrid Timeline */}
                 <div className="flex-1 min-h-[160px] bg-white">
@@ -546,6 +561,11 @@ export default function AnnotatorApp() {
         onClose={() => setIsAnalysisSettingsOpen(false)}
         settings={analysisSettings}
         onApplySettings={handleApplyAnalysisSettings}
+      />
+
+      <ShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
     </div>
   );
