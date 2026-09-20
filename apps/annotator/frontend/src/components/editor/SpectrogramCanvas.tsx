@@ -252,45 +252,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       }
     }
     ctx.setLineDash([]);
-
-    // 5. 選択範囲ハイライト
-    if (selection && selection.start !== selection.end) {
-      const selStart = Math.min(selection.start, selection.end);
-      const selEnd = Math.max(selection.start, selection.end);
-      const x1 = Math.max(0, ((selStart - viewRange.start) / span) * width);
-      const x2 = Math.min(width, ((selEnd - viewRange.start) / span) * width);
-
-      if (x2 > x1) {
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
-        ctx.fillRect(x1, 0, x2 - x1, h);
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x1, 0, x2 - x1, h);
-      }
-    }
-
-    // 6. ホバーインジケータ
-    if (hoverTime !== null && hoverTime >= viewRange.start && hoverTime <= viewRange.end) {
-      const hx = ((hoverTime - viewRange.start) / span) * width;
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(hx, 0);
-      ctx.lineTo(hx, h);
-      ctx.stroke();
-    }
-
-    // 7. 再生位置カーソル (赤線)
-    if (currentTime >= viewRange.start && currentTime <= viewRange.end) {
-      const cx = ((currentTime - viewRange.start) / span) * width;
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(cx, 0);
-      ctx.lineTo(cx, h);
-      ctx.stroke();
-    }
-  }, [analysisData, currentTime, selection, viewRange, boundaries, hoverTime, showPitch, showFormants, showIntensity, maxDisplayFreq]);
+  }, [analysisData, viewRange, boundaries, showPitch, showFormants, showIntensity, maxDisplayFreq]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -303,22 +265,30 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     };
 
     updateSize();
-    const observer = new ResizeObserver(updateSize);
-    if (containerRef.current) observer.observe(containerRef.current);
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          updateSize();
+        }
+      }
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
     return () => observer.disconnect();
-  }, [height, renderSpectrogram]);
+  }, [renderSpectrogram, height]);
 
-  useEffect(() => {
-    renderSpectrogram();
-  }, [renderSpectrogram]);
+  const viewSpan = Math.max(0.001, viewRange.end - viewRange.start);
 
-  const getTimeFromX = (clientX: number): number => {
-    const canvas = canvasRef.current;
-    if (!canvas) return 0;
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.max(0, Math.min(canvas.width, clientX - rect.left));
-    const span = viewRange.end - viewRange.start;
-    return viewRange.start + (x / canvas.width) * span;
+  const getTimeFromX = (clientX: number) => {
+    const container = containerRef.current;
+    if (!container) return 0;
+    const rect = container.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    return viewRange.start + (x / rect.width) * viewSpan;
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -326,8 +296,8 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     const time = getTimeFromX(e.clientX);
     isDraggingRef.current = true;
     dragStartRef.current = time;
-    if (onSelectRange) onSelectRange(null);
     if (onSeek) onSeek(time);
+    if (onSelectRange) onSelectRange({ start: time, end: time });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -346,34 +316,97 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
+    dragStartRef.current = null;
   };
+
+  // Selection Edge Resize Handler (drag left or right boundary)
+  const handleStartResize = (edge: 'start' | 'end', e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selection) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+
+    const initialSel = {
+      start: Math.min(selection.start, selection.end),
+      end: Math.max(selection.start, selection.end),
+    };
+
+    const onMove = (moveEv: MouseEvent) => {
+      const x = moveEv.clientX - rect.left;
+      const t = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
+      const roundedT = Math.round(t * 1000) / 1000;
+
+      if (edge === 'start') {
+        const newStart = Math.min(roundedT, initialSel.end - 0.005);
+        onSelectRange?.({ start: newStart, end: initialSel.end });
+      } else {
+        const newEnd = Math.max(roundedT, initialSel.start + 0.005);
+        onSelectRange?.({ start: initialSel.start, end: newEnd });
+      }
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const selectionStyle = React.useMemo(() => {
+    if (!selection || selection.start === selection.end) return null;
+    const selMin = Math.min(selection.start, selection.end);
+    const selMax = Math.max(selection.start, selection.end);
+
+    const left = ((selMin - viewRange.start) / viewSpan) * 100;
+    const width = ((selMax - selMin) / viewSpan) * 100;
+    return {
+      left: `${left}%`,
+      width: `${Math.max(0.1, width)}%`,
+    };
+  }, [selection, viewRange, viewSpan]);
+
+  const playheadPercent = ((currentTime - viewRange.start) / viewSpan) * 100;
+  const showPlayhead = currentTime >= viewRange.start && currentTime <= viewRange.end;
+
+  const hoverPercent = hoverTime !== null ? ((hoverTime - viewRange.start) / viewSpan) * 100 : null;
+  const showHover = hoverTime !== null && hoverTime >= viewRange.start && hoverTime <= viewRange.end;
 
   const isPitchScale = maxDisplayFreq <= 1000;
 
   return (
-    <div className="flex w-full border-b border-gray-200 bg-white select-none">
+    <div className="flex w-full border-b border-[#e0e0e6] bg-white select-none">
       {/* Track Label Header (w-32) */}
-      <div className="w-32 flex-shrink-0 flex flex-col justify-between p-2 border-r border-gray-200 bg-gray-50/50 text-xs">
+      <div className="w-32 flex-shrink-0 flex flex-col justify-between p-2 border-r border-[#e0e0e6] bg-[#fafafc] text-xs">
         <div>
-          <div className="font-semibold text-gray-800 text-[11px] leading-tight">
+          <div className="font-bold text-[#111111] text-[11px] leading-tight uppercase tracking-tight">
             {isPitchScale ? 'Pitch (F0)' : 'Spectrogram'}
           </div>
-          <div className="text-[10px] text-gray-500 font-mono">
-            {isPitchScale ? '0 - 500 Hz' : '0 - 5.0 kHz'}
+          <div className="text-[10px] text-[#777780] font-mono">
+            {isPitchScale ? '0 - 500 Hz' : `0 - ${(maxDisplayFreq / 1000).toFixed(1)} kHz`}
           </div>
         </div>
 
         <div className="space-y-1 mt-2">
           {showPitch && (
-            <div className="flex items-center text-[10px] text-blue-700 font-mono font-medium">
-              <span className="w-2.5 h-0.5 bg-blue-600 inline-block mr-1"></span>
-              F0 (Pitch)
+            <div className="flex items-center text-[10px] text-[#2563eb] font-mono font-bold">
+              <span className="w-2.5 h-0.5 bg-[#2563eb] inline-block mr-1"></span>
+              F0
             </div>
           )}
           {showFormants && (
-            <div className="flex items-center text-[10px] text-red-600 font-mono font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block mr-1"></span>
-              Formants
+            <div className="flex items-center text-[10px] text-[#E30613] font-mono font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E30613] inline-block mr-1"></span>
+              F1-3
+            </div>
+          )}
+          {showIntensity && (
+            <div className="flex items-center text-[10px] text-[#10b981] font-mono font-bold">
+              <span className="w-2.5 h-0.5 bg-[#10b981] inline-block mr-1"></span>
+              Int
             </div>
           )}
         </div>
@@ -391,7 +424,49 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
           if (onHoverTimeChange) onHoverTimeChange(null);
         }}
       >
-        <canvas ref={canvasRef} className="block w-full h-full" />
+        <canvas ref={canvasRef} className="block w-full h-full pointer-events-none" />
+
+        {/* Selection Highlight Overlay with Resizing Handles */}
+        {selectionStyle && (
+          <div
+            className="absolute top-0 bottom-0 bg-[#111111]/10 border-x-2 border-[#111111] z-10 select-none"
+            style={selectionStyle}
+          >
+            {/* Left Edge Resize Handle */}
+            <div
+              onMouseDown={(e) => handleStartResize('start', e)}
+              className="absolute left-0 top-0 bottom-0 w-3 -translate-x-1/2 cursor-ew-resize hover:bg-[#E30613]/50 transition-colors z-20 group flex items-center justify-center"
+              title="ドラッグして開始位置を微調整"
+            >
+              <div className="w-[2px] h-3 bg-[#111111] group-hover:bg-[#E30613]" />
+            </div>
+
+            {/* Right Edge Resize Handle */}
+            <div
+              onMouseDown={(e) => handleStartResize('end', e)}
+              className="absolute right-0 top-0 bottom-0 w-3 translate-x-1/2 cursor-ew-resize hover:bg-[#E30613]/50 transition-colors z-20 group flex items-center justify-center"
+              title="ドラッグして終了位置を微調整"
+            >
+              <div className="w-[2px] h-3 bg-[#111111] group-hover:bg-[#E30613]" />
+            </div>
+          </div>
+        )}
+
+        {/* Synchronized Hover Hairline */}
+        {showHover && hoverPercent !== null && (
+          <div
+            className="absolute top-0 bottom-0 w-[1px] bg-[#aaaaaf] pointer-events-none z-10"
+            style={{ left: `${hoverPercent}%` }}
+          />
+        )}
+
+        {/* Playhead */}
+        {showPlayhead && (
+          <div
+            className="absolute top-0 bottom-0 w-[1.5px] bg-[#E30613] pointer-events-none z-20 will-change-transform"
+            style={{ left: `${playheadPercent}%` }}
+          />
+        )}
       </div>
     </div>
   );

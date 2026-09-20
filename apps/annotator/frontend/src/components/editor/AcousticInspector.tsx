@@ -62,6 +62,18 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
     return { f0, semitones, f1, f2, f3, intensity: intVal };
   }, [analysisData, queryTime]);
 
+  const freqToNote = (freq: number | null | undefined): string | null => {
+    if (!freq || freq <= 25) return null;
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const midi = 69 + 12 * Math.log2(freq / 440);
+    const roundedMidi = Math.round(midi);
+    const noteName = noteNames[((roundedMidi % 12) + 12) % 12];
+    const octave = Math.floor(roundedMidi / 12) - 1;
+    const cents = Math.round((midi - roundedMidi) * 100);
+    const centsStr = cents !== 0 ? (cents > 0 ? `+${cents}¢` : `${cents}¢`) : '';
+    return `${noteName}${octave}${centsStr ? ' ' + centsStr : ''}`;
+  };
+
   const [copied, setCopied] = useState(false);
 
   const handleCopyTSV = () => {
@@ -203,15 +215,22 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
             {/* F0 / Pitch */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
-                <span className="flex items-center">
-                  <Zap className="w-3 h-3 mr-1 text-[#111111]" />
+                <span className="flex items-center text-[#2563eb]">
+                  <Zap className="w-3 h-3 mr-1" />
                   Fundamental (F0)
                 </span>
                 <span className="text-[9px] text-[#aaaaaf]">基本周波数</span>
               </div>
-              <div className="p-2.5 bg-white border border-[#e0e0e6] font-mono space-y-1.5">
+              <div className="p-2.5 bg-white border border-[#e0e0e6] border-l-2 border-l-[#2563eb] font-mono space-y-1.5">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-[#777780] uppercase tracking-wider">Mean:</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-xs text-[#777780] uppercase tracking-wider">Mean:</span>
+                    {metrics?.mean_f0 && freqToNote(metrics.mean_f0) && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 bg-[#2563eb]/10 text-[#2563eb] border border-[#2563eb]/30" title="12平均律 音名・ピッチ">
+                        {freqToNote(metrics.mean_f0)}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-sm font-extrabold text-[#111111]">
                     {metrics?.mean_f0 ? metrics.mean_f0.toFixed(1) + ' Hz' : '--'}
                   </span>
@@ -228,26 +247,63 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
             {/* Formants */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
-                <span className="flex items-center">
-                  <BarChart2 className="w-3 h-3 mr-1 text-[#E30613]" />
+                <span className="flex items-center text-[#E30613]">
+                  <BarChart2 className="w-3 h-3 mr-1" />
                   Formants (20-80%)
                 </span>
                 <span className="text-[9px] text-[#aaaaaf]">定常部共鳴</span>
               </div>
-              <div className="p-2.5 bg-white border border-[#e0e0e6] font-mono space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#777780] uppercase tracking-wider font-semibold">F1 (舌高):</span>
-                  <span className="font-extrabold text-[#E30613]">
-                    {metrics?.f1 ? metrics.f1.toFixed(0) + ' Hz' : '--'}
-                  </span>
+              <div className="p-2.5 bg-white border border-[#e0e0e6] border-l-2 border-l-[#E30613] font-mono space-y-2">
+                {/* F1 */}
+                <div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#777780] uppercase tracking-wider font-semibold">F1 (舌高):</span>
+                    <span className="font-extrabold text-[#E30613]">
+                      {metrics?.f1 ? metrics.f1.toFixed(0) + ' Hz' : '--'}
+                    </span>
+                  </div>
+                  {metrics?.f1 && (
+                    <div className="mt-1 flex items-center justify-between text-[9px] text-[#777780]">
+                      <span>狭[i,u]</span>
+                      <div className="flex-1 mx-2 h-1 bg-[#f0f0f4] relative overflow-hidden border border-[#e0e0e6]">
+                        <div
+                          className="h-full bg-[#E30613]"
+                          style={{
+                            width: `${Math.max(5, Math.min(100, ((metrics.f1 - 250) / 600) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                      <span>広[a]</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#777780] uppercase tracking-wider font-semibold">F2 (舌前後):</span>
-                  <span className="font-extrabold text-[#E30613]">
-                    {metrics?.f2 ? metrics.f2.toFixed(0) + ' Hz' : '--'}
-                  </span>
+
+                {/* F2 */}
+                <div className="border-t border-[#f0f0f4] pt-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[#777780] uppercase tracking-wider font-semibold">F2 (舌前後):</span>
+                    <span className="font-extrabold text-[#E30613]">
+                      {metrics?.f2 ? metrics.f2.toFixed(0) + ' Hz' : '--'}
+                    </span>
+                  </div>
+                  {metrics?.f2 && (
+                    <div className="mt-1 flex items-center justify-between text-[9px] text-[#777780]">
+                      <span>後[u,o]</span>
+                      <div className="flex-1 mx-2 h-1 bg-[#f0f0f4] relative overflow-hidden border border-[#e0e0e6]">
+                        <div
+                          className="h-full bg-[#E30613]"
+                          style={{
+                            width: `${Math.max(5, Math.min(100, ((metrics.f2 - 800) / 1600) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                      <span>前[i,e]</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between text-xs border-t border-[#f0f0f4] pt-1">
+
+                {/* F3 */}
+                <div className="flex items-center justify-between text-xs border-t border-[#f0f0f4] pt-1.5">
                   <span className="text-[#777780] uppercase tracking-wider font-semibold">F3:</span>
                   <span className="font-bold text-[#111111]">
                     {metrics?.f3 ? metrics.f3.toFixed(0) + ' Hz' : '--'}
@@ -260,8 +316,8 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
             {metrics?.spectral_moments && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
-                  <span className="flex items-center">
-                    <Disc className="w-3 h-3 mr-1 text-[#111111]" />
+                  <span className="flex items-center text-[#111111]">
+                    <Disc className="w-3 h-3 mr-1" />
                     Spectral Moments
                   </span>
                   <span className="text-[9px] text-[#aaaaaf]">子音・摩擦音</span>
@@ -290,13 +346,13 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
             {/* Intensity */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
-                <span className="flex items-center">
-                  <Volume2 className="w-3 h-3 mr-1 text-[#10b981]" />
+                <span className="flex items-center text-[#10b981]">
+                  <Volume2 className="w-3 h-3 mr-1" />
                   Intensity
                 </span>
                 <span className="text-[9px] text-[#aaaaaf]">音圧強度</span>
               </div>
-              <div className="p-2.5 bg-white border border-[#e0e0e6] font-mono space-y-1.5">
+              <div className="p-2.5 bg-white border border-[#e0e0e6] border-l-2 border-l-[#10b981] font-mono space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-[#777780] uppercase tracking-wider">Mean:</span>
                   <span className="text-sm font-bold text-[#10b981]">
@@ -327,7 +383,14 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
 
               {/* Instantaneous F0 */}
               <div className="flex items-baseline justify-between">
-                <span className="text-[11px] text-[#777780]">Pitch (F0):</span>
+                <div className="flex items-center space-x-1">
+                  <span className="text-[11px] text-[#777780]">Pitch (F0):</span>
+                  {pointValues?.f0 && freqToNote(pointValues.f0) && (
+                    <span className="text-[9px] font-bold px-1 py-0.2 bg-[#2563eb]/10 text-[#2563eb] border border-[#2563eb]/30">
+                      {freqToNote(pointValues.f0)}
+                    </span>
+                  )}
+                </div>
                 <div className="text-right">
                   <span className="font-bold text-[#2563eb]">
                     {pointValues?.f0 ? `${pointValues.f0.toFixed(1)} Hz` : '--'}

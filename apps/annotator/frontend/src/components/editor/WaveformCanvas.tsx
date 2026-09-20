@@ -179,21 +179,59 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
     if (isDraggingRef.current && dragStartRef.current !== null) {
       onSelectRange({
-        start: dragStartRef.current,
-        end: currentTimeAtPointer,
+        start: Math.min(dragStartRef.current, currentTimeAtPointer),
+        end: Math.max(dragStartRef.current, currentTimeAtPointer),
       });
     }
   };
 
   const handlePointerLeave = () => {
     onHoverTimeChange(null);
-    isDraggingRef.current = false;
-    dragStartRef.current = null;
+    if (!isDraggingRef.current) {
+      dragStartRef.current = null;
+    }
   };
 
   const handlePointerUp = () => {
     isDraggingRef.current = false;
     dragStartRef.current = null;
+  };
+
+  // Selection Edge Resize Handler (drag left or right boundary)
+  const handleStartResize = (edge: 'start' | 'end', e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (!selection) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+
+    const initialSel = {
+      start: Math.min(selection.start, selection.end),
+      end: Math.max(selection.start, selection.end),
+    };
+
+    const onMove = (moveEv: PointerEvent) => {
+      const x = moveEv.clientX - rect.left;
+      const t = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
+      const roundedT = Math.round(t * 1000) / 1000;
+
+      if (edge === 'start') {
+        const newStart = Math.min(roundedT, initialSel.end - 0.005);
+        onSelectRange({ start: newStart, end: initialSel.end });
+      } else {
+        const newEnd = Math.max(roundedT, initialSel.start + 0.005);
+        onSelectRange({ start: initialSel.start, end: newEnd });
+      }
+    };
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
   };
 
   const selectionStyle = React.useMemo(() => {
@@ -217,24 +255,24 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
 
   return (
     <div
-      className="flex w-full overflow-hidden select-none bg-white border-b border-gray-200"
+      className="flex w-full overflow-hidden select-none bg-white border-b border-[#e0e0e6]"
       style={{ height: `${height}px` }}
     >
       {/* Audio Left Header (Matches TextGrid Timeline Header) */}
-      <div className="w-32 flex-shrink-0 bg-gray-50 border-r border-gray-200 px-2 py-1.5 flex flex-col justify-between select-none z-10">
+      <div className="w-32 flex-shrink-0 bg-[#fafafc] border-r border-[#e0e0e6] px-2 py-1.5 flex flex-col justify-between select-none z-10 text-[#111111]">
         <div>
-          <span className="font-semibold text-xs text-gray-800">Audio (波形)</span>
-          <div className="text-[10px] text-gray-500 mt-0.5">Mono</div>
+          <span className="font-bold text-xs text-[#111111] uppercase tracking-tight">Audio (波形)</span>
+          <div className="text-[10px] text-[#777780] font-mono mt-0.5">Mono</div>
         </div>
 
-        <div className="text-[9px] text-gray-400 font-mono flex flex-col justify-between py-1" style={{ height: `${height - 55}px` }}>
+        <div className="text-[9px] text-[#777780] font-mono flex flex-col justify-between py-1" style={{ height: `${height - 55}px` }}>
           <span>+1.0</span>
           <span> 0.0</span>
           <span>-1.0</span>
         </div>
 
-        <div className="text-[9px] text-gray-400">
-          {(duration || 0).toFixed(1)}s
+        <div className="text-[9px] text-[#777780] font-mono">
+          {(duration || 0).toFixed(2)}s
         </div>
       </div>
 
@@ -254,21 +292,39 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
           className="w-full h-full block pointer-events-none"
         />
 
-        {/* Selection Highlight Overlay */}
+        {/* Selection Highlight Overlay with Resizing Handles */}
         {selectionStyle && (
           <div
-            className="absolute top-0 bottom-[20px] bg-blue-500/15 border-x border-blue-600 pointer-events-none"
+            className="absolute top-0 bottom-[20px] bg-[#111111]/10 border-x-2 border-[#111111] z-10 select-none"
             style={selectionStyle}
-          />
+          >
+            {/* Left Edge Resize Handle */}
+            <div
+              onPointerDown={(e) => handleStartResize('start', e)}
+              className="absolute left-0 top-0 bottom-0 w-3 -translate-x-1/2 cursor-ew-resize hover:bg-[#E30613]/50 transition-colors z-20 group flex items-center justify-center"
+              title="ドラッグして開始位置を微調整"
+            >
+              <div className="w-[2px] h-3 bg-[#111111] group-hover:bg-[#E30613]" />
+            </div>
+
+            {/* Right Edge Resize Handle */}
+            <div
+              onPointerDown={(e) => handleStartResize('end', e)}
+              className="absolute right-0 top-0 bottom-0 w-3 translate-x-1/2 cursor-ew-resize hover:bg-[#E30613]/50 transition-colors z-20 group flex items-center justify-center"
+              title="ドラッグして終了位置を微調整"
+            >
+              <div className="w-[2px] h-3 bg-[#111111] group-hover:bg-[#E30613]" />
+            </div>
+          </div>
         )}
 
         {/* Synchronized Hover Hairline */}
         {showHover && hoverPercent !== null && (
           <div
-            className="absolute top-0 bottom-[20px] w-[1px] bg-gray-400 pointer-events-none z-10"
+            className="absolute top-0 bottom-[20px] w-[1px] bg-[#aaaaaf] pointer-events-none z-10"
             style={{ left: `${hoverPercent}%` }}
           >
-            <div className="absolute top-1 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1 py-0.2 rounded pointer-events-none font-mono">
+            <div className="absolute top-1 -translate-x-1/2 bg-[#111111] text-white text-[9px] px-1 py-0.2 pointer-events-none font-mono font-bold">
               {hoverTime.toFixed(3)}s
             </div>
           </div>
@@ -277,10 +333,10 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
         {/* Playhead */}
         {showPlayhead && (
           <div
-            className="absolute top-0 bottom-[20px] w-[1.5px] bg-red-600 pointer-events-none z-20 will-change-transform"
+            className="absolute top-0 bottom-[20px] w-[1.5px] bg-[#E30613] pointer-events-none z-20 will-change-transform"
             style={{ left: `${playheadPercent}%` }}
           >
-            <div className="w-2.5 h-2.5 bg-red-600 -ml-[4px] rotate-45 pointer-events-none" />
+            <div className="w-2.5 h-2.5 bg-[#E30613] -ml-[4.5px] rotate-45 pointer-events-none" />
           </div>
         )}
       </div>

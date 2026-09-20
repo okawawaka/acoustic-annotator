@@ -538,8 +538,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       else handleSplitInterval(tierIdx);
                     }}
                     style={{ left: `${timeToPercent(currentTime)}%` }}
-                    className="absolute top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-[#111111] hover:bg-[#E30613] text-white flex items-center justify-center text-[11px] font-bold z-30 transition-transform hover:scale-125 cursor-pointer"
-                    title="境界を挿入 (Enter)"
+                    className="absolute top-0 -translate-x-1/2 w-4 h-4 rounded-full bg-[#111111] hover:bg-[#E30613] text-white flex items-center justify-center text-[10px] font-bold z-30 transition-transform hover:scale-125 cursor-pointer shadow-sm border border-white"
+                    title="現在位置に境界を挿入 (Enter)"
                   >
                     +
                   </button>
@@ -610,9 +610,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 
                         <div
                           onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
-                          className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-[#E30613]/40 z-10"
+                          className="absolute -right-[5px] top-0 bottom-0 w-[10px] cursor-col-resize z-20 group/handle flex items-center justify-center"
                           title="境界をドラッグして移動"
-                        />
+                        >
+                          <div className="w-[2px] h-full bg-transparent group-hover/handle:bg-[#E30613] transition-colors" />
+                        </div>
                       </div>
                     );
                   })
