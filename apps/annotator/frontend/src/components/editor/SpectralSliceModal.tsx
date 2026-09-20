@@ -169,22 +169,58 @@ export const SpectralSliceModal: React.FC<SpectralSliceModalProps> = ({
     }
   }, [sliceData, maxFreq, showFft, showLpc, hoverCoord]);
 
+  // コンテナの寸法確定と連動したキャンバスのリサイズ & レンダリング
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
-    const updateSize = () => {
+    if (!isOpen) {
+      setIsReady(false);
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    // 初回即時設定
+    const updateCanvasSize = (w: number, h: number) => {
       const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-      canvas.width = container.clientWidth;
-      canvas.height = Math.max(340, container.clientHeight);
+      if (!canvas || w <= 0 || h <= 0) return;
+      const targetW = Math.floor(w);
+      const targetH = Math.floor(h);
+
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
       renderSlice();
+      setIsReady(true);
     };
 
-    if (isOpen) {
-      updateSize();
-      window.addEventListener('resize', updateSize);
-      return () => window.removeEventListener('resize', updateSize);
+    if (container.clientWidth > 0 && container.clientHeight > 0) {
+      updateCanvasSize(container.clientWidth, container.clientHeight);
     }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          updateCanvasSize(width, height);
+        }
+      }
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
   }, [isOpen, renderSlice]);
+
+  useEffect(() => {
+    if (isOpen && isReady) {
+      renderSlice();
+    }
+  }, [isOpen, isReady, renderSlice]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -218,8 +254,8 @@ export const SpectralSliceModal: React.FC<SpectralSliceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white border-2 border-[#111111] max-w-4xl w-full flex flex-col shadow-2xl overflow-hidden max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/70 backdrop-blur-none p-4">
+      <div className="bg-white border-2 border-[#111111] max-w-4xl w-full flex flex-col shadow-none overflow-hidden max-h-[92vh] text-[#111111]">
         {/* Header */}
         <div className="h-12 border-b-2 border-[#111111] px-4 flex items-center justify-between bg-white">
           <div className="flex items-center space-x-3">
@@ -307,12 +343,15 @@ export const SpectralSliceModal: React.FC<SpectralSliceModalProps> = ({
         </div>
 
         {/* Canvas Plot */}
-        <div ref={containerRef} className="flex-1 min-h-[340px] bg-white relative p-2">
+        <div ref={containerRef} className="flex-1 min-h-[360px] h-[380px] bg-white relative p-2 overflow-hidden">
           <canvas
             ref={canvasRef}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setHoverCoord(null)}
-            className="w-full h-full cursor-crosshair block"
+            className={`cursor-crosshair block transition-opacity duration-100 ${
+              isReady ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{ width: '100%', height: '100%' }}
           />
           {hoverCoord && (
             <div
