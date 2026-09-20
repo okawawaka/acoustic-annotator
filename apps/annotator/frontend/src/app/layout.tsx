@@ -5,6 +5,16 @@ export const metadata: Metadata = {
   title: "Acoustic Annotator",
   description: "Acoustic Analysis & Praat TextGrid Annotator",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.svg",
+    apple: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -17,6 +27,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#111111",
 };
 
 export default function RootLayout({
