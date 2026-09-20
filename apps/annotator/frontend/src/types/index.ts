@@ -1,4 +1,4 @@
-﻿export interface IntervalEntry {
+export interface IntervalEntry {
   start: number;
   end: number;
   label: string;
@@ -46,6 +46,11 @@ export interface FormantData {
   f3: (number | null)[];
 }
 
+export interface IntensityData {
+  times: number[];
+  values: (number | null)[];
+}
+
 export interface AcousticAnalysisData {
   duration: number;
   time_step: number;
@@ -56,6 +61,14 @@ export interface AcousticAnalysisData {
   spectrogram: number[][];
   pitch: PitchData;
   formants: FormantData;
+  intensity?: IntensityData;
+}
+
+export interface SpectralMoments {
+  cog: number;      // Centre of Gravity (重心周波数 Hz)
+  sd: number;       // Standard Deviation (標準偏差 Hz)
+  skewness: number; // Skewness (歪度)
+  kurtosis: number; // Kurtosis (尖度)
 }
 
 export interface IntervalMetrics {
@@ -67,5 +80,16 @@ export interface IntervalMetrics {
   f2: number | null;
   f3: number | null;
   mean_intensity: number | null;
+  min_intensity?: number | null;
+  max_intensity?: number | null;
   max_formant_freq?: number;
+  spectral_moments?: SpectralMoments | null;
+}
+
+export interface AnalysisSettings {
+  spectrogramType: 'wideband' | 'narrowband'; // wideband: 5ms (フォルマント), narrowband: 30ms (倍音)
+  minPitch: number;      // e.g. 75
+  maxPitch: number;      // e.g. 500
+  maxFormantFreq: number;// e.g. 5000 / 5500 / 6000
+  dynamicRange: number;  // e.g. 50 dB (30 - 70)
 }

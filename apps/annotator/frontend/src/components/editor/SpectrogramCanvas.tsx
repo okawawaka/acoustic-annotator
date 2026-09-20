@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { AcousticAnalysisData } from '@/types';
@@ -13,6 +13,7 @@ interface SpectrogramCanvasProps {
   hoverTime?: number | null;
   showPitch?: boolean;
   showFormants?: boolean;
+  showIntensity?: boolean;
   maxDisplayFreq?: number; // 500 (F0観察用) または 5000 (フォルマント用)
   onHoverTimeChange?: (time: number | null) => void;
   onSeek?: (time: number) => void;
@@ -30,6 +31,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
   hoverTime = null,
   showPitch = true,
   showFormants = true,
+  showIntensity = true,
   maxDisplayFreq = 5000,
   onHoverTimeChange,
   onSeek,
@@ -193,7 +195,50 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       ctx.stroke();
     }
 
-    // 4. TextGrid境界線（点線）
+    // 4. Intensity (音圧曲線) 重畳描画 (Praat 緑線 #10b981)
+    if (showIntensity && analysisData?.intensity) {
+      const { times, values } = analysisData.intensity;
+      const minDb = 40;
+      const maxDb = 95;
+      const dbSpan = maxDb - minDb;
+
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      let started = false;
+
+      for (let i = 0; i < times.length; i++) {
+        const t = times[i];
+        if (t < viewRange.start || t > viewRange.end) continue;
+        const x = ((t - viewRange.start) / span) * width;
+        const val = values[i];
+
+        if (val !== null && val > minDb) {
+          const normDb = Math.max(0, Math.min(1, (val - minDb) / dbSpan));
+          const y = h - normDb * h;
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        } else {
+          started = false;
+        }
+      }
+      ctx.stroke();
+
+      // 右端の dB 目盛りラベル (緑色)
+      ctx.fillStyle = '#059669';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.textAlign = 'right';
+      for (let db = 50; db <= 90; db += 20) {
+        const y = h - ((db - minDb) / dbSpan) * h;
+        ctx.fillText(db + 'dB', width - 36, y - 2);
+      }
+    }
+
+    // 5. TextGrid境界線（点線）
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
@@ -245,7 +290,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       ctx.lineTo(cx, h);
       ctx.stroke();
     }
-  }, [analysisData, currentTime, selection, viewRange, boundaries, hoverTime, showPitch, showFormants, maxDisplayFreq]);
+  }, [analysisData, currentTime, selection, viewRange, boundaries, hoverTime, showPitch, showFormants, showIntensity, maxDisplayFreq]);
 
   useEffect(() => {
     const updateSize = () => {

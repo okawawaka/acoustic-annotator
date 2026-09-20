@@ -11,6 +11,8 @@ import { ASRModal, ASRModalRunParams } from '@/components/editor/ASRModal';
 import { CustomTextModal } from '@/components/editor/CustomTextModal';
 import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
 import { RecordModal } from '@/components/editor/RecordModal';
+import { SpectralSliceModal } from '@/components/editor/SpectralSliceModal';
+import { AnalysisSettingsModal } from '@/components/editor/AnalysisSettingsModal';
 
 import {
   AudioMetadata,
@@ -20,6 +22,7 @@ import {
   PointEntry,
   AcousticAnalysisData,
   IntervalMetrics,
+  AnalysisSettings,
 } from '@/types';
 
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
@@ -49,6 +52,14 @@ export default function AnnotatorApp() {
   const [maxDisplayFreq, setMaxDisplayFreq] = useState<number>(5000);
   const [showPitch, setShowPitch] = useState(true);
   const [showFormants, setShowFormants] = useState(true);
+  const [showIntensity, setShowIntensity] = useState(true);
+  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>({
+    spectrogramType: 'wideband',
+    minPitch: 75,
+    maxPitch: 600,
+    maxFormantFreq: 5500,
+    dynamicRange: 50,
+  });
 
   // Modals Visibility State
   const [isASRModalOpen, setIsASRModalOpen] = useState(false);
@@ -57,6 +68,9 @@ export default function AnnotatorApp() {
   const [isCustomTextLoading, setIsCustomTextLoading] = useState(false);
   const [isVowelSpaceModalOpen, setIsVowelSpaceModalOpen] = useState(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [isSpectralSliceOpen, setIsSpectralSliceOpen] = useState(false);
+  const [spectralSliceTargetTime, setSpectralSliceTargetTime] = useState(0);
+  const [isAnalysisSettingsOpen, setIsAnalysisSettingsOpen] = useState(false);
 
   // Custom Hook: Undo / Redo History
   const {
@@ -166,14 +180,43 @@ export default function AnnotatorApp() {
   // Re-analyze client-side when speaker max formant freq changes
   const handleChangeMaxFormantFreq = useCallback(async (newFreq: number) => {
     setMaxFormantFreq(newFreq);
+    setAnalysisSettings((prev) => ({ ...prev, maxFormantFreq: newFreq }));
     if (!audioBuffer) return;
     try {
-      const analysis = await analyzeAudioClient(audioBuffer, newFreq);
+      const analysis = await analyzeAudioClient(audioBuffer, {
+        ...analysisSettings,
+        maxFormantFreq: newFreq,
+      });
       setAnalysisData(analysis);
     } catch (err) {
       console.warn('Client re-analysis failed:', err);
     }
+  }, [audioBuffer, analysisSettings]);
+
+  // Apply new Praat analysis settings and re-run client analysis
+  const handleApplyAnalysisSettings = useCallback(async (newSettings: AnalysisSettings) => {
+    setAnalysisSettings(newSettings);
+    setMaxFormantFreq(newSettings.maxFormantFreq);
+    if (!audioBuffer) return;
+    try {
+      const analysis = await analyzeAudioClient(audioBuffer, newSettings);
+      setAnalysisData(analysis);
+    } catch (err) {
+      console.warn('Client re-analysis with settings failed:', err);
+    }
   }, [audioBuffer]);
+
+  // Open Spectral Slice Modal
+  const handleOpenSpectralSlice = useCallback((target?: number) => {
+    if (target !== undefined) {
+      setSpectralSliceTargetTime(target);
+    } else if (selection && selection.start !== selection.end) {
+      setSpectralSliceTargetTime((selection.start + selection.end) / 2);
+    } else {
+      setSpectralSliceTargetTime(currentTime);
+    }
+    setIsSpectralSliceOpen(true);
+  }, [selection, currentTime]);
 
   // Compute selected interval acoustic metrics on the fly
   useEffect(() => {
@@ -622,6 +665,7 @@ export default function AnnotatorApp() {
                 hasAudio={true}
                 showPitch={showPitch}
                 showFormants={showFormants}
+                showIntensity={showIntensity}
                 maxDisplayFreq={maxDisplayFreq}
                 maxFormantFreq={maxFormantFreq}
                 onTogglePlay={handleTogglePlay}
@@ -636,8 +680,11 @@ export default function AnnotatorApp() {
                 onOpenASRModal={() => setIsASRModalOpen(true)}
                 onOpenCustomTextModal={() => setIsCustomTextModalOpen(true)}
                 onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
+                onOpenSpectralSliceModal={() => handleOpenSpectralSlice()}
+                onOpenAnalysisSettingsModal={() => setIsAnalysisSettingsOpen(true)}
                 onTogglePitch={() => setShowPitch((prev) => !prev)}
                 onToggleFormants={() => setShowFormants((prev) => !prev)}
+                onToggleIntensity={() => setShowIntensity((prev) => !prev)}
                 onChangeDisplayFreq={setMaxDisplayFreq}
                 canUndo={canUndo}
                 canRedo={canRedo}
@@ -682,6 +729,7 @@ export default function AnnotatorApp() {
                     hoverTime={hoverTime}
                     showPitch={showPitch}
                     showFormants={showFormants}
+                    showIntensity={showIntensity}
                     maxDisplayFreq={maxDisplayFreq}
                     onHoverTimeChange={setHoverTime}
                     onSeek={handleSeek}
@@ -734,7 +782,11 @@ export default function AnnotatorApp() {
                 metrics={selectedMetrics}
                 selectedLabel={selectedLabel}
                 selectedRange={selection}
+                currentTime={currentTime}
+                hoverTime={hoverTime}
+                analysisData={analysisData}
                 isLoading={false}
+                onOpenSpectralSlice={handleOpenSpectralSlice}
               />
             </div>
           </div>
@@ -829,6 +881,23 @@ export default function AnnotatorApp() {
         isOpen={isRecordModalOpen}
         onClose={() => setIsRecordModalOpen(false)}
         onRecordComplete={handleRecordComplete}
+      />
+
+      <SpectralSliceModal
+        isOpen={isSpectralSliceOpen}
+        onClose={() => setIsSpectralSliceOpen(false)}
+        channelData={audioBuffer ? audioBuffer.getChannelData(0) : null}
+        sampleRate={audioBuffer ? audioBuffer.sampleRate : null}
+        targetTime={spectralSliceTargetTime}
+        selectedRange={selection}
+        selectedLabel={selectedLabel}
+      />
+
+      <AnalysisSettingsModal
+        isOpen={isAnalysisSettingsOpen}
+        onClose={() => setIsAnalysisSettingsOpen(false)}
+        settings={analysisSettings}
+        onApplySettings={handleApplyAnalysisSettings}
       />
     </div>
   );

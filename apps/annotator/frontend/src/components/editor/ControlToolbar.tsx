@@ -17,6 +17,7 @@ import {
   Sliders,
   Undo2,
   Redo2,
+  Layers,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -29,6 +30,7 @@ interface ControlToolbarProps {
   hasAudio: boolean;
   showPitch: boolean;
   showFormants: boolean;
+  showIntensity: boolean;
   maxDisplayFreq: number;
   maxFormantFreq: number;
   onTogglePlay: () => void;
@@ -44,8 +46,11 @@ interface ControlToolbarProps {
   onOpenASRModal: () => void;
   onOpenCustomTextModal: () => void;
   onOpenVowelSpaceModal: () => void;
+  onOpenSpectralSliceModal: () => void;
+  onOpenAnalysisSettingsModal: () => void;
   onTogglePitch: () => void;
   onToggleFormants: () => void;
+  onToggleIntensity: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -63,6 +68,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   hasAudio,
   showPitch,
   showFormants,
+  showIntensity,
   maxDisplayFreq,
   maxFormantFreq,
   canUndo = false,
@@ -82,8 +88,11 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onOpenASRModal,
   onOpenCustomTextModal,
   onOpenVowelSpaceModal,
+  onOpenSpectralSliceModal,
+  onOpenAnalysisSettingsModal,
   onTogglePitch,
   onToggleFormants,
+  onToggleIntensity,
   onExportTextGrid,
 }) => {
   const formatTime = (time: number) => {
@@ -242,6 +251,17 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           >
             F1-3
           </button>
+          <button
+            onClick={onToggleIntensity}
+            className={`px-2 py-1 font-mono transition-colors border-l border-[#e0e0e6] ${
+              showIntensity
+                ? 'bg-[#10b981] text-white font-bold'
+                : 'text-[#777780] hover:bg-[#f0f0f4]'
+            }`}
+            title="音圧曲線 (Intensity dB) の緑色実線表示切替"
+          >
+            Int
+          </button>
         </div>
 
         {/* Zoom */}
@@ -273,13 +293,33 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
       {/* Analysis Tools & Export */}
       <div className="flex items-center space-x-1.5">
         <button
+          onClick={onOpenSpectralSliceModal}
+          disabled={!hasAudio}
+          className="flex items-center px-2 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium disabled:opacity-20 transition-colors"
+          title="カーソル位置・選択区間のスペクトル断面 (FFT/LPC包録線) を表示"
+        >
+          <Layers className="w-3.5 h-3.5 mr-1 text-[#E30613]" />
+          スペクトル断面
+        </button>
+
+        <button
           onClick={onOpenVowelSpaceModal}
           disabled={!hasAudio}
-          className="flex items-center px-2.5 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium disabled:opacity-20 transition-colors"
+          className="flex items-center px-2 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium disabled:opacity-20 transition-colors"
           title="F1-F2音響母音四辺形マップを描画"
         >
           <Activity className="w-3.5 h-3.5 mr-1" />
-          母音空間 (F1-F2)
+          母音空間
+        </button>
+
+        <button
+          onClick={onOpenAnalysisSettingsModal}
+          disabled={!hasAudio}
+          className="flex items-center px-2 py-1 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] font-medium disabled:opacity-20 transition-colors"
+          title="Praat音響分析パラメータ設定（広帯域/狭帯域、F0範囲、フォルマント上限等）"
+        >
+          <Sliders className="w-3.5 h-3.5 mr-1" />
+          分析設定
         </button>
 
         <button
