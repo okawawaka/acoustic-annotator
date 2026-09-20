@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { IntervalMetrics } from '@/types';
@@ -18,29 +18,30 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
   isLoading,
 }) => {
   return (
-    <div className="w-64 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col h-full overflow-y-auto text-gray-800">
-      <div className="h-10 px-3 border-b border-gray-200 flex items-center justify-between bg-gray-50/50 flex-shrink-0">
-        <div className="flex items-center space-x-1.5 font-semibold text-xs text-gray-900 tracking-tight">
-          <Activity className="w-3.5 h-3.5 text-gray-700" />
+    <div className="w-64 flex-shrink-0 border-l-2 border-[#111111] bg-white flex flex-col h-full overflow-y-auto text-[#111111]">
+      <div className="h-10 px-3 border-b-2 border-[#111111] flex items-center justify-between bg-white flex-shrink-0">
+        <div className="flex items-center space-x-2 font-bold text-xs uppercase tracking-wider text-[#111111]">
+          <Activity className="w-3.5 h-3.5" />
           <span>Acoustic Inspector</span>
         </div>
         {isLoading && (
-          <span className="text-[10px] text-blue-600 animate-pulse font-mono">計測中...</span>
+          <span className="text-[10px] text-[#E30613] font-bold font-mono tracking-wider">CALC...</span>
         )}
       </div>
 
-      <div className="p-3 space-y-4 flex-1">
-        <div className="p-2.5 rounded border border-gray-200 bg-gray-50/40">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-            Selected Interval
+      <div className="p-3 space-y-3.5 flex-1">
+        {/* Selected Interval Card */}
+        <div className="p-3 border-2 border-[#111111] bg-white">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[#777780] mb-1">
+            Target Interval
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-base font-bold text-gray-900 font-mono">
+            <span className="text-base font-extrabold text-[#111111] font-mono tracking-tight">
               {selectedLabel !== null && selectedLabel !== '' ? '/' + selectedLabel + '/' : (selectedRange ? '(無名区間)' : '未選択')}
             </span>
             {selectedRange && (
-              <span className="text-[10px] text-gray-500 font-mono">
-                {selectedRange.start.toFixed(3)} - {selectedRange.end.toFixed(3)} s
+              <span className="text-[10px] text-[#777780] font-mono font-medium">
+                {selectedRange.start.toFixed(3)} - {selectedRange.end.toFixed(3)}s
               </span>
             )}
           </div>
@@ -48,33 +49,43 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
 
         {selectedRange ? (
           <>
+            {/* Duration */}
             <div className="space-y-1">
-              <div className="flex items-center text-xs font-medium text-gray-700">
-                <Clock className="w-3.5 h-3.5 mr-1 text-gray-500" />
-                <span>Duration (継続時間)</span>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
+                <span className="flex items-center">
+                  <Clock className="w-3 h-3 mr-1 text-[#111111]" />
+                  Duration
+                </span>
+                <span className="text-[9px] text-[#aaaaaf]">分節長</span>
               </div>
-              <div className="flex items-baseline justify-between px-2 py-1.5 bg-gray-50 rounded border border-gray-100 font-mono">
-                <span className="text-sm font-semibold text-gray-900">
+              <div className="flex items-baseline justify-between px-2.5 py-1.5 bg-[#f0f0f4] border border-[#e0e0e6] font-mono">
+                <span className="text-sm font-bold text-[#111111]">
                   {metrics ? metrics.duration_ms.toFixed(1) + ' ms' : ((selectedRange.end - selectedRange.start) * 1000).toFixed(1) + ' ms'}
                 </span>
-                <span className="text-[10px] text-gray-400">分節長</span>
+                <span className="text-[10px] text-[#777780]">
+                  {metrics ? (metrics.duration_ms / 1000).toFixed(3) + ' s' : (selectedRange.end - selectedRange.start).toFixed(3) + ' s'}
+                </span>
               </div>
             </div>
 
+            {/* F0 / Pitch */}
             <div className="space-y-1">
-              <div className="flex items-center text-xs font-medium text-gray-700">
-                <Zap className="w-3.5 h-3.5 mr-1 text-blue-600" />
-                <span>F0 / Pitch (基本周波数)</span>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
+                <span className="flex items-center">
+                  <Zap className="w-3 h-3 mr-1 text-[#111111]" />
+                  Fundamental (F0)
+                </span>
+                <span className="text-[9px] text-[#aaaaaf]">基本周波数</span>
               </div>
-              <div className="p-2 bg-blue-50/30 rounded border border-blue-100 font-mono space-y-1">
+              <div className="p-2.5 bg-white border border-[#e0e0e6] font-mono space-y-1.5">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-gray-600">Mean F0:</span>
-                  <span className="text-sm font-bold text-blue-700">
+                  <span className="text-xs text-[#777780] uppercase tracking-wider">Mean:</span>
+                  <span className="text-sm font-extrabold text-[#111111]">
                     {metrics?.mean_f0 ? metrics.mean_f0.toFixed(1) + ' Hz' : '--'}
                   </span>
                 </div>
                 {metrics?.min_f0 && metrics?.max_f0 && (
-                  <div className="flex justify-between text-[10px] text-gray-500 border-t border-blue-100/60 pt-1">
+                  <div className="flex justify-between text-[10px] text-[#777780] border-t border-[#e0e0e6] pt-1 font-medium">
                     <span>Min: {metrics.min_f0.toFixed(1)} Hz</span>
                     <span>Max: {metrics.max_f0.toFixed(1)} Hz</span>
                   </div>
@@ -82,56 +93,64 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
               </div>
             </div>
 
+            {/* Formants */}
             <div className="space-y-1">
-              <div className="flex items-center text-xs font-medium text-gray-700">
-                <BarChart2 className="w-3.5 h-3.5 mr-1 text-red-600" />
-                <span>Formants (定常部 20-80%)</span>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
+                <span className="flex items-center">
+                  <BarChart2 className="w-3 h-3 mr-1 text-[#E30613]" />
+                  Formants (20-80%)
+                </span>
+                <span className="text-[9px] text-[#aaaaaf]">定常部共鳴</span>
               </div>
-              <div className="p-2 bg-red-50/20 rounded border border-red-100 font-mono space-y-1.5">
+              <div className="p-2.5 bg-white border border-[#e0e0e6] font-mono space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600 font-medium">F1 (舌高 / 狭広):</span>
-                  <span className="font-bold text-red-700">
+                  <span className="text-[#777780] uppercase tracking-wider font-semibold">F1 (舌高):</span>
+                  <span className="font-extrabold text-[#E30613]">
                     {metrics?.f1 ? metrics.f1.toFixed(0) + ' Hz' : '--'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600 font-medium">F2 (舌前後):</span>
-                  <span className="font-bold text-red-700">
+                  <span className="text-[#777780] uppercase tracking-wider font-semibold">F2 (舌前後):</span>
+                  <span className="font-extrabold text-[#E30613]">
                     {metrics?.f2 ? metrics.f2.toFixed(0) + ' Hz' : '--'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600 font-medium">F3:</span>
-                  <span className="font-bold text-gray-700">
+                <div className="flex items-center justify-between text-xs border-t border-[#f0f0f4] pt-1">
+                  <span className="text-[#777780] uppercase tracking-wider font-semibold">F3:</span>
+                  <span className="font-bold text-[#111111]">
                     {metrics?.f3 ? metrics.f3.toFixed(0) + ' Hz' : '--'}
                   </span>
                 </div>
               </div>
             </div>
 
+            {/* Intensity */}
             <div className="space-y-1">
-              <div className="flex items-center text-xs font-medium text-gray-700">
-                <Volume2 className="w-3.5 h-3.5 mr-1 text-amber-600" />
-                <span>Intensity (音圧強度)</span>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
+                <span className="flex items-center">
+                  <Volume2 className="w-3 h-3 mr-1 text-[#111111]" />
+                  Intensity
+                </span>
+                <span className="text-[9px] text-[#aaaaaf]">音圧強度</span>
               </div>
-              <div className="flex items-baseline justify-between px-2 py-1.5 bg-gray-50 rounded border border-gray-100 font-mono">
-                <span className="text-sm font-semibold text-gray-900">
+              <div className="flex items-baseline justify-between px-2.5 py-1.5 bg-[#f0f0f4] border border-[#e0e0e6] font-mono">
+                <span className="text-sm font-bold text-[#111111]">
                   {metrics?.mean_intensity ? metrics.mean_intensity.toFixed(1) + ' dB' : '--'}
                 </span>
-                <span className="text-[10px] text-gray-400">平均エネルギー</span>
+                <span className="text-[10px] text-[#777780]">Mean Power</span>
               </div>
             </div>
           </>
         ) : (
-          <div className="text-center py-10 px-2 text-gray-400 text-xs leading-relaxed">
-            タイムライン上の区間または波形をドラッグ選択すると、該当区間の音響特徴量（F0, F1-F3, 継続時間）が自動計算されます。
+          <div className="text-left py-8 px-2 text-[#777780] text-xs font-mono leading-relaxed border border-dashed border-[#e0e0e6] p-4">
+            Select an interval or drag over the waveform to inspect acoustic metrics (F0, Formants F1-F3, Duration).
           </div>
         )}
       </div>
 
-      <div className="p-2.5 border-t border-gray-100 text-[10px] text-gray-400 bg-gray-50/50 flex justify-between items-center">
-        <span>Praat Burg / AC 法準拠</span>
-        <span className="font-mono">F0/LPC</span>
+      <div className="p-2.5 border-t border-[#e0e0e6] text-[10px] text-[#777780] bg-[#f0f0f4] flex justify-between items-center font-mono uppercase tracking-wider">
+        <span>Praat Burg / AC</span>
+        <span>Standard Spec</span>
       </div>
     </div>
   );

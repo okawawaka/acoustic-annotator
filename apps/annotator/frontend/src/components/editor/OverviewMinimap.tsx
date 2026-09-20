@@ -39,11 +39,11 @@ export const OverviewMinimap: React.FC<OverviewMinimapProps> = ({
     ctx.clearRect(0, 0, width, h);
 
     // Background
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#f9f9fb';
     ctx.fillRect(0, 0, width, h);
 
     // Center Line
-    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeStyle = '#e0e0e6';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, h / 2);
@@ -51,7 +51,7 @@ export const OverviewMinimap: React.FC<OverviewMinimapProps> = ({
     ctx.stroke();
 
     if (peaks && peaks.length > 0 && duration > 0) {
-      ctx.fillStyle = '#94a3b8'; // Muted slate
+      ctx.fillStyle = '#444448'; // Stark dark gray for peaks
 
       const numPoints = peaks.length;
       for (let i = 0; i < width; i++) {
@@ -114,7 +114,7 @@ export const OverviewMinimap: React.FC<OverviewMinimapProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden select-none bg-gray-50 border-b border-gray-200 cursor-pointer touch-none"
+      className="relative w-full overflow-hidden select-none bg-[#f9f9fb] border-b border-[#e0e0e6] cursor-pointer touch-none"
       style={{ height: `${height}px` }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -130,19 +130,19 @@ export const OverviewMinimap: React.FC<OverviewMinimapProps> = ({
 
       {/* Visible Range Window */}
       <div
-        className="absolute top-0 bottom-0 border-2 border-gray-600 bg-black/10 cursor-grab active:cursor-grabbing pointer-events-none"
+        className="absolute top-0 bottom-0 border-2 border-[#111111] bg-[#111111]/10 cursor-grab active:cursor-grabbing pointer-events-none"
         style={{
           left: `${windowLeftPct}%`,
           width: `${Math.max(1, windowWidthPct)}%`,
         }}
       >
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gray-600/50" />
-        <div className="absolute right-0 top-0 bottom-0 w-1 bg-gray-600/50" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#111111]/40" />
+        <div className="absolute right-0 top-0 bottom-0 w-1 bg-[#111111]/40" />
       </div>
 
       {/* Playhead Marker */}
       <div
-        className="absolute top-0 bottom-0 w-[1.5px] bg-red-600 pointer-events-none"
+        className="absolute top-0 bottom-0 w-[1.5px] bg-[#E30613] pointer-events-none"
         style={{ left: `${playheadPct}%` }}
       />
     </div>

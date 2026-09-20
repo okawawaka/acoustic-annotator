@@ -932,50 +932,53 @@ export default function AnnotatorApp() {
       />
 
       {isDraggingFile && (
-        <div className="fixed inset-0 z-50 bg-blue-50/80 border-2 border-dashed border-blue-500 flex items-center justify-center pointer-events-none">
-          <div className="bg-white px-6 py-4 rounded-lg shadow-lg border border-blue-200 text-sm font-semibold text-blue-700">
-            音声ファイルまたはTextGridをここにドロップ（同時ドロップ対応）
+        <div className="fixed inset-0 z-50 bg-[#111111]/70 backdrop-blur-none flex items-center justify-center pointer-events-none">
+          <div className="bg-white px-8 py-6 border-2 border-[#111111] text-xs font-bold uppercase tracking-widest text-[#111111]">
+            Drop Audio & TextGrid Files Here
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <header className="h-10 flex-shrink-0 flex items-center justify-between px-3 border-b border-gray-200 bg-white">
-        <div className="flex items-center space-x-2">
-          <span className="font-semibold text-xs tracking-tight text-gray-900">
-            Acoustic Annotator & Analyzer
+      {/* Swiss Style Masthead / Header */}
+      <header className="h-11 flex-shrink-0 flex items-center justify-between px-4 border-b-2 border-[#111111] bg-white">
+        <div className="flex items-center space-x-3">
+          <span className="font-extrabold text-xs uppercase tracking-tight text-[#111111]">
+            Acoustic Annotator
           </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200" title="サーバー通信不要・ブラウザ内完結動作中">
-            Client-side Standalone
+          <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-[#777780] font-semibold border-l border-[#e0e0e6] pl-3">
+            Phonetic Acoustics & Praat TextGrid
+          </span>
+          <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 bg-[#111111] text-white tracking-wider" title="サーバー通信不要・ブラウザ内完結動作中">
+            Standalone
           </span>
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
           <button
             onClick={() => setIsRecordModalOpen(true)}
-            className="flex items-center px-2.5 py-1 rounded border border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100/80 text-red-700 font-medium shadow-2xs transition-colors"
+            className="flex items-center px-3 py-1 border border-[#E30613] text-[#E30613] hover:bg-[#E30613] hover:text-white font-bold text-xs uppercase tracking-wider transition-colors duration-150"
             title="マイクから直接録音して分析を開始します"
           >
-            <Mic className="w-3.5 h-3.5 mr-1.5 text-red-600" />
+            <Mic className="w-3.5 h-3.5 mr-1.5" />
             マイク録音
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center px-2.5 py-1 rounded border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-800 font-medium shadow-2xs transition-colors"
+            className="flex items-center px-3 py-1 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors duration-150"
             title="音声ファイル（.wav 等）や TextGrid を開きます（同時に複数選択可能）"
           >
-            <FolderOpen className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+            <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
             ファイルを開く
           </button>
         </div>
       </header>
 
       {/* Main Workspace */}
-      <main className="flex-1 flex overflow-hidden bg-white">
+      <main className="flex-1 flex overflow-hidden bg-[#f9f9fb]">
         {audioMetadata ? (
-          <div className="flex-1 flex flex-col overflow-hidden" onWheel={handleWheel}>
+          <div className="flex-1 flex flex-col overflow-hidden bg-white" onWheel={handleWheel}>
             {/* Minimap */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 border-b border-[#e0e0e6]">
               <OverviewMinimap
                 peaks={audioMetadata.peaks}
                 duration={audioMetadata.duration}
@@ -1028,10 +1031,10 @@ export default function AnnotatorApp() {
             </div>
 
             {/* Middle Split: Timelines & Visualizers */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden border-t border-[#e0e0e6]">
               <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
                 {/* Waveform */}
-                <div className="flex-shrink-0 bg-white">
+                <div className="flex-shrink-0 bg-white border-b border-[#e0e0e6]">
                   <WaveformCanvas
                     peaks={audioMetadata.peaks}
                     duration={audioMetadata.duration}
@@ -1051,7 +1054,7 @@ export default function AnnotatorApp() {
                 </div>
 
                 {/* Spectrogram / Pitch Canvas (Dynamic Scale: 0-500Hz or 0-5000Hz) */}
-                <div className="flex-shrink-0 bg-white">
+                <div className="flex-shrink-0 bg-white border-b border-[#e0e0e6]">
                   <SpectrogramCanvas
                     analysisData={analysisData}
                     duration={audioMetadata.duration}
@@ -1119,39 +1122,55 @@ export default function AnnotatorApp() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white">
-            <div className="text-center mb-6">
-              <h2 className="text-base font-bold text-gray-800 tracking-tight">音声分析・アノテーションの開始</h2>
-              <p className="text-xs text-gray-500 mt-1">ファイルを読み込むか、マイクでその場で録音して即座に分析を開始できます</p>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#f9f9fb]">
+            <div className="text-center mb-8">
+              <div className="inline-block text-[11px] font-bold uppercase tracking-widest text-[#777780] mb-2 border-b-2 border-[#111111] pb-1">
+                Acoustic Analysis & Annotation Workspace
+              </div>
+              <h2 className="text-xl font-extrabold uppercase tracking-tight text-[#111111]">
+                音声分析・アノテーションの開始
+              </h2>
+              <p className="text-xs text-[#777780] mt-1 font-mono">
+                SELECT A LOCAL FILE OR RECORD DIRECTLY IN THE BROWSER
+              </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg w-full">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl w-full">
               {/* Option 1: File Open */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="p-6 border border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl cursor-pointer bg-gray-50 transition-all flex flex-col items-center group shadow-2xs hover:shadow-sm text-center"
+                className="p-8 border-2 border-[#111111] bg-white hover:bg-[#111111] hover:text-white cursor-pointer transition-colors duration-150 flex flex-col group text-left relative"
               >
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <FolderOpen className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 border border-[#111111] group-hover:border-white bg-[#f0f0f4] group-hover:bg-white text-[#111111] flex items-center justify-center mb-5 transition-colors">
+                  <FolderOpen className="w-6 h-6" />
                 </div>
-                <div className="text-sm font-semibold text-gray-800 mb-1">ファイルを開く</div>
-                <div className="text-[11px] text-gray-500 leading-relaxed">
-                  クリックまたはドラッグ＆ドロップ<br />
-                  <span className="text-[10px] text-gray-400">（音声と TextGrid を同時に選択可能）</span>
+                <div className="text-xs font-mono uppercase tracking-widest text-[#777780] group-hover:text-white/60 mb-1">
+                  Option 01 / Batch Load
+                </div>
+                <div className="text-base font-bold uppercase tracking-wider mb-2">
+                  ファイルを開く
+                </div>
+                <div className="text-xs text-[#52525b] group-hover:text-white/80 leading-relaxed font-mono">
+                  WAV / MP3 等の音声ファイルと TextGrid を同時に選択可能。ドラッグ＆ドロップにも対応しています。
                 </div>
               </div>
 
               {/* Option 2: Mic Recording */}
               <div
                 onClick={() => setIsRecordModalOpen(true)}
-                className="p-6 border border-dashed border-gray-300 hover:border-red-400 hover:bg-red-50/40 rounded-xl cursor-pointer bg-gray-50 transition-all flex flex-col items-center group shadow-2xs hover:shadow-sm text-center"
+                className="p-8 border-2 border-[#E30613] bg-white hover:bg-[#E30613] hover:text-white cursor-pointer transition-colors duration-150 flex flex-col group text-left relative"
               >
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Mic className="w-6 h-6 text-red-600" />
+                <div className="w-12 h-12 border border-[#E30613] group-hover:border-white bg-[#E30613]/10 group-hover:bg-white text-[#E30613] flex items-center justify-center mb-5 transition-colors">
+                  <Mic className="w-6 h-6" />
                 </div>
-                <div className="text-sm font-semibold text-gray-800 mb-1">マイクで録音する</div>
-                <div className="text-[11px] text-gray-500 leading-relaxed">
-                  ブラウザで声を直接録音<br />
-                  <span className="text-[10px] text-gray-400">（波形・ピッチ・フォルマントを即時分析）</span>
+                <div className="text-xs font-mono uppercase tracking-widest text-[#E30613] group-hover:text-white/60 mb-1">
+                  Option 02 / Direct Input
+                </div>
+                <div className="text-base font-bold uppercase tracking-wider mb-2 text-[#E30613] group-hover:text-white">
+                  マイクで録音する
+                </div>
+                <div className="text-xs text-[#52525b] group-hover:text-white/80 leading-relaxed font-mono">
+                  ブラウザ内マイクから高品質PCM録音。波形・ピッチ・フォルマントをその場で即座に分析します。
                 </div>
               </div>
             </div>

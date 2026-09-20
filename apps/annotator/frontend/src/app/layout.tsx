@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className="antialiased min-h-screen bg-white text-gray-900 flex flex-col">
+      <body className="antialiased min-h-screen bg-[#f9f9fb] text-[#111111] font-sans flex flex-col">
         {children}
       </body>
     </html>

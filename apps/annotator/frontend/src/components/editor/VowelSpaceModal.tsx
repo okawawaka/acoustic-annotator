@@ -283,31 +283,31 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-lg shadow-xl border border-gray-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/70 backdrop-blur-none p-4">
+      <div className="bg-white border-2 border-[#111111] max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden text-[#111111]">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white flex-shrink-0">
+        <div className="px-5 py-3 border-b-2 border-[#111111] flex items-center justify-between bg-white flex-shrink-0">
           <div>
-            <h2 className="text-sm font-bold text-gray-900">F1-F2 母音空間プロット (Vowel Space Chart)</h2>
-            <p className="text-[11px] text-gray-500">TextGrid内の母音区間からフォルマント中央値を自動抽出し、音響母音四辺形を描画</p>
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#111111]">F1-F2 母音空間プロット (Vowel Space Chart)</h2>
+            <p className="text-[10px] text-[#777780] font-mono uppercase">ACOUSTIC VOWEL QUADRILATERAL FROM TEXTGRID INTERVALS</p>
           </div>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 rounded">
+          <button onClick={onClose} className="p-1 border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 flex-1 overflow-y-auto flex flex-col md:flex-row gap-4">
+        <div className="p-4 flex-1 overflow-y-auto flex flex-col md:flex-row gap-4 bg-[#f9f9fb]">
           {/* Chart Canvas */}
           <div className="flex-1 flex flex-col items-center">
-            <div className="border border-gray-200 rounded p-2 bg-white shadow-xs">
+            <div className="border-2 border-[#111111] p-2 bg-white">
               <canvas ref={canvasRef} className="block" />
             </div>
 
             <div className="flex flex-wrap items-center justify-between w-full max-w-[460px] mt-3 gap-2">
-              <div className="flex items-center space-x-1.5 border border-gray-300 rounded px-2 py-1 bg-gray-50 text-xs">
-                <User className="w-3.5 h-3.5 text-gray-600" />
-                <span className="text-gray-600 font-medium">話者設定:</span>
+              <div className="flex items-center space-x-1.5 border border-[#111111] px-2 py-1 bg-white text-xs">
+                <User className="w-3.5 h-3.5 text-[#111111]" />
+                <span className="text-[#777780] font-mono uppercase text-[10px]">LPC:</span>
                 <select
                   value={maxFormantFreq}
                   onChange={(e) => {
@@ -315,10 +315,10 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
                     setMaxFormantFreq(val);
                     if (onChangeMaxFormantFreq) onChangeMaxFormantFreq(val);
                   }}
-                  className="bg-white px-1.5 py-0.5 rounded border border-gray-300 font-semibold text-gray-900 outline-none cursor-pointer"
+                  className="bg-transparent font-bold text-[#111111] outline-none cursor-pointer text-xs"
                 >
-                  <option value="5500">成人女性 (5500 Hz)</option>
-                  <option value="5000">成人男性 (5000 Hz)</option>
+                  <option value="5500">女性 (5500 Hz)</option>
+                  <option value="5000">男性 (5000 Hz)</option>
                   <option value="6000">子供 (6000 Hz)</option>
                 </select>
               </div>
@@ -326,7 +326,7 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
               <button
                 onClick={handleExportCSV}
                 disabled={points.length === 0}
-                className="flex items-center text-xs px-2.5 py-1.5 rounded border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-50"
+                className="flex items-center text-xs px-3 py-1.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold uppercase tracking-wider transition-colors disabled:opacity-20"
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
                 CSV出力
@@ -335,15 +335,15 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
           </div>
 
           {/* Table */}
-          <div className="w-full md:w-80 flex flex-col border border-gray-200 rounded overflow-hidden text-xs">
-            <div className="bg-gray-50 px-3 py-2 font-semibold text-gray-700 border-b border-gray-200 flex justify-between">
-              <span>計測母音一覧 ({points.length}件)</span>
-              <span className="font-mono text-[10px] text-gray-500">LPC {maxFormantFreq}Hz</span>
+          <div className="w-full md:w-80 flex flex-col border-2 border-[#111111] bg-white text-xs">
+            <div className="bg-[#f0f0f4] px-3 py-2 font-bold uppercase tracking-wider text-[11px] text-[#111111] border-b-2 border-[#111111] flex justify-between items-center">
+              <span>母音トークン ({points.length})</span>
+              <span className="font-mono text-[10px] text-[#777780]">LPC {maxFormantFreq}Hz</span>
             </div>
             <div className="flex-1 overflow-y-auto max-h-[400px]">
               {points.length > 0 ? (
                 <table className="w-full text-left font-mono text-[11px]">
-                  <thead className="bg-gray-50 sticky top-0 border-b border-gray-200 text-gray-500 text-[10px]">
+                  <thead className="bg-[#f9f9fb] sticky top-0 border-b border-[#e0e0e6] text-[#777780] text-[10px] uppercase font-bold">
                     <tr>
                       <th className="py-2 px-2 text-left font-sans">音</th>
                       <th className="py-2 px-2 text-right">F1 (Hz)</th>
@@ -351,35 +351,35 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
                       <th className="py-2 px-2 text-right">時間(ms)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-[#e0e0e6]">
                     {points.map((p, idx) => {
                       const grp = getVowelGroup(p.label);
-                      const col = VOWEL_COLORS[grp] || '#2563eb';
+                      const col = VOWEL_COLORS[grp] || '#111111';
                       return (
                         <tr
                           key={idx}
-                          className="hover:bg-blue-50 cursor-pointer transition-colors"
+                          className="hover:bg-[#f0f0f4] cursor-pointer transition-colors"
                           onClick={() => {
                             if (onSelectInterval) onSelectInterval(p.start, p.end);
                             onClose();
                           }}
                           title="クリックして該当区間に移動"
                         >
-                          <td className="py-2 px-2 font-bold font-sans flex items-center space-x-1">
-                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: col }} />
+                          <td className="py-2 px-2 font-bold font-sans flex items-center space-x-1.5">
+                            <span className="w-2 h-2 inline-block" style={{ backgroundColor: col }} />
                             <span>/{p.label}/</span>
                           </td>
-                          <td className="py-2 px-2 text-right text-gray-900 font-medium">{p.f1.toFixed(0)}</td>
-                          <td className="py-2 px-2 text-right text-gray-900 font-medium">{p.f2.toFixed(0)}</td>
-                          <td className="py-2 px-2 text-right text-gray-500">{p.duration_ms.toFixed(0)}</td>
+                          <td className="py-2 px-2 text-right text-[#111111] font-bold">{p.f1.toFixed(0)}</td>
+                          <td className="py-2 px-2 text-right text-[#111111] font-bold">{p.f2.toFixed(0)}</td>
+                          <td className="py-2 px-2 text-right text-[#777780]">{p.duration_ms.toFixed(0)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               ) : (
-                <div className="p-6 text-center text-gray-400 text-xs">
-                  母音区間（a, i, u, e, o など）が検出されませんでした。
+                <div className="p-6 text-center text-[#777780] font-mono text-xs uppercase">
+                  No vowel tokens detected.
                 </div>
               )}
             </div>

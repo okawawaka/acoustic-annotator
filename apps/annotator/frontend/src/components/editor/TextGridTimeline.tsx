@@ -396,21 +396,21 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 }
               }}
               placeholder={selection ? "ラベル (クリックで編集)..." : "区間を選択"}
-              className="w-full px-2 py-1 bg-white border border-gray-300 rounded font-sans text-gray-900 text-xs font-semibold outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 disabled:bg-gray-100 disabled:text-gray-400"
+              className="w-full px-2.5 py-1 bg-white border border-[#111111] font-sans text-[#111111] text-xs font-semibold outline-none focus:border-[#111111] disabled:bg-[#f0f0f4] disabled:text-[#aaaaaf]"
             />
           </div>
 
           {/* Quick IPA Buttons (Hard-to-type & High-frequency) */}
           {selection && (
             <div className="flex items-center space-x-1 flex-wrap gap-y-1">
-              <span className="text-[10px] text-gray-500 font-semibold ml-1 mr-0.5 whitespace-nowrap">IPA:</span>
+              <span className="text-[10px] text-[#777780] font-mono font-bold ml-1 mr-0.5 whitespace-nowrap uppercase">IPA:</span>
               {QUICK_IPA_SYMBOLS.map(({ sym, name }) => (
                 <button
                   key={sym}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleInsertChar(sym)}
-                  className="px-1.5 h-5 min-w-[20px] flex items-center justify-center font-sans text-[12px] font-semibold bg-white border border-gray-300 hover:bg-blue-100 hover:border-blue-500 hover:text-blue-800 rounded transition-colors shadow-2xs"
+                  className="px-1.5 h-6 min-w-[22px] flex items-center justify-center font-sans text-xs font-bold bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-colors"
                   title={`${sym} : ${name} (クリックでカーソル位置に挿入)`}
                 >
                   {sym}
@@ -423,30 +423,30 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowIpaPalette(!showIpaPalette)}
-                  className={`px-1.5 h-5 flex items-center space-x-0.5 text-[11px] border rounded font-medium transition-colors shadow-2xs ${
+                  className={`px-2 h-6 flex items-center space-x-1 text-xs font-bold border uppercase tracking-wider transition-colors ${
                     showIpaPalette
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
+                      ? 'bg-[#111111] border-[#111111] text-white'
+                      : 'bg-white border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111]'
                   }`}
                   title="全IPA記号パレットを開く"
                 >
-                  <span>一覧</span>
+                  <span>全記号</span>
                   <span className="text-[9px]">▼</span>
                 </button>
 
                 {showIpaPalette && (
-                  <div className="absolute left-0 top-full mt-1 w-80 bg-white rounded-lg shadow-xl border border-gray-300 z-50 p-2.5 text-xs">
-                    <div className="flex border-b border-gray-200 mb-2 gap-1 pb-1 overflow-x-auto">
+                  <div className="absolute left-0 top-full mt-1 w-84 bg-white border-2 border-[#111111] z-50 p-3 text-xs">
+                    <div className="flex border-b border-[#e0e0e6] mb-2 gap-1 pb-1 overflow-x-auto">
                       {IPA_CATEGORIES.map((cat, idx) => (
                         <button
                           key={cat.category}
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => setActiveIpaTab(idx)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap transition-colors ${
+                          className={`px-2.5 py-1 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
                             activeIpaTab === idx
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'text-gray-600 hover:bg-gray-100'
+                              ? 'bg-[#111111] text-white'
+                              : 'text-[#777780] hover:text-[#111111] hover:bg-[#f0f0f4]'
                           }`}
                         >
                           {cat.category}
@@ -461,7 +461,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                           type="button"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => handleInsertChar(sym)}
-                          className="h-8 flex flex-col items-center justify-center bg-gray-50 border border-gray-200 hover:bg-blue-100 hover:border-blue-400 hover:text-blue-800 rounded font-sans text-sm font-semibold transition-colors"
+                          className="h-8 flex flex-col items-center justify-center bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white font-sans text-sm font-bold text-[#111111] transition-colors"
                           title={`${sym} : ${name} (クリックで挿入)`}
                         >
                           <span>{sym}</span>
@@ -469,8 +469,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       ))}
                     </div>
 
-                    <div className="mt-2 pt-1.5 border-t border-gray-200 text-[10px] text-gray-400 text-center">
-                      クリックすると現在のカーソル位置に直接挿入されます
+                    <div className="mt-2 pt-2 border-t border-[#e0e0e6] text-[10px] text-[#777780] text-center font-mono uppercase">
+                      INSERT DIRECTLY INTO ACTIVE INTERVAL
                     </div>
                   </div>
                 )}
@@ -479,11 +479,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           )}
         </div>
 
-        <div className="flex items-center space-x-1.5 text-[11px] text-gray-700">
+        <div className="flex items-center space-x-1.5 text-[11px] text-[#111111]">
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium flex items-center transition-opacity"
+            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#f0f0f4] text-[#111111] disabled:opacity-20 font-medium flex items-center transition-colors"
             title="元に戻す (Ctrl+Z)"
           >
             <Undo2 className="w-3 h-3 mr-0.5" />
@@ -492,7 +492,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium flex items-center transition-opacity"
+            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#f0f0f4] text-[#111111] disabled:opacity-20 font-medium flex items-center transition-colors"
             title="やり直す (Ctrl+Y / Ctrl+Shift+Z)"
           >
             <Redo2 className="w-3 h-3 mr-0.5" />
@@ -501,7 +501,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           <button
             onClick={onSelectPrevInterval}
             disabled={!selection}
-            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium"
+            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
             title="前の区間に移動 (Alt+←)"
           >
             ◀ 前 (Alt+←)
@@ -509,7 +509,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           <button
             onClick={onPlaySelection}
             disabled={!selection}
-            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium text-blue-700"
+            className="px-2 py-1 bg-white border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-bold transition-colors"
             title="区間再生 (Tab)"
           >
             ▶ 再生 (Tab)
@@ -517,7 +517,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           <button
             onClick={onSelectNextInterval}
             disabled={!selection}
-            className="px-2 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-30 font-medium"
+            className="px-2 py-1 bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
             title="次の区間に移動 (Alt+→)"
           >
             次 (Alt+→) ▶
@@ -525,7 +525,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
           <button
             onClick={onDeleteBoundary}
             disabled={!selection}
-            className="px-2 py-0.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded disabled:opacity-30 font-medium"
+            className="px-2 py-1 bg-white border border-[#E30613] text-[#E30613] hover:bg-[#E30613] hover:text-white disabled:opacity-20 font-bold transition-colors"
             title="境界を削除して直前区間と結合 (Alt+Del)"
           >
             境界削除
@@ -533,20 +533,20 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-3 py-1 bg-gray-100 border-b border-gray-200 text-xs">
-        <span className="font-semibold text-gray-700">
-          TextGrid ティア一覧 ({tiers.length}) - <span className="text-blue-700 font-medium">現在選択中: {tiers[activeTierIdx]?.name || '未選択'}</span>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#f0f0f4] border-b border-[#e0e0e6] text-xs">
+        <span className="font-bold text-[#111111] uppercase tracking-wider text-[11px]">
+          Tiers ({tiers.length}) - <span className="text-[#E30613] font-mono">Active: {tiers[activeTierIdx]?.name || 'None'}</span>
         </span>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handleAddTier('interval')}
-            className="px-2 py-0.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium"
+            className="px-2.5 py-0.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold text-[11px] uppercase tracking-wider transition-colors"
           >
             + 区間ティア
           </button>
           <button
             onClick={() => handleAddTier('point')}
-            className="px-2 py-0.5 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium"
+            className="px-2.5 py-0.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold text-[11px] uppercase tracking-wider transition-colors"
           >
             + 点ティア
           </button>

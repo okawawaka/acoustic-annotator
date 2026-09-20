@@ -316,12 +316,12 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-white border border-gray-300 rounded-xl shadow-2xl overflow-hidden text-gray-900 text-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/70 backdrop-blur-none p-4">
+      <div className="w-full max-w-md bg-white border-2 border-[#111111] text-[#111111] text-xs">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-2 font-semibold text-gray-800 text-sm">
-            <Mic className="w-4 h-4 text-red-600 animate-pulse" />
+        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#111111] bg-white">
+          <div className="flex items-center space-x-2 font-extrabold text-xs uppercase tracking-wider text-[#111111]">
+            <Mic className="w-4 h-4 text-[#E30613]" />
             <span>マイク録音（音響分析用PCM録音）</span>
           </div>
           <button
@@ -329,7 +329,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               cleanupAudio();
               onClose();
             }}
-            className="text-gray-400 hover:text-gray-700 p-1 rounded hover:bg-gray-100 transition-colors"
+            className="text-[#111111] hover:bg-[#111111] hover:text-white border border-[#e0e0e6] hover:border-[#111111] p-1 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -339,70 +339,70 @@ export const RecordModal: React.FC<RecordModalProps> = ({
         <div className="p-5 space-y-4">
           {/* Error Banner */}
           {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 flex items-start space-x-2 text-[11px] leading-relaxed">
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="p-3 bg-[#E30613]/10 border border-[#E30613] text-[#E30613] flex items-start space-x-2 text-[11px] leading-relaxed font-mono">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <div>{errorMessage}</div>
             </div>
           )}
 
           {/* Level Meter Section */}
-          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] text-gray-600 font-medium">
+          <div className="bg-[#f9f9fb] p-3 border border-[#e0e0e6] space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#777780]">
               <span className="flex items-center">
-                <Volume2 className="w-3.5 h-3.5 mr-1 text-gray-500" />
+                <Volume2 className="w-3.5 h-3.5 mr-1 text-[#111111]" />
                 マイク入力レベル (VUメーター)
               </span>
-              <span className="text-[10px] text-gray-400 font-mono">
-                {permissionState === 'granted' ? 'マイク待機中' : 'マイク接続中...'}
+              <span className="text-[10px] text-[#777780] font-mono">
+                {permissionState === 'granted' ? 'STANDBY' : 'CONNECTING...'}
               </span>
             </div>
-            <div className="relative w-full h-4 rounded overflow-hidden border border-gray-300 bg-slate-900 shadow-inner">
+            <div className="relative w-full h-4 border border-[#111111] bg-[#111111]">
               <canvas ref={canvasRef} width={380} height={16} className="w-full h-full block" />
             </div>
-            <div className="flex justify-between text-[9px] text-gray-400 font-mono px-0.5">
-              <span>-inf dB</span>
-              <span>-12 dB</span>
-              <span>-6 dB</span>
-              <span className="text-red-500 font-semibold">0 dB (Clip)</span>
+            <div className="flex justify-between text-[9px] text-[#777780] font-mono px-0.5">
+              <span>-INF DB</span>
+              <span>-12 DB</span>
+              <span>-6 DB</span>
+              <span className="text-[#E30613] font-bold">0 DB (CLIP)</span>
             </div>
           </div>
 
           {/* Center Record Area */}
-          <div className="flex flex-col items-center justify-center py-4 bg-gray-50/60 rounded-lg border border-dashed border-gray-200">
+          <div className="flex flex-col items-center justify-center py-5 bg-[#f0f0f4] border border-[#e0e0e6]">
             {/* Timer Display */}
-            <div className="font-mono text-3xl font-bold tracking-wider text-gray-800 mb-2">
+            <div className="font-mono text-3xl font-extrabold tracking-wider text-[#111111] mb-2">
               {isRecording ? formatTimer(elapsedSeconds) : recordedDuration ? formatTimer(recordedDuration) : '00:00.0'}
             </div>
 
             {/* Status indicator */}
-            <div className="flex items-center space-x-1.5 mb-4 text-xs font-medium">
+            <div className="flex items-center space-x-1.5 mb-5 text-xs font-mono uppercase tracking-wider">
               {isRecording ? (
-                <span className="flex items-center text-red-600 font-semibold animate-pulse">
-                  <span className="w-2 h-2 rounded-full bg-red-600 mr-1.5" />
-                  録音中...
+                <span className="flex items-center text-[#E30613] font-bold animate-pulse">
+                  <span className="w-2 h-2 bg-[#E30613] mr-1.5" />
+                  RECORDING IN PROGRESS...
                 </span>
               ) : isProcessingWav ? (
-                <span className="text-blue-600 animate-pulse">WAVフォーマット変換中...</span>
+                <span className="text-[#111111] font-bold animate-pulse">CONVERTING TO PCM WAV...</span>
               ) : recordedWavFile ? (
-                <span className="text-green-700 font-semibold flex items-center">
-                  <Check className="w-3.5 h-3.5 mr-1" />
-                  録音完了 ({recordedDuration?.toFixed(2)}s)
+                <span className="text-[#111111] font-bold flex items-center">
+                  <Check className="w-3.5 h-3.5 mr-1 text-[#E30613]" />
+                  READY ({recordedDuration?.toFixed(2)}s)
                 </span>
               ) : (
-                <span className="text-gray-500">ボタンを押して録音を開始</span>
+                <span className="text-[#777780]">PRESS BUTTON TO START RECORDING</span>
               )}
             </div>
 
-            {/* Record / Stop Button */}
+            {/* Record / Stop Button (Sharp Geometric Square) */}
             {!recordedWavFile ? (
               <button
                 type="button"
                 onClick={isRecording ? handleStopRecording : handleStartRecording}
                 disabled={permissionState !== 'granted' || isProcessingWav}
-                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md transition-transform active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`w-14 h-14 border-2 border-[#111111] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed ${
                   isRecording
-                    ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse ring-4 ring-red-200'
-                    : 'bg-red-500 hover:bg-red-600 text-white hover:scale-105'
+                    ? 'bg-[#E30613] text-white border-[#E30613] animate-pulse'
+                    : 'bg-[#111111] text-white hover:bg-[#E30613] hover:border-[#E30613]'
                 }`}
                 title={isRecording ? '録音を停止' : '録音を開始'}
               >
@@ -414,16 +414,16 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <button
                   type="button"
                   onClick={handleTogglePreview}
-                  className="flex items-center px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 font-medium shadow-2xs transition-colors"
+                  className="flex items-center px-3.5 py-1.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors"
                 >
                   {isPlayingPreview ? (
                     <>
-                      <Pause className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                      <Pause className="w-3.5 h-3.5 mr-1.5" />
                       停止
                     </>
                   ) : (
                     <>
-                      <Play className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                      <Play className="w-3.5 h-3.5 mr-1.5" />
                       試聴する
                     </>
                   )}
@@ -438,29 +438,29 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     setRecordedDuration(null);
                     setElapsedSeconds(0);
                   }}
-                  className="flex items-center px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium shadow-2xs transition-colors"
+                  className="flex items-center px-3.5 py-1.5 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 text-gray-500" />
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5 text-[#777780]" />
                   再録音
                 </button>
               </div>
             )}
           </div>
 
-          <div className="text-[11px] text-gray-500 text-center leading-relaxed">
-            ※ 録音された音声は自動的に 16-bit PCM WAV に変換され、Praat と同様の正確な波形・ピッチ・フォルマント解析が行われます。
+          <div className="text-[10px] text-[#777780] text-center font-mono leading-relaxed uppercase">
+            AUTOMATICALLY ENCODED TO 16-BIT LINEAR PCM WAV (PRAAT COMPATIBLE)
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-2 px-4 py-3 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end space-x-2 px-4 py-3 border-t-2 border-[#111111] bg-white">
           <button
             type="button"
             onClick={() => {
               cleanupAudio();
               onClose();
             }}
-            className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-100 text-gray-700 font-medium transition-colors"
+            className="px-3.5 py-1.5 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors"
           >
             キャンセル
           </button>
@@ -469,7 +469,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             type="button"
             onClick={handleApplyRecording}
             disabled={!recordedWavFile || isRecording || isProcessingWav}
-            className="flex items-center px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-2xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center px-4 py-1.5 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
           >
             <Check className="w-3.5 h-3.5 mr-1.5" />
             分析エディタに読み込む

@@ -42,23 +42,27 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="w-full max-w-md bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden text-gray-900 text-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/70 backdrop-blur-none p-4">
+      <div className="w-full max-w-md bg-white border-2 border-[#111111] text-[#111111] text-xs">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-1.5 font-semibold text-gray-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#111111] bg-white">
+          <div className="flex items-center space-x-2 font-extrabold text-xs uppercase tracking-wider text-[#111111]">
             <FileText className="w-4 h-4" />
             <span>台本テキストから自動アノテーション</span>
           </div>
-          <button onClick={onClose} disabled={isLoading} className="text-gray-400 hover:text-gray-700">
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="p-1 border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white transition-colors"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3.5 bg-[#f9f9fb]">
           <div>
-            <label className="block font-medium text-gray-700 mb-1">
+            <label className="block font-bold uppercase tracking-wider text-[11px] text-[#777780] mb-1">
               書き起こしテキスト（台本・発話内容）
             </label>
             <textarea
@@ -66,15 +70,15 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="ここに手動で起こしたテキストを貼り付けてください。&#10;改行ごとに1つの区間として自動配置されます。"
-              className="w-full bg-white border border-gray-300 rounded p-2 text-xs font-mono outline-none resize-none focus:border-gray-500"
+              className="w-full bg-white border border-[#111111] p-2.5 text-xs font-mono outline-none resize-none"
             />
           </div>
 
           {/* Target Tier Selection */}
           <div>
-            <label className="block font-medium text-gray-700 mb-1">区間を追加するティア</label>
-            <div className="flex items-center space-x-3 mb-1.5">
-              <label className="flex items-center space-x-1 cursor-pointer">
+            <label className="block font-bold uppercase tracking-wider text-[11px] text-[#777780] mb-1">区間を追加するティア</label>
+            <div className="flex items-center space-x-3 mb-1.5 font-medium">
+              <label className="flex items-center space-x-1.5 cursor-pointer">
                 <input
                   type="radio"
                   name="targetMode"
@@ -83,7 +87,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
                 />
                 <span>既存のティア (Wordなど)</span>
               </label>
-              <label className="flex items-center space-x-1 cursor-pointer">
+              <label className="flex items-center space-x-1.5 cursor-pointer">
                 <input
                   type="radio"
                   name="targetMode"
@@ -98,7 +102,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
               <select
                 value={selectedTier}
                 onChange={(e) => setSelectedTier(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
+                className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none font-mono"
               >
                 {existingTierNames.map((name) => (
                   <option key={name} value={name}>
@@ -111,18 +115,18 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
                 type="text"
                 value={newTierName}
                 onChange={(e) => setNewTierName(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
+                className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none font-mono"
                 placeholder="Script"
               />
             )}
           </div>
 
           <div>
-            <label className="block font-medium text-gray-700 mb-1">分割単位</label>
+            <label className="block font-bold uppercase tracking-wider text-[11px] text-[#777780] mb-1">分割単位</label>
             <select
               value={splitBy}
               onChange={(e) => setSplitBy(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 outline-none"
+              className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none"
             >
               <option value="char">一文字ずつ (モーラ・音素単位)</option>
               <option value="word">単語・空白ごと</option>
@@ -130,7 +134,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
             </select>
           </div>
 
-          <div className="text-[11px] text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
+          <div className="text-[11px] text-[#777780] bg-white p-2.5 border border-[#e0e0e6] font-mono leading-relaxed">
             {splitBy === 'char'
               ? '音声波形の発音エネルギーとAI解析に基づき、一文字ずつの実際の発声区間に自動配置します。'
               : splitBy === 'word'
@@ -139,19 +143,19 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[#e0e0e6]">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+              className="px-3.5 py-1.5 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors"
             >
               キャンセル
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-1.5 rounded bg-gray-900 hover:bg-gray-800 text-white font-medium disabled:opacity-50"
+              className="px-4 py-1.5 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-20"
             >
               {isLoading ? '生成中...' : '区間を作成'}
             </button>

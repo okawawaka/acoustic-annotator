@@ -98,13 +98,13 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
       : null;
 
   return (
-    <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-white border-b border-gray-200 text-xs text-gray-800 gap-2">
+    <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-white border-b border-[#e0e0e6] text-xs text-[#111111] gap-2">
       {/* Playback Controls */}
       <div className="flex items-center space-x-1.5">
         <button
           onClick={onTogglePlay}
           disabled={!hasAudio}
-          className="flex items-center justify-center w-7 h-7 rounded border border-gray-300 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 text-gray-900 disabled:opacity-30 transition-colors"
+          className="flex items-center justify-center w-7 h-7 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white active:bg-[#444448] text-[#111111] disabled:opacity-20 transition-colors"
           title="再生 / 一時停止 (Space)"
         >
           {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
@@ -113,7 +113,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         <button
           onClick={onPlaySelection}
           disabled={!hasAudio || !selection}
-          className="px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-30"
+          className="px-2.5 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
           title="選択区間を再生 (Tab)"
         >
           区間再生 [Tab]
@@ -121,8 +121,10 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
 
         <button
           onClick={onToggleLoop}
-          className={`p-1 rounded border transition-colors ${
-            isLooping ? 'bg-blue-50 border-blue-400 text-blue-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+          className={`p-1 border transition-colors ${
+            isLooping
+              ? 'bg-[#111111] border-[#111111] text-white'
+              : 'bg-white border-[#e0e0e6] text-[#777780] hover:border-[#111111] hover:text-[#111111]'
           }`}
           title="ループ再生"
         >
@@ -132,7 +134,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         <select
           value={playbackRate}
           onChange={(e) => onChangePlaybackRate(parseFloat(e.target.value))}
-          className="bg-white text-gray-700 px-1.5 py-1 rounded border border-gray-300 outline-none cursor-pointer"
+          className="bg-white text-[#111111] px-1.5 py-1 border border-[#e0e0e6] hover:border-[#111111] outline-none cursor-pointer font-mono"
         >
           <option value="0.5">0.5x</option>
           <option value="0.75">0.75x</option>
@@ -141,13 +143,13 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           <option value="1.5">1.5x</option>
         </select>
 
-        <div className="font-mono text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+        <div className="font-mono text-[#444448] bg-[#f0f0f4] px-2 py-1 border border-[#e0e0e6] text-[11px]">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
 
         {selectionDuration && (
-          <div className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200" title="選択区間の長さ">
-            選択: {selectionDuration}s
+          <div className="font-mono text-[#E30613] bg-[#E30613]/10 px-2 py-1 border border-[#E30613]/30 text-[11px] font-semibold" title="選択区間の長さ">
+            SEL: {selectionDuration}s
           </div>
         )}
       </div>
@@ -157,41 +159,41 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         <button
           onClick={onInsertBoundary}
           disabled={!hasAudio}
-          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30"
+          className="flex items-center px-2.5 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors"
           title="現在位置に境界を挿入 (Enter)"
         >
-          <SplitSquareVertical className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          <SplitSquareVertical className="w-3.5 h-3.5 mr-1" />
           境界挿入 [Enter]
         </button>
 
         <button
           onClick={onUndo}
           disabled={!canUndo}
-          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30 transition-opacity"
+          className="flex items-center px-2 py-1 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] disabled:opacity-20 transition-colors"
           title="元に戻す (Ctrl+Z)"
         >
-          <Undo2 className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          <Undo2 className="w-3.5 h-3.5 mr-1" />
           元に戻す
         </button>
 
         <button
           onClick={onRedo}
           disabled={!canRedo}
-          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30 transition-opacity"
+          className="flex items-center px-2 py-1 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] disabled:opacity-20 transition-colors"
           title="やり直す (Ctrl+Y / Ctrl+Shift+Z)"
         >
-          <Redo2 className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          <Redo2 className="w-3.5 h-3.5 mr-1" />
           やり直す
         </button>
 
         {/* 話者設定 */}
-        <div className="flex items-center space-x-1 border border-gray-300 rounded px-1.5 py-0.5 bg-white text-[11px]" title="話者の声道長に応じたLPCフォルマント上限周波数（女性: 5500Hz / 男性: 5000Hz）">
-          <User className="w-3 h-3 text-gray-500" />
-          <span className="text-gray-500">話者:</span>
+        <div className="flex items-center space-x-1 border border-[#e0e0e6] px-1.5 py-0.5 bg-white text-[11px]" title="話者の声道長に応じたLPCフォルマント上限周波数（女性: 5500Hz / 男性: 5000Hz）">
+          <User className="w-3 h-3 text-[#777780]" />
+          <span className="text-[#777780] font-mono uppercase text-[10px]">LPC:</span>
           <select
             value={maxFormantFreq}
             onChange={(e) => onChangeMaxFormantFreq(parseFloat(e.target.value))}
-            className="bg-transparent font-medium text-gray-800 outline-none cursor-pointer"
+            className="bg-transparent font-semibold text-[#111111] outline-none cursor-pointer"
           >
             <option value="5500">女性 (5500Hz)</option>
             <option value="5000">男性 (5000Hz)</option>
@@ -200,28 +202,30 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         </div>
 
         {/* 縦軸周波数レンジの手動切り替えセレクター */}
-        <div className="flex items-center space-x-1 border border-gray-300 rounded px-1.5 py-0.5 bg-white text-[11px]" title="音響キャンバスの縦軸上限周波数を手動設定（F0単体観察時は500Hz、フォルマント時は5000Hz等）">
-          <Sliders className="w-3 h-3 text-gray-500" />
-          <span className="text-gray-500">縦軸:</span>
+        <div className="flex items-center space-x-1 border border-[#e0e0e6] px-1.5 py-0.5 bg-white text-[11px]" title="音響キャンバスの縦軸上限周波数を手動設定（F0単体観察時は500Hz、フォルマント時は5000Hz等）">
+          <Sliders className="w-3 h-3 text-[#777780]" />
+          <span className="text-[#777780] font-mono uppercase text-[10px]">Freq:</span>
           <select
             value={maxDisplayFreq}
             onChange={(e) => onChangeDisplayFreq(parseFloat(e.target.value))}
-            className="bg-transparent font-medium text-gray-800 outline-none cursor-pointer"
+            className="bg-transparent font-semibold text-[#111111] outline-none cursor-pointer"
           >
-            <option value="500">0 - 500 Hz (F0/ピッチ拡大)</option>
-            <option value="800">0 - 800 Hz (高F0/女性ピッチ)</option>
-            <option value="3000">0 - 3000 Hz (F1-F2母音帯)</option>
-            <option value="5000">0 - 5000 Hz (標準広帯域/F1-3)</option>
-            <option value="8000">0 - 8000 Hz (子音・高周波)</option>
+            <option value="500">0 - 500 Hz (F0/ピッチ)</option>
+            <option value="800">0 - 800 Hz (高F0)</option>
+            <option value="3000">0 - 3000 Hz (F1-F2母音)</option>
+            <option value="5000">0 - 5000 Hz (標準広帯域)</option>
+            <option value="8000">0 - 8000 Hz (子音)</option>
           </select>
         </div>
 
-        {/* Pitch / Formant Toggles (単なる表示ON/OFFトグル) */}
-        <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden text-[11px]">
+        {/* Pitch / Formant Toggles */}
+        <div className="flex items-center border border-[#e0e0e6] bg-white overflow-hidden text-[11px]">
           <button
             onClick={onTogglePitch}
             className={`px-2 py-1 font-mono transition-colors ${
-              showPitch ? 'bg-blue-50 text-blue-700 font-bold border-r border-blue-200' : 'text-gray-500 hover:bg-gray-50 border-r border-gray-300'
+              showPitch
+                ? 'bg-[#111111] text-white font-bold'
+                : 'text-[#777780] hover:bg-[#f0f0f4]'
             }`}
             title="基本周波数 (F0) の青色実線表示切替"
           >
@@ -229,8 +233,10 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           </button>
           <button
             onClick={onToggleFormants}
-            className={`px-2 py-1 font-mono transition-colors ${
-              showFormants ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-500 hover:bg-gray-50'
+            className={`px-2 py-1 font-mono transition-colors border-l border-[#e0e0e6] ${
+              showFormants
+                ? 'bg-[#E30613] text-white font-bold'
+                : 'text-[#777780] hover:bg-[#f0f0f4]'
             }`}
             title="フォルマント (F1-3) の赤点表示切替"
           >
@@ -239,24 +245,24 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         </div>
 
         {/* Zoom */}
-        <div className="flex items-center border border-gray-300 rounded bg-white overflow-hidden">
+        <div className="flex items-center border border-[#e0e0e6] bg-white">
           <button
             onClick={onZoomIn}
-            className="p-1 text-gray-600 hover:bg-gray-100 border-r border-gray-300"
+            className="p-1 text-[#111111] hover:bg-[#f0f0f4] border-r border-[#e0e0e6] transition-colors"
             title="時間軸の拡大"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onZoomOut}
-            className="p-1 text-gray-600 hover:bg-gray-100 border-r border-gray-300"
+            className="p-1 text-[#111111] hover:bg-[#f0f0f4] border-r border-[#e0e0e6] transition-colors"
             title="時間軸の縮小"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onResetZoom}
-            className="p-1 text-gray-600 hover:bg-gray-100"
+            className="p-1 text-[#111111] hover:bg-[#f0f0f4] transition-colors"
             title="時間軸全体表示"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -269,39 +275,39 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         <button
           onClick={onOpenVowelSpaceModal}
           disabled={!hasAudio}
-          className="flex items-center px-2 py-1 rounded border border-blue-200 bg-blue-50/50 hover:bg-blue-100/60 text-blue-800 font-medium disabled:opacity-30 transition-colors"
+          className="flex items-center px-2.5 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium disabled:opacity-20 transition-colors"
           title="F1-F2音響母音四辺形マップを描画"
         >
-          <Activity className="w-3.5 h-3.5 mr-1 text-blue-700" />
+          <Activity className="w-3.5 h-3.5 mr-1" />
           母音空間 (F1-F2)
         </button>
 
         <button
           onClick={onOpenCustomTextModal}
           disabled={!hasAudio}
-          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 disabled:opacity-30 transition-colors"
+          className="flex items-center px-2.5 py-1 border border-[#e0e0e6] hover:border-[#111111] bg-white hover:bg-[#f0f0f4] text-[#111111] font-medium disabled:opacity-20 transition-colors"
           title="既存のテキスト（台本）から自動で区間を配置"
         >
-          <FileText className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          <FileText className="w-3.5 h-3.5 mr-1" />
           台本配置
         </button>
 
         <button
           onClick={onOpenASRModal}
           disabled={!hasAudio}
-          className="flex items-center px-2.5 py-1 rounded border border-gray-800 bg-gray-900 hover:bg-gray-800 text-white font-medium disabled:opacity-30 transition-colors"
+          className="flex items-center px-2.5 py-1 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider disabled:opacity-20 transition-colors"
           title="Praat同様に波形の無音・発話区間を一瞬で自動検出してTextGridを作成"
         >
           <SplitSquareVertical className="w-3.5 h-3.5 mr-1" />
-          無音自動分割 (VAD)
+          無音分割 (VAD)
         </button>
 
         <button
           onClick={onExportTextGrid}
-          className="flex items-center px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+          className="flex items-center px-2.5 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium transition-colors"
           title="Praat TextGrid形式で保存"
         >
-          <Download className="w-3.5 h-3.5 mr-1 text-gray-600" />
+          <Download className="w-3.5 h-3.5 mr-1" />
           TextGrid保存
         </button>
       </div>
