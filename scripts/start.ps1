@@ -52,8 +52,8 @@ Write-Host "========================================================" -Foregroun
 Write-Host ""
 
 $rootPath = (Resolve-Path "$PSScriptRoot\..").Path
-$backendPath = Join-Path $rootPath "backend"
-$frontendPath = Join-Path $rootPath "frontend"
+$backendPath = Join-Path $rootPath "apps\annotator\backend"
+$frontendPath = Join-Path $rootPath "apps\annotator\frontend"
 
 Write-Host "1. Starting Backend (FastAPI with hot-reload)..." -ForegroundColor Yellow
 Start-Process -FilePath $uvCmd -ArgumentList "run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $backendPath

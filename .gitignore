@@ -1,4 +1,32 @@
-﻿# Python
+# ==============================================================================
+# Git Ignore - Acoustic Analysis Suite (Root Repository)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Independent Subtool Git Repositories (Managed separately)
+# ------------------------------------------------------------------------------
+/ipa-keyboard/
+/phonological-rule-editor/
+/syntax-tree-editor/
+/linguistics-terms-dictionary/
+*.zip
+
+# ------------------------------------------------------------------------------
+# 2. Node.js / Next.js Build Outputs & Dependencies
+# ------------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.eslintcache
+*.tsbuildinfo
+next-env.d.ts
+
+# ------------------------------------------------------------------------------
+# 3. Python Virtual Environments & Bytecode
+# ------------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -7,45 +35,45 @@ __pycache__/
 env/
 venv/
 .venv/
-build/
-dist/
 *.egg-info/
 .pytest_cache/
 .coverage
 htmlcov/
 .ruff_cache/
 
-# Node.js / Next.js
-node_modules/
-coverage/
-.next/
-out/
-build/
-*.tsbuildinfo
-next-env.d.ts
-.eslintcache
-
-# Environment variables
-.env
-.env*.local
-
-# Audio & cache
+# ------------------------------------------------------------------------------
+# 4. Audio, Cache, Temporary & Upload Data
+# ------------------------------------------------------------------------------
+**/data/uploads/
+**/data/
 uploads/
 cache/
-models/*
-!models/.gitkeep
+**/backend/models/
+/models/
+*.bin
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.aac
+*.TextGrid
+*.textgrid
 
-# OS / IDE
+# ------------------------------------------------------------------------------
+# 5. Environment & Secrets
+# ------------------------------------------------------------------------------
+.env
+.env*.local
+.env.production
+.env.development
+
+# ------------------------------------------------------------------------------
+# 6. Operating System & IDE Configs
+# ------------------------------------------------------------------------------
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 Desktop.ini
 *.log
-
-backend/models/
-models/
-*.bin
-*.json
-!frontend/*.json
-!backend/*.json
