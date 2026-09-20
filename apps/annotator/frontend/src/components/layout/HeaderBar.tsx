@@ -1,0 +1,52 @@
+'use client';
+
+import React from 'react';
+import { FolderOpen, Mic } from 'lucide-react';
+
+interface HeaderBarProps {
+  onOpenMicRecord: () => void;
+  onOpenFileSelect: () => void;
+}
+
+export const HeaderBar: React.FC<HeaderBarProps> = ({
+  onOpenMicRecord,
+  onOpenFileSelect,
+}) => {
+  return (
+    <header className="h-11 flex-shrink-0 flex items-center justify-between px-4 border-b-2 border-[#111111] bg-white">
+      <div className="flex items-center space-x-3">
+        <span className="font-extrabold text-xs uppercase tracking-tight text-[#111111]">
+          Acoustic Annotator
+        </span>
+        <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-[#777780] font-semibold border-l border-[#e0e0e6] pl-3">
+          Phonetic Acoustics &amp; Praat TextGrid
+        </span>
+        <span
+          className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 bg-[#111111] text-white tracking-wider"
+          title="サーバー通信不要・ブラウザ内完結動作中"
+        >
+          Standalone
+        </span>
+      </div>
+
+      <div className="flex items-center space-x-2 text-xs">
+        <button
+          onClick={onOpenMicRecord}
+          className="flex items-center px-3 py-1 border border-[#E30613] text-[#E30613] hover:bg-[#E30613] hover:text-white font-bold text-xs uppercase tracking-wider transition-colors duration-150"
+          title="マイクから直接録音して分析を開始します"
+        >
+          <Mic className="w-3.5 h-3.5 mr-1.5" />
+          マイク録音
+        </button>
+        <button
+          onClick={onOpenFileSelect}
+          className="flex items-center px-3 py-1 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors duration-150"
+          title="音声ファイル（.wav 等）や TextGrid を開きます（同時に複数選択可能）"
+        >
+          <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+          ファイルを開く
+        </button>
+      </div>
+    </header>
+  );
+};
