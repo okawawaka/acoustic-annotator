@@ -35,12 +35,16 @@ export function generateSpectrogram(
     window[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (windowSamples - 1)));
   }
 
+  // 再利用可能な FFT バッファの確保（フレームごとのメモリアロケーションを排除）
+  const real = new Float32Array(nFft);
+  const imag = new Float32Array(nFft);
+
   for (let frameIdx = 0; frameIdx < numFrames; frameIdx++) {
     const offset = frameIdx * stepSamples;
     times.push(roundDigits(offset / sampleRate, 3));
 
-    const real = new Float32Array(nFft);
-    const imag = new Float32Array(nFft);
+    real.fill(0);
+    imag.fill(0);
 
     for (let i = 0; i < windowSamples && offset + i < channelData.length; i++) {
       real[i] = channelData[offset + i] * window[i];

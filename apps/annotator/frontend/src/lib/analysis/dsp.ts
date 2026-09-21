@@ -140,51 +140,68 @@ export function lpcBurg(x: Float32Array, p: number): Float64Array {
 }
 
 // 多項式複素根探索法 (Durand-Kerner法): A(z) = 1 + a1*z^-1 + ... + ap*z^-p = 0
+// ループ内でのオブジェクト生成をゼロ化し、ブラウザのGC負荷を大幅に削減して高速化
 export function findRootsDurandKerner(a: Float64Array): [number, number][] {
   const p = a.length - 1;
-  const roots: [number, number][] = [];
+  const rootsR = new Float64Array(p);
+  const rootsI = new Float64Array(p);
   const radius = 0.9;
+
   for (let i = 0; i < p; i++) {
     const angle = (2 * Math.PI * i) / p + 0.3;
-    roots.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
-  }
-
-  function cMul(c1: [number, number], c2: [number, number]): [number, number] {
-    return [c1[0] * c2[0] - c1[1] * c2[1], c1[0] * c2[1] + c1[1] * c2[0]];
-  }
-  function cDiv(c1: [number, number], c2: [number, number]): [number, number] {
-    const d = c2[0] * c2[0] + c2[1] * c2[1];
-    return [(c1[0] * c2[0] + c1[1] * c2[1]) / d, (c1[1] * c2[0] - c1[0] * c2[1]) / d];
-  }
-  function cSub(c1: [number, number], c2: [number, number]): [number, number] {
-    return [c1[0] - c2[0], c1[1] - c2[1]];
-  }
-  function evalPoly(z: [number, number]): [number, number] {
-    let res: [number, number] = [1.0, 0.0];
-    for (let i = 1; i <= p; i++) {
-      res = cMul(res, z);
-      res[0] += a[i];
-    }
-    return res;
+    rootsR[i] = radius * Math.cos(angle);
+    rootsI[i] = radius * Math.sin(angle);
   }
 
   for (let iter = 0; iter < 40; iter++) {
     let maxChange = 0;
     for (let i = 0; i < p; i++) {
-      const zi = roots[i];
-      const pVal = evalPoly(zi);
-      let denom: [number, number] = [1.0, 0.0];
+      const zR = rootsR[i];
+      const zI = rootsI[i];
+
+      // Horner 法による多項式 P(z) の評価（オブジェクト生成なし）
+      let pR = 1.0;
+      let pI = 0.0;
+      for (let k = 1; k <= p; k++) {
+        const nextR = pR * zR - pI * zI + a[k];
+        const nextI = pR * zI + pI * zR;
+        pR = nextR;
+        pI = nextI;
+      }
+
+      // 分母 denom = Π_{j ≠ i} (zi - zj) の計算（直値複素乗算）
+      let dR = 1.0;
+      let dI = 0.0;
       for (let j = 0; j < p; j++) {
         if (i !== j) {
-          denom = cMul(denom, cSub(zi, roots[j]));
+          const diffR = zR - rootsR[j];
+          const diffI = zI - rootsI[j];
+          const nextDR = dR * diffR - dI * diffI;
+          const nextDI = dR * diffI + dI * diffR;
+          dR = nextDR;
+          dI = nextDI;
         }
       }
-      const step = cDiv(pVal, denom);
-      roots[i] = cSub(zi, step);
-      const chg = Math.hypot(step[0], step[1]);
+
+      // 複素除算 step = P(z) / denom
+      const denomMagSq = dR * dR + dI * dI;
+      if (denomMagSq < 1e-24) continue;
+      const stepR = (pR * dR + pI * dI) / denomMagSq;
+      const stepI = (pI * dR - pR * dI) / denomMagSq;
+
+      rootsR[i] -= stepR;
+      rootsI[i] -= stepI;
+
+      const chg = Math.hypot(stepR, stepI);
       if (chg > maxChange) maxChange = chg;
     }
     if (maxChange < 1e-6) break;
   }
+
+  const roots: [number, number][] = new Array(p);
+  for (let i = 0; i < p; i++) {
+    roots[i] = [rootsR[i], rootsI[i]];
+  }
   return roots;
 }
+
