@@ -12,6 +12,7 @@ interface UseKeyboardShortcutsOptions {
   onUndo: () => void;
   onRedo: () => void;
   onOpenShortcutsModal?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
 export function useKeyboardShortcuts({
@@ -24,10 +25,17 @@ export function useKeyboardShortcuts({
   onUndo,
   onRedo,
   onOpenShortcutsModal,
+  onOpenCommandPalette,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      if (isCtrlOrMeta && (e.code === 'KeyK' || e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        onOpenCommandPalette?.();
+        return;
+      }
 
       if (isCtrlOrMeta && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
         const activeEl = document.activeElement as HTMLElement | null;
@@ -80,6 +88,9 @@ export function useKeyboardShortcuts({
       } else if (e.key === '?' || e.key === 'F1') {
         e.preventDefault();
         onOpenShortcutsModal?.();
+      } else if (e.key === ':') {
+        e.preventDefault();
+        onOpenCommandPalette?.();
       }
     };
 
@@ -95,5 +106,6 @@ export function useKeyboardShortcuts({
     onUndo,
     onRedo,
     onOpenShortcutsModal,
+    onOpenCommandPalette,
   ]);
 }

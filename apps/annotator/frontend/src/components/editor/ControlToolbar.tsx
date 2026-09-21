@@ -19,6 +19,7 @@ import {
   Redo2,
   Layers,
   HelpCircle,
+  Terminal,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -50,6 +51,7 @@ interface ControlToolbarProps {
   onOpenSpectralSliceModal: () => void;
   onOpenAnalysisSettingsModal: () => void;
   onOpenShortcutsModal?: () => void;
+  onOpenCommandPalette?: () => void;
   onTogglePitch: () => void;
   onToggleFormants: () => void;
   onToggleIntensity: () => void;
@@ -93,6 +95,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onOpenSpectralSliceModal,
   onOpenAnalysisSettingsModal,
   onOpenShortcutsModal,
+  onOpenCommandPalette,
   onTogglePitch,
   onToggleFormants,
   onToggleIntensity,
@@ -360,6 +363,18 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           <Download className="w-3.5 h-3.5 mr-1" />
           保存
         </button>
+
+        {/* Command Palette Button */}
+        {onOpenCommandPalette && (
+          <button
+            onClick={onOpenCommandPalette}
+            className="flex items-center space-x-1 px-2 py-1 border border-[#111111] bg-[#111111] hover:bg-[#333333] text-white font-mono font-bold text-[11px] transition-colors shadow-sm"
+            title="コマンドパレットを開く (Ctrl+K / :)"
+          >
+            <Terminal className="w-3.5 h-3.5 mr-1 text-[#e30613]" />
+            <span>⌘K</span>
+          </button>
+        )}
 
         {/* Shortcuts Help Button */}
         {onOpenShortcutsModal && (
