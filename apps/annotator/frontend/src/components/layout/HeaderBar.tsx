@@ -6,11 +6,13 @@ import { FolderOpen, Mic } from 'lucide-react';
 interface HeaderBarProps {
   onOpenMicRecord: () => void;
   onOpenFileSelect: () => void;
+  backendStatus?: 'online' | 'standalone' | 'checking';
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenMicRecord,
   onOpenFileSelect,
+  backendStatus = 'standalone',
 }) => {
   return (
     <header className="h-11 flex-shrink-0 flex items-center justify-between px-4 border-b-2 border-[#111111] bg-white">
@@ -21,12 +23,22 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-[#777780] font-semibold border-l border-[#e0e0e6] pl-3">
           Phonetic Acoustics &amp; Praat TextGrid
         </span>
-        <span
-          className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 bg-[#111111] text-white tracking-wider"
-          title="サーバー通信不要・ブラウザ内完結動作中"
-        >
-          Standalone
-        </span>
+        {backendStatus === 'online' ? (
+          <span
+            className="flex items-center space-x-1 text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 bg-emerald-700 text-white tracking-wider"
+            title="FastAPI バックエンド接続完了 (Whisper ASR / Parselmouth 連携中)"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            <span>API Online</span>
+          </span>
+        ) : (
+          <span
+            className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 bg-[#111111] text-white tracking-wider"
+            title="サーバー通信不要・ブラウザ内完結動作中 (VAD & クライアントDSP)"
+          >
+            Standalone
+          </span>
+        )}
       </div>
 
       <div className="flex items-center space-x-2 text-xs">

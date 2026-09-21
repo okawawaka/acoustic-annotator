@@ -1,10 +1,27 @@
-﻿import { AudioMetadata, TextGridData, Tier, AcousticAnalysisData, IntervalMetrics } from "@/types";
+import { AudioMetadata, TextGridData, Tier, AcousticAnalysisData, IntervalMetrics } from "@/types";
 
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
     return "http://" + window.location.hostname + ":8000";
   }
   return "http://localhost:8000";
+}
+
+export async function checkBackendHealth(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(getApiBaseUrl() + "/api/health", {
+      method: "GET",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.status === "ok";
+  } catch {
+    return false;
+  }
 }
 
 export async function uploadAudio(file: File): Promise<AudioMetadata> {

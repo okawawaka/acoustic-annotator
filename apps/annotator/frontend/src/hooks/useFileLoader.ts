@@ -5,6 +5,7 @@ import { AudioMetadata, TextGridData } from '@/types';
 import { extractPeaksFromAudioFile } from '@/lib/audioUtils';
 import { parseTextGridClient, exportTextGridClient } from '@/lib/textgridUtils';
 import { analyzeAudioClient } from '@/lib/clientAudioAnalysis';
+import { uploadAudio } from '@/lib/api';
 
 interface UseFileLoaderOptions {
   audioMetadata: AudioMetadata | null;
@@ -111,6 +112,18 @@ export function useFileLoader({
           peaks: peaks,
         };
         setAudioMetadata(localMeta);
+
+        // バックエンドが稼働していれば非同期でアップロードして Whisper ASR 用の audio_id を紐付け
+        uploadAudio(audioFile)
+          .then((serverMeta) => {
+            setAudioMetadata({
+              ...localMeta,
+              audio_id: serverMeta.audio_id,
+            });
+          })
+          .catch(() => {
+            // スタンドアロン・オフライン時は静かに local_ のまま継続
+          });
 
         // ブラウザ内音響解析エンジンで F0, Formants, Spectrogram を即時生成
         const analysis = await analyzeAudioClient(decodedBuffer, maxFormantFreq);

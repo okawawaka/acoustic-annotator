@@ -24,6 +24,7 @@ export interface EditorModalsContainerProps {
   onRunASR: (params: ASRModalRunParams) => Promise<void>;
   isASRLoading: boolean;
   audioDuration: number;
+  isBackendOnline?: boolean;
 
   // Custom Text Modal
   isCustomTextModalOpen: boolean;
@@ -87,6 +88,7 @@ export const EditorModalsContainer: React.FC<EditorModalsContainerProps> = ({
   onRunASR,
   isASRLoading,
   audioDuration,
+  isBackendOnline = false,
 
   // Custom Text
   isCustomTextModalOpen,
@@ -145,6 +147,7 @@ export const EditorModalsContainer: React.FC<EditorModalsContainerProps> = ({
         onRunASR={onRunASR}
         isLoading={isASRLoading}
         duration={audioDuration}
+        isBackendOnline={isBackendOnline}
       />
 
       <CustomTextModal

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { AudioMetadata, TextGridData } from '@/types';
 import { ASRModalRunParams } from '@/components/editor/ASRModal';
 import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
+import { audioBufferToWavBlob } from '@/lib/audioUtils';
+import { uploadAudio, transcribeAudio } from '@/lib/api';
 
 interface UseTextGridAlignmentProps {
   audioMetadata: AudioMetadata | null;
@@ -29,7 +31,7 @@ export function useTextGridAlignment({
   const [isASRLoading, setIsASRLoading] = useState(false);
   const [isCustomTextLoading, setIsCustomTextLoading] = useState(false);
 
-  // VAD 自動無音検出による区間自動分割 (ASR / VAD Modal)
+  // VAD 自動無音検出 または Whisper AI による自動文字起こし・区間分割 (ASR / VAD Modal)
   const handleRunASR = async (params: ASRModalRunParams) => {
     if (!audioMetadata) return;
     setIsASRLoading(true);
@@ -39,54 +41,103 @@ export function useTextGridAlignment({
         throw new Error('音声信号データが読み込まれていません。音声を再度読み込んでください。');
       }
 
-      const channelData = audioBuffer.getChannelData(0);
-      const sr = audioBuffer.sampleRate;
-      const speechSegments = computeAcousticVAD(channelData, sr, {
-        minSilenceDuration: params.minSilenceDuration,
-      });
+      if (params.mode === 'whisper') {
+        // --- Whisper AI 自動音声認識モード ---
+        let targetAudioId = audioMetadata.audio_id;
 
-      let scriptLabels: string[] = [];
-      if (params.scriptText) {
-        scriptLabels = params.scriptText
-          .split(/[\r\n、。,\.]+|\s+/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-      }
+        // サーバーに音声がない（local_xxx や tg_only_xxx）場合は AudioBuffer から WAV を生成して自動アップロード
+        if (targetAudioId.startsWith('local_') || targetAudioId.startsWith('tg_only_')) {
+          const wavBlob = audioBufferToWavBlob(audioBuffer);
+          const wavFile = new File([wavBlob], audioMetadata.filename || 'recording.wav', { type: 'audio/wav' });
+          const uploadedMeta = await uploadAudio(wavFile);
+          targetAudioId = uploadedMeta.audio_id;
+        }
 
-      const contiguousIntervals = createContiguousIntervalsFromSpeechSegments(
-        speechSegments,
-        audioMetadata.duration,
-        scriptLabels
-      );
+        const res = await transcribeAudio({
+          audioId: targetAudioId,
+          modelSize: params.modelSize || 'base',
+          language: params.language,
+          tierName: params.tierName || 'Whisper',
+          outputTier: params.outputTier || 'word',
+        });
 
-      const newTier = {
-        name: params.tierName || 'Speech',
-        tier_type: 'interval' as const,
-        min_timestamp: 0,
-        max_timestamp: audioMetadata.duration,
-        entries: contiguousIntervals,
-      };
+        if (!res.textgrid || !res.textgrid.tiers || res.textgrid.tiers.length === 0) {
+          throw new Error('文字起こし結果のティアが取得できませんでした。');
+        }
 
-      const existingTiers = textGridData ? [...textGridData.tiers] : [];
-      const foundIdx = existingTiers.findIndex((t) => t.name === newTier.name);
-      if (foundIdx !== -1) {
-        existingTiers[foundIdx] = newTier;
-        setActiveTierIdx(foundIdx);
+        const existingTiers = textGridData ? [...textGridData.tiers] : [];
+        let updatedActiveIdx = 0;
+
+        for (const newTier of res.textgrid.tiers) {
+          const foundIdx = existingTiers.findIndex((t) => t.name === newTier.name);
+          if (foundIdx !== -1) {
+            existingTiers[foundIdx] = newTier;
+            updatedActiveIdx = foundIdx;
+          } else {
+            existingTiers.push(newTier);
+            updatedActiveIdx = existingTiers.length - 1;
+          }
+        }
+
+        pushHistory(textGridData);
+        setTextGridData({
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          tiers: existingTiers,
+        });
+        setActiveTierIdx(updatedActiveIdx);
+        setIsASRModalOpen(false);
       } else {
-        existingTiers.push(newTier);
-        setActiveTierIdx(existingTiers.length - 1);
+        // --- VAD 無音ポーズ分割モード (オフライン) ---
+        const channelData = audioBuffer.getChannelData(0);
+        const sr = audioBuffer.sampleRate;
+        const speechSegments = computeAcousticVAD(channelData, sr, {
+          minSilenceDuration: params.minSilenceDuration,
+        });
+
+        let scriptLabels: string[] = [];
+        if (params.scriptText) {
+          scriptLabels = params.scriptText
+            .split(/[\r\n、。,\.]+|\s+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+        }
+
+        const contiguousIntervals = createContiguousIntervalsFromSpeechSegments(
+          speechSegments,
+          audioMetadata.duration,
+          scriptLabels
+        );
+
+        const newTier = {
+          name: params.tierName || 'Speech',
+          tier_type: 'interval' as const,
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          entries: contiguousIntervals,
+        };
+
+        const existingTiers = textGridData ? [...textGridData.tiers] : [];
+        const foundIdx = existingTiers.findIndex((t) => t.name === newTier.name);
+        if (foundIdx !== -1) {
+          existingTiers[foundIdx] = newTier;
+          setActiveTierIdx(foundIdx);
+        } else {
+          existingTiers.push(newTier);
+          setActiveTierIdx(existingTiers.length - 1);
+        }
+
+        pushHistory(textGridData);
+        setTextGridData({
+          min_timestamp: 0,
+          max_timestamp: audioMetadata.duration,
+          tiers: existingTiers,
+        });
+
+        setIsASRModalOpen(false);
       }
-
-      pushHistory(textGridData);
-      setTextGridData({
-        min_timestamp: 0,
-        max_timestamp: audioMetadata.duration,
-        tiers: existingTiers,
-      });
-
-      setIsASRModalOpen(false);
     } catch (err: any) {
-      alert(`自動区間分割エラー: ${err.message}`);
+      alert(`自動処理エラー: ${err.message}`);
     } finally {
       setIsASRLoading(false);
     }

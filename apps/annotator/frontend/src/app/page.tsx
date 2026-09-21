@@ -25,6 +25,7 @@ import {
 
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { copyMetricsToClipboard } from '@/lib/exportUtils';
+import { checkBackendHealth } from '@/lib/api';
 import { useTextGridHistory } from '@/hooks/useTextGridHistory';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useViewportZoom } from '@/hooks/useViewportZoom';
@@ -35,6 +36,9 @@ import { useTextGridAlignment } from '@/hooks/useTextGridAlignment';
 import { useEditorCommands } from '@/hooks/useEditorCommands';
 
 export default function AnnotatorApp() {
+  // Backend Connection State
+  const [backendStatus, setBackendStatus] = useState<'online' | 'standalone' | 'checking'>('checking');
+
   // Core Domain State
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
@@ -58,6 +62,23 @@ export default function AnnotatorApp() {
     maxFormantFreq: 5500,
     dynamicRange: 50,
   });
+
+  // Backend Health Check
+  useEffect(() => {
+    let mounted = true;
+    const verifyHealth = async () => {
+      const isOk = await checkBackendHealth();
+      if (mounted) {
+        setBackendStatus(isOk ? 'online' : 'standalone');
+      }
+    };
+    verifyHealth();
+    const interval = setInterval(verifyHealth, 30000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Modals Visibility State
   const [isASRModalOpen, setIsASRModalOpen] = useState(false);
@@ -405,6 +426,7 @@ export default function AnnotatorApp() {
       <HeaderBar
         onOpenMicRecord={() => setIsRecordModalOpen(true)}
         onOpenFileSelect={() => fileInputRef.current?.click()}
+        backendStatus={backendStatus}
       />
 
       {/* Main Workspace */}
@@ -600,6 +622,7 @@ export default function AnnotatorApp() {
         onRunASR={handleRunASR}
         isASRLoading={isASRLoading}
         audioDuration={audioMetadata ? audioMetadata.duration : 0}
+        isBackendOnline={backendStatus === 'online'}
         isCustomTextModalOpen={isCustomTextModalOpen}
         onCloseCustomTextModal={() => setIsCustomTextModalOpen(false)}
         onAlignCustomText={handleAlignCustomText}
