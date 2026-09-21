@@ -45,6 +45,48 @@ class TextGridService:
             return TextGridService._robust_parse(content)
 
     @staticmethod
+    def _praatio_to_model(tg: pt_tg.Textgrid) -> TextGridData:
+        """Convert praatio Textgrid instance to application TextGridData model."""
+        tiers: List[Tier] = []
+        for name in tg.tierNames:
+            tier_obj = tg.getTier(name)
+            is_interval = isinstance(tier_obj, pt_tg.IntervalTier)
+            entries = []
+            if is_interval:
+                for entry in tier_obj.entries:
+                    entries.append(IntervalEntry(
+                        start=round(float(entry.start), 5),
+                        end=round(float(entry.end), 5),
+                        label=entry.label
+                    ))
+                tiers.append(Tier(
+                    name=name,
+                    tier_type="interval",
+                    min_timestamp=round(float(tier_obj.minTimestamp), 5),
+                    max_timestamp=round(float(tier_obj.maxTimestamp), 5),
+                    entries=entries
+                ))
+            else:
+                for entry in tier_obj.entries:
+                    entries.append(PointEntry(
+                        time=round(float(entry.time), 5),
+                        label=entry.label
+                    ))
+                tiers.append(Tier(
+                    name=name,
+                    tier_type="point",
+                    min_timestamp=round(float(tier_obj.minTimestamp), 5),
+                    max_timestamp=round(float(tier_obj.maxTimestamp), 5),
+                    entries=entries
+                ))
+
+        return TextGridData(
+            min_timestamp=round(float(tg.minTimestamp), 5),
+            max_timestamp=round(float(tg.maxTimestamp), 5),
+            tiers=tiers
+        )
+
+    @staticmethod
     def parse_textgrid_file(file_path: Union[str, Path]) -> TextGridData:
         with open(file_path, "rb") as f:
             raw_bytes = f.read()
