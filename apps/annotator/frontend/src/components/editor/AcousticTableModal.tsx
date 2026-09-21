@@ -14,6 +14,11 @@ import {
 } from 'lucide-react';
 import { TextGridData, AcousticAnalysisData, IntervalEntry } from '@/types';
 import { computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
+import {
+  formatTableRowsToTSV,
+  formatTableRowsToCSV,
+  downloadBlobFile,
+} from '@/lib/exportUtils';
 
 export interface IntervalRowData {
   id: string;
@@ -157,46 +162,9 @@ export const AcousticTableModal: React.FC<AcousticTableModalProps> = ({
     }
   };
 
-  // TSV generation
-  const generateTSV = useCallback(() => {
-    const headers = [
-      'Tier',
-      'Label',
-      'Start(s)',
-      'End(s)',
-      'Duration(ms)',
-      'Mean_F0(Hz)',
-      'Min_F0(Hz)',
-      'Max_F0(Hz)',
-      'F1(Hz)',
-      'F2(Hz)',
-      'F3(Hz)',
-      'Mean_Intensity(dB)',
-      'COG(Hz)',
-    ];
-
-    const rows = filteredRows.map((r) => [
-      r.tierName,
-      r.label,
-      r.start.toFixed(4),
-      r.end.toFixed(4),
-      r.durationMs.toFixed(1),
-      r.meanF0 !== null ? r.meanF0.toFixed(1) : '',
-      r.minF0 !== null ? r.minF0.toFixed(1) : '',
-      r.maxF0 !== null ? r.maxF0.toFixed(1) : '',
-      r.f1 !== null ? r.f1.toFixed(1) : '',
-      r.f2 !== null ? r.f2.toFixed(1) : '',
-      r.f3 !== null ? r.f3.toFixed(1) : '',
-      r.meanIntensity !== null ? r.meanIntensity.toFixed(1) : '',
-      r.cog !== null ? r.cog.toFixed(1) : '',
-    ]);
-
-    return [headers.join('\t'), ...rows.map((row) => row.join('\t'))].join('\n');
-  }, [filteredRows]);
-
-  // Copy to clipboard
+  // Copy TSV to clipboard
   const handleCopyTSV = async () => {
-    const tsv = generateTSV();
+    const tsv = formatTableRowsToTSV(filteredRows);
     await navigator.clipboard.writeText(tsv);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -204,60 +172,9 @@ export const AcousticTableModal: React.FC<AcousticTableModalProps> = ({
 
   // CSV download
   const handleDownloadCSV = () => {
-    const headers = [
-      'Tier',
-      'Label',
-      'Start_s',
-      'End_s',
-      'Duration_ms',
-      'Mean_F0_Hz',
-      'Min_F0_Hz',
-      'Max_F0_Hz',
-      'F1_Hz',
-      'F2_Hz',
-      'F3_Hz',
-      'Mean_Intensity_dB',
-      'COG_Hz',
-    ];
-
-    const escapeCsv = (val: string | number | null | undefined) => {
-      if (val === null || val === undefined) return '';
-      const s = String(val);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return `"${s.replace(/"/g, '""')}"`;
-      }
-      return s;
-    };
-
-    const lines = filteredRows.map((r) =>
-      [
-        escapeCsv(r.tierName),
-        escapeCsv(r.label),
-        r.start.toFixed(4),
-        r.end.toFixed(4),
-        r.durationMs.toFixed(1),
-        r.meanF0 !== null ? r.meanF0.toFixed(1) : '',
-        r.minF0 !== null ? r.minF0.toFixed(1) : '',
-        r.maxF0 !== null ? r.maxF0.toFixed(1) : '',
-        r.f1 !== null ? r.f1.toFixed(1) : '',
-        r.f2 !== null ? r.f2.toFixed(1) : '',
-        r.f3 !== null ? r.f3.toFixed(1) : '',
-        r.meanIntensity !== null ? r.meanIntensity.toFixed(1) : '',
-        r.cog !== null ? r.cog.toFixed(1) : '',
-      ].join(',')
-    );
-
-    // Add UTF-8 BOM for Excel compatibility
-    const csvContent = '\uFEFF' + [headers.join(','), ...lines].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `acoustic_metrics_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const csv = formatTableRowsToCSV(filteredRows);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadBlobFile(csv, `acoustic_metrics_${dateStr}.csv`);
   };
 
   if (!isOpen) return null;

@@ -7,15 +7,7 @@ import { SpectrogramCanvas } from '@/components/editor/SpectrogramCanvas';
 import { TextGridTimeline } from '@/components/editor/TextGridTimeline';
 import { ControlToolbar } from '@/components/editor/ControlToolbar';
 import { AcousticInspector } from '@/components/editor/AcousticInspector';
-import { ASRModal } from '@/components/editor/ASRModal';
-import { CustomTextModal } from '@/components/editor/CustomTextModal';
-import { VowelSpaceModal } from '@/components/editor/VowelSpaceModal';
-import { RecordModal } from '@/components/editor/RecordModal';
-import { SpectralSliceModal } from '@/components/editor/SpectralSliceModal';
-import { AnalysisSettingsModal } from '@/components/editor/AnalysisSettingsModal';
-import { ShortcutsModal } from '@/components/editor/ShortcutsModal';
-import { CommandPaletteModal } from '@/components/editor/CommandPaletteModal';
-import { AcousticTableModal } from '@/components/editor/AcousticTableModal';
+import { EditorModalsContainer } from '@/components/editor/EditorModalsContainer';
 import { IpaPaletteBar } from '@/components/editor/IpaPaletteBar';
 import { PlayBars } from '@/components/editor/PlayBars';
 import { EmptyLandingView } from '@/components/editor/EmptyLandingView';
@@ -601,81 +593,49 @@ export default function AnnotatorApp() {
         )}
       </main>
 
-      {/* Modals */}
-      <ASRModal
-        isOpen={isASRModalOpen}
-        onClose={() => setIsASRModalOpen(false)}
+      {/* Modals Container */}
+      <EditorModalsContainer
+        isASRModalOpen={isASRModalOpen}
+        onCloseASRModal={() => setIsASRModalOpen(false)}
         onRunASR={handleRunASR}
-        isLoading={isASRLoading}
-        duration={audioMetadata ? audioMetadata.duration : 0}
-      />
-
-      <CustomTextModal
-        isOpen={isCustomTextModalOpen}
-        onClose={() => setIsCustomTextModalOpen(false)}
-        onAlignText={handleAlignCustomText}
-        isLoading={isCustomTextLoading}
+        isASRLoading={isASRLoading}
+        audioDuration={audioMetadata ? audioMetadata.duration : 0}
+        isCustomTextModalOpen={isCustomTextModalOpen}
+        onCloseCustomTextModal={() => setIsCustomTextModalOpen(false)}
+        onAlignCustomText={handleAlignCustomText}
+        isCustomTextLoading={isCustomTextLoading}
         existingTierNames={textGridData ? textGridData.tiers.map((t) => t.name) : ['Word']}
-      />
-
-      <VowelSpaceModal
-        isOpen={isVowelSpaceModalOpen}
-        onClose={() => setIsVowelSpaceModalOpen(false)}
+        isVowelSpaceModalOpen={isVowelSpaceModalOpen}
+        onCloseVowelSpaceModal={() => setIsVowelSpaceModalOpen(false)}
         textGridData={textGridData}
         analysisData={analysisData}
-        initialMaxFormantFreq={maxFormantFreq}
-        onSelectInterval={(s, e) => {
-          setSelection({ start: s, end: e });
-          handleSeek(s);
-        }}
-        onChangeMaxFormantFreq={handleChangeMaxFormantFreq}
-      />
-
-      <RecordModal
-        isOpen={isRecordModalOpen}
-        onClose={() => setIsRecordModalOpen(false)}
-        onRecordComplete={handleRecordComplete}
-      />
-
-      <SpectralSliceModal
-        isOpen={isSpectralSliceOpen}
-        onClose={() => setIsSpectralSliceOpen(false)}
-        channelData={audioBuffer ? audioBuffer.getChannelData(0) : null}
-        sampleRate={audioBuffer ? audioBuffer.sampleRate : null}
-        targetTime={spectralSliceTargetTime}
-        selectedRange={selection}
-        selectedLabel={selectedLabel}
-      />
-
-      <AnalysisSettingsModal
-        isOpen={isAnalysisSettingsOpen}
-        onClose={() => setIsAnalysisSettingsOpen(false)}
-        settings={analysisSettings}
-        onApplySettings={handleApplyAnalysisSettings}
-      />
-
-      <ShortcutsModal
-        isOpen={isShortcutsModalOpen}
-        onClose={() => setIsShortcutsModalOpen(false)}
-      />
-
-      <AcousticTableModal
-        isOpen={isAcousticTableOpen}
-        onClose={() => setIsAcousticTableOpen(false)}
-        textGridData={textGridData}
-        analysisData={analysisData}
-        audioBuffer={audioBuffer}
+        maxFormantFreq={maxFormantFreq}
         onSelectInterval={(s, e, label) => {
           setSelection({ start: s, end: e });
           setSelectedLabel(label || null);
           handleSeek(s);
         }}
+        onChangeMaxFormantFreq={handleChangeMaxFormantFreq}
+        isRecordModalOpen={isRecordModalOpen}
+        onCloseRecordModal={() => setIsRecordModalOpen(false)}
+        onRecordComplete={handleRecordComplete}
+        isSpectralSliceOpen={isSpectralSliceOpen}
+        onCloseSpectralSlice={() => setIsSpectralSliceOpen(false)}
+        audioBuffer={audioBuffer}
+        spectralSliceTargetTime={spectralSliceTargetTime}
+        selection={selection}
+        selectedLabel={selectedLabel}
+        isAnalysisSettingsOpen={isAnalysisSettingsOpen}
+        onCloseAnalysisSettings={() => setIsAnalysisSettingsOpen(false)}
+        analysisSettings={analysisSettings}
+        onApplyAnalysisSettings={handleApplyAnalysisSettings}
+        isShortcutsModalOpen={isShortcutsModalOpen}
+        onCloseShortcutsModal={() => setIsShortcutsModalOpen(false)}
+        isAcousticTableOpen={isAcousticTableOpen}
+        onCloseAcousticTable={() => setIsAcousticTableOpen(false)}
         onPlayRange={handlePlayRange}
-      />
-
-      <CommandPaletteModal
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
+        isCommandPaletteOpen={isCommandPaletteOpen}
+        onCloseCommandPalette={() => setIsCommandPaletteOpen(false)}
         commands={commands}
       />
     </div>
