@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { IntervalMetrics, AcousticAnalysisData } from '@/types';
+import { copyMetricsToClipboard } from '@/lib/exportUtils';
 import { Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc, Copy, Check } from 'lucide-react';
 
 interface AcousticInspectorProps {
@@ -76,45 +77,17 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
 
   const [copied, setCopied] = useState(false);
 
-  const handleCopyTSV = () => {
+  const handleCopyTSV = async () => {
     if (!selectedRange) return;
-    const durMs = metrics ? metrics.duration_ms : (selectedRange.end - selectedRange.start) * 1000;
-    const headers = [
-      'Label',
-      'Start(s)',
-      'End(s)',
-      'Duration(ms)',
-      'Mean_F0(Hz)',
-      'Min_F0(Hz)',
-      'Max_F0(Hz)',
-      'Mean_F1(Hz)',
-      'Mean_F2(Hz)',
-      'Mean_F3(Hz)',
-      'Mean_Intensity(dB)',
-      'Min_Intensity(dB)',
-      'Max_Intensity(dB)',
-      'COG(Hz)',
-    ];
-    const row = [
-      selectedLabel || '',
-      selectedRange.start.toFixed(4),
-      selectedRange.end.toFixed(4),
-      durMs.toFixed(2),
-      metrics?.mean_f0 ? metrics.mean_f0.toFixed(1) : '',
-      metrics?.min_f0 ? metrics.min_f0.toFixed(1) : '',
-      metrics?.max_f0 ? metrics.max_f0.toFixed(1) : '',
-      metrics?.f1 ? metrics.f1.toFixed(1) : '',
-      metrics?.f2 ? metrics.f2.toFixed(1) : '',
-      metrics?.f3 ? metrics.f3.toFixed(1) : '',
-      metrics?.mean_intensity ? metrics.mean_intensity.toFixed(1) : '',
-      metrics?.min_intensity ? metrics.min_intensity.toFixed(1) : '',
-      metrics?.max_intensity ? metrics.max_intensity.toFixed(1) : '',
-      metrics?.spectral_moments?.cog ? metrics.spectral_moments.cog.toFixed(1) : '',
-    ];
-    const tsv = `${headers.join('\t')}\n${row.join('\t')}`;
-    navigator.clipboard.writeText(tsv);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const ok = await copyMetricsToClipboard({
+      selection: selectedRange,
+      selectedLabel,
+      metrics,
+    });
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
