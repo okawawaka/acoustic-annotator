@@ -20,6 +20,8 @@ import {
   Layers,
   HelpCircle,
   Terminal,
+  Table,
+  Languages,
 } from 'lucide-react';
 
 interface ControlToolbarProps {
@@ -33,6 +35,7 @@ interface ControlToolbarProps {
   showPitch: boolean;
   showFormants: boolean;
   showIntensity: boolean;
+  showIpaBar?: boolean;
   maxDisplayFreq: number;
   maxFormantFreq: number;
   onTogglePlay: () => void;
@@ -50,6 +53,8 @@ interface ControlToolbarProps {
   onOpenVowelSpaceModal: () => void;
   onOpenSpectralSliceModal: () => void;
   onOpenAnalysisSettingsModal: () => void;
+  onOpenAcousticTable?: () => void;
+  onToggleIpaBar?: () => void;
   onOpenShortcutsModal?: () => void;
   onOpenCommandPalette?: () => void;
   onTogglePitch: () => void;
@@ -94,6 +99,9 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onOpenVowelSpaceModal,
   onOpenSpectralSliceModal,
   onOpenAnalysisSettingsModal,
+  onOpenAcousticTable,
+  onToggleIpaBar,
+  showIpaBar = false,
   onOpenShortcutsModal,
   onOpenCommandPalette,
   onTogglePitch,
@@ -324,6 +332,33 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           <Activity className="w-3.5 h-3.5 mr-1" />
           母音
         </button>
+
+        {onOpenAcousticTable && (
+          <button
+            onClick={onOpenAcousticTable}
+            disabled={!hasAudio}
+            className="flex items-center px-2 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium disabled:opacity-20 transition-colors text-[11px]"
+            title="全区間の音響特徴量を一覧表示・CSV保存"
+          >
+            <Table className="w-3.5 h-3.5 mr-1 text-[#0066cc]" />
+            集計表
+          </button>
+        )}
+
+        {onToggleIpaBar && (
+          <button
+            onClick={onToggleIpaBar}
+            className={`flex items-center px-2 py-1 border border-[#111111] font-medium transition-colors text-[11px] ${
+              showIpaBar
+                ? 'bg-[#111111] text-white'
+                : 'bg-white hover:bg-[#111111] hover:text-white text-[#111111]'
+            }`}
+            title="国際音声字母 (IPA) クイック入力バーの表示切替"
+          >
+            <Languages className={`w-3.5 h-3.5 mr-1 ${showIpaBar ? 'text-[#E30613]' : ''}`} />
+            IPA
+          </button>
+        )}
 
         <button
           onClick={onOpenAnalysisSettingsModal}

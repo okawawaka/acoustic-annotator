@@ -15,6 +15,8 @@ import { SpectralSliceModal } from '@/components/editor/SpectralSliceModal';
 import { AnalysisSettingsModal } from '@/components/editor/AnalysisSettingsModal';
 import { ShortcutsModal } from '@/components/editor/ShortcutsModal';
 import { CommandPaletteModal } from '@/components/editor/CommandPaletteModal';
+import { AcousticTableModal } from '@/components/editor/AcousticTableModal';
+import { IpaPaletteBar } from '@/components/editor/IpaPaletteBar';
 import { PlayBars } from '@/components/editor/PlayBars';
 import { EmptyLandingView } from '@/components/editor/EmptyLandingView';
 import { HeaderBar } from '@/components/layout/HeaderBar';
@@ -75,6 +77,8 @@ export default function AnnotatorApp() {
   const [isAnalysisSettingsOpen, setIsAnalysisSettingsOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isAcousticTableOpen, setIsAcousticTableOpen] = useState(false);
+  const [showIpaBar, setShowIpaBar] = useState(false);
 
   // Custom Hook: Undo / Redo History
   const {
@@ -308,6 +312,24 @@ export default function AnnotatorApp() {
     await handleBatchFiles([file]);
   };
 
+  // Insert IPA symbol into active interval label
+  const handleInsertIpaSymbol = useCallback(
+    (symbol: string) => {
+      if (!textGridData || !selection) return;
+      const currentTier = textGridData.tiers[activeTierIdx];
+      if (!currentTier || currentTier.tier_type !== 'interval') return;
+
+      const targetEntry = (currentTier.entries as IntervalEntry[]).find(
+        (e) => Math.abs(e.start - selection.start) < 0.005 && Math.abs(e.end - selection.end) < 0.005
+      );
+
+      const baseLabel = targetEntry ? targetEntry.label : selectedLabel || '';
+      const newLabel = baseLabel + symbol;
+      handleUpdateSelectedLabel(newLabel);
+    },
+    [textGridData, selection, activeTierIdx, selectedLabel, handleUpdateSelectedLabel]
+  );
+
   // Copy selected interval acoustic metrics as TSV
   const handleCopyMetricsTSV = useCallback(() => {
     if (!selection) return;
@@ -352,6 +374,9 @@ export default function AnnotatorApp() {
     setIsASRModalOpen,
     setIsCustomTextModalOpen,
     setIsAnalysisSettingsOpen,
+    setIsAcousticTableOpen,
+    showIpaBar,
+    setShowIpaBar,
     setIsRecordModalOpen,
     setIsShortcutsModalOpen,
   });
@@ -436,6 +461,9 @@ export default function AnnotatorApp() {
                 onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
                 onOpenSpectralSliceModal={() => handleOpenSpectralSlice()}
                 onOpenAnalysisSettingsModal={() => setIsAnalysisSettingsOpen(true)}
+                onOpenAcousticTable={() => setIsAcousticTableOpen(true)}
+                showIpaBar={showIpaBar}
+                onToggleIpaBar={() => setShowIpaBar((prev) => !prev)}
                 onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
                 onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
                 onTogglePitch={() => setShowPitch((prev) => !prev)}
@@ -505,6 +533,15 @@ export default function AnnotatorApp() {
                   onPlayRange={handlePlayRange}
                   onPlaySelection={handlePlaySelection}
                 />
+
+                {/* IPA Quick Input Ribbon */}
+                {showIpaBar && (
+                  <IpaPaletteBar
+                    onInsertSymbol={handleInsertIpaSymbol}
+                    onClose={() => setShowIpaBar(false)}
+                    selectedLabel={selectedLabel}
+                  />
+                )}
 
                 {/* TextGrid Timeline */}
                 <div className="flex-1 min-h-[160px] bg-white">
@@ -620,6 +657,20 @@ export default function AnnotatorApp() {
       <ShortcutsModal
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      <AcousticTableModal
+        isOpen={isAcousticTableOpen}
+        onClose={() => setIsAcousticTableOpen(false)}
+        textGridData={textGridData}
+        analysisData={analysisData}
+        audioBuffer={audioBuffer}
+        onSelectInterval={(s, e, label) => {
+          setSelection({ start: s, end: e });
+          setSelectedLabel(label || null);
+          handleSeek(s);
+        }}
+        onPlayRange={handlePlayRange}
       />
 
       <CommandPaletteModal

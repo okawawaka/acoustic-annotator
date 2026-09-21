@@ -37,6 +37,9 @@ export interface UseEditorCommandsOptions {
   setIsASRModalOpen: (open: boolean) => void;
   setIsCustomTextModalOpen: (open: boolean) => void;
   setIsAnalysisSettingsOpen: (open: boolean) => void;
+  setIsAcousticTableOpen: (open: boolean) => void;
+  showIpaBar: boolean;
+  setShowIpaBar: React.Dispatch<React.SetStateAction<boolean>>;
   setIsRecordModalOpen: (open: boolean) => void;
   setIsShortcutsModalOpen: (open: boolean) => void;
 }
@@ -74,6 +77,9 @@ export function useEditorCommands({
   setIsASRModalOpen,
   setIsCustomTextModalOpen,
   setIsAnalysisSettingsOpen,
+  setIsAcousticTableOpen,
+  showIpaBar,
+  setShowIpaBar,
   setIsRecordModalOpen,
   setIsShortcutsModalOpen,
 }: UseEditorCommandsOptions): CommandItem[] {
@@ -337,6 +343,20 @@ export function useEditorCommands({
         keywords: ['settings', 'praat', 'せってい', 'パラメータ'],
         action: () => setIsAnalysisSettingsOpen(true),
       },
+      {
+        id: 'acoustic-table',
+        title: '全区間音響データ集計テーブル・CSVエクスポート (Acoustic Table)',
+        category: 'ANALYSIS',
+        keywords: ['table', 'csv', 'acoustic', 'しゅうけい', 'ひょう', 'エクセル', 'ぜんくかん'],
+        action: () => setIsAcousticTableOpen(true),
+      },
+      {
+        id: 'toggle-ipa',
+        title: showIpaBar ? 'IPA記号入力バーを隠す (Hide IPA Bar)' : 'IPA記号入力バーを表示 (Show IPA Bar)',
+        category: 'DISPLAY',
+        keywords: ['ipa', 'symbol', 'きごう', 'おんせいきごう', 'キーボード'],
+        action: () => setShowIpaBar((prev) => !prev),
+      },
 
       // エクスポート・データ / Export & Data
       {
@@ -402,6 +422,9 @@ export function useEditorCommands({
     setIsASRModalOpen,
     setIsCustomTextModalOpen,
     setIsAnalysisSettingsOpen,
+    setIsAcousticTableOpen,
+    showIpaBar,
+    setShowIpaBar,
     setIsRecordModalOpen,
     setIsShortcutsModalOpen,
   ]);
