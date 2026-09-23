@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { CommandItem } from '@/components/editor/CommandPaletteModal';
-import { TextGridData, AudioMetadata, Tier } from '@/types';
+import { TextGridData, AudioMetadata, Tier, SpectrogramColorMap } from '@/types';
 
 export interface UseEditorCommandsOptions {
   isPlaying: boolean;
@@ -30,9 +30,11 @@ export interface UseEditorCommandsOptions {
   setShowFormants: React.Dispatch<React.SetStateAction<boolean>>;
   setShowIntensity: React.Dispatch<React.SetStateAction<boolean>>;
   setMaxDisplayFreq: (freq: number) => void;
+  setColorMap?: (map: SpectrogramColorMap) => void;
   handleOpenSpectralSlice: () => void;
   handleCopyMetricsTSV: () => void;
   handleExportTextGrid: () => void;
+  handleExportSelectedAudio?: () => void;
   setIsVowelSpaceModalOpen: (open: boolean) => void;
   setIsASRModalOpen: (open: boolean) => void;
   setIsCustomTextModalOpen: (open: boolean) => void;
@@ -70,9 +72,11 @@ export function useEditorCommands({
   setShowFormants,
   setShowIntensity,
   setMaxDisplayFreq,
+  setColorMap,
   handleOpenSpectralSlice,
   handleCopyMetricsTSV,
   handleExportTextGrid,
+  handleExportSelectedAudio,
   setIsVowelSpaceModalOpen,
   setIsASRModalOpen,
   setIsCustomTextModalOpen,
@@ -373,6 +377,54 @@ export function useEditorCommands({
         keywords: ['export', 'save', 'textgrid', 'ほぞん', 'えくすぽーと'],
         action: handleExportTextGrid,
       },
+      ...(handleExportSelectedAudio
+        ? [
+            {
+              id: 'export-selected-audio',
+              title: '選択区間の音声をWAV形式で切り出し保存 (Extract Selected Audio)',
+              category: 'SYSTEM' as const,
+              shortcut: 'Shift+E',
+              keywords: [
+                'export',
+                'wav',
+                'audio',
+                'extract',
+                'sound',
+                'きりだし',
+                'おんせいほぞん',
+                'わぶ',
+              ],
+              action: handleExportSelectedAudio,
+            },
+          ]
+        : []),
+
+      // スペクトログラム配色 / Spectrogram Colormap
+      ...(setColorMap
+        ? [
+            {
+              id: 'colormap-grayscale',
+              title: 'スペクトログラム配色: Praat標準白黒 (Grayscale)',
+              category: 'DISPLAY' as const,
+              keywords: ['colormap', 'grayscale', 'praat', 'しろくろ', 'はいしょく'],
+              action: () => setColorMap('grayscale'),
+            },
+            {
+              id: 'colormap-dark',
+              title: 'スペクトログラム配色: Dark暗色反転 (Dark Invert)',
+              category: 'DISPLAY' as const,
+              keywords: ['colormap', 'dark', 'invert', 'くろ', 'はんてん', 'ダーク'],
+              action: () => setColorMap('dark'),
+            },
+            {
+              id: 'colormap-color',
+              title: 'スペクトログラム配色: Thermal熱分布カラー (Thermal Color)',
+              category: 'DISPLAY' as const,
+              keywords: ['colormap', 'thermal', 'color', 'からー', 'ねつぶんぷ', 'ヒートマップ'],
+              action: () => setColorMap('color'),
+            },
+          ]
+        : []),
 
       // 一般 / General
       {
@@ -419,9 +471,11 @@ export function useEditorCommands({
     showIntensity,
     setShowIntensity,
     setMaxDisplayFreq,
+    setColorMap,
     handleOpenSpectralSlice,
     handleCopyMetricsTSV,
     handleExportTextGrid,
+    handleExportSelectedAudio,
     setIsVowelSpaceModalOpen,
     setIsASRModalOpen,
     setIsCustomTextModalOpen,

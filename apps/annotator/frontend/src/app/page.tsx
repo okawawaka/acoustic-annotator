@@ -12,6 +12,8 @@ import { IpaPaletteBar } from '@/components/editor/IpaPaletteBar';
 import { PlayBars } from '@/components/editor/PlayBars';
 import { EmptyLandingView } from '@/components/editor/EmptyLandingView';
 import { HeaderBar } from '@/components/layout/HeaderBar';
+import { TrackResizeHandle } from '@/components/editor/TrackResizeHandle';
+import { ToastNotification } from '@/components/common/ToastNotification';
 
 import {
   AudioMetadata,
@@ -21,10 +23,12 @@ import {
   AcousticAnalysisData,
   IntervalMetrics,
   AnalysisSettings,
+  SpectrogramColorMap,
 } from '@/types';
 
 import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { copyMetricsToClipboard } from '@/lib/exportUtils';
+import { downloadAudioSelectionAsWav } from '@/lib/audioUtils';
 import { checkBackendHealth } from '@/lib/api';
 import { useTextGridHistory } from '@/hooks/useTextGridHistory';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
@@ -34,6 +38,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTextGridOperations } from '@/hooks/useTextGridOperations';
 import { useTextGridAlignment } from '@/hooks/useTextGridAlignment';
 import { useEditorCommands } from '@/hooks/useEditorCommands';
+import { useTrackHeights } from '@/hooks/useTrackHeights';
 
 export default function AnnotatorApp() {
   // Backend Connection State
@@ -52,6 +57,7 @@ export default function AnnotatorApp() {
   // Analysis Configuration State
   const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
   const [maxDisplayFreq, setMaxDisplayFreq] = useState<number>(5000);
+  const [colorMap, setColorMap] = useState<SpectrogramColorMap>('grayscale');
   const [showPitch, setShowPitch] = useState(true);
   const [showFormants, setShowFormants] = useState(true);
   const [showIntensity, setShowIntensity] = useState(true);
@@ -92,6 +98,25 @@ export default function AnnotatorApp() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isAcousticTableOpen, setIsAcousticTableOpen] = useState(false);
   const [showIpaBar, setShowIpaBar] = useState(false);
+
+  // Toast Notification State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((cur) => (cur === msg ? null : cur));
+    }, 2500);
+  }, []);
+
+  // Track dynamic heights resizing hook
+  const {
+    waveformHeight,
+    spectrogramHeight,
+    resizingTrack,
+    handleStartResizeWaveform,
+    handleStartResizeSpectrogram,
+  } = useTrackHeights();
+
 
   // Custom Hook: Undo / Redo History
   const {
@@ -344,14 +369,32 @@ export default function AnnotatorApp() {
   );
 
   // Copy selected interval acoustic metrics as TSV
-  const handleCopyMetricsTSV = useCallback(() => {
+  const handleCopyMetricsTSV = useCallback(async () => {
     if (!selection) return;
-    copyMetricsToClipboard({
+    const ok = await copyMetricsToClipboard({
       selection,
       selectedLabel,
       metrics: selectedMetrics,
     });
-  }, [selection, selectedLabel, selectedMetrics]);
+    if (ok) {
+      showToast('音響統計メトリクスを TSV コピーしました');
+    }
+  }, [selection, selectedLabel, selectedMetrics, showToast]);
+
+  // Export selected audio range as 16-bit PCM WAV (Praat: Extract selected sound)
+  const handleExportSelectedAudio = useCallback(
+    (start?: number, end?: number, label?: string | null) => {
+      if (!audioBuffer) return;
+      const s = start !== undefined ? start : selection?.start;
+      const e = end !== undefined ? end : selection?.end;
+      const lbl = label !== undefined ? label : selectedLabel;
+      if (s === undefined || e === undefined || s === e) return;
+      downloadAudioSelectionAsWav(audioBuffer, s, e, lbl);
+      showToast(`選択区間音声を WAV 保存しました (${Math.abs(e - s).toFixed(3)}s)`);
+    },
+    [audioBuffer, selection, selectedLabel, showToast]
+  );
+
 
   // Command Palette Items definition hook
   const commands = useEditorCommands({
@@ -380,9 +423,11 @@ export default function AnnotatorApp() {
     setShowFormants,
     setShowIntensity,
     setMaxDisplayFreq,
+    setColorMap,
     handleOpenSpectralSlice,
     handleCopyMetricsTSV,
     handleExportTextGrid,
+    handleExportSelectedAudio,
     setIsVowelSpaceModalOpen,
     setIsASRModalOpen,
     setIsCustomTextModalOpen,
@@ -461,6 +506,8 @@ export default function AnnotatorApp() {
                 showIntensity={showIntensity}
                 maxDisplayFreq={maxDisplayFreq}
                 maxFormantFreq={maxFormantFreq}
+                colorMap={colorMap}
+                onChangeColorMap={setColorMap}
                 onTogglePlay={handleTogglePlay}
                 onPlaySelection={handlePlaySelection}
                 onToggleLoop={() => setIsLooping(!isLooping)}
@@ -488,15 +535,20 @@ export default function AnnotatorApp() {
                 canRedo={canRedo}
                 onUndo={handleUndo}
                 onRedo={handleRedo}
-                onExportTextGrid={handleExportTextGrid}
+                onExportTextGrid={() => {
+                  handleExportTextGrid();
+                  showToast('TextGrid を保存しました');
+                }}
+                onExportSelectedAudio={() => handleExportSelectedAudio()}
               />
+
             </div>
 
             {/* Middle Split: Timelines & Visualizers */}
             <div className="flex-1 flex overflow-hidden border-t border-[#e0e0e6]">
               <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
                 {/* Waveform */}
-                <div className="flex-shrink-0 bg-white border-b border-[#e0e0e6]">
+                <div className="flex-shrink-0 bg-white">
                   <WaveformCanvas
                     peaks={audioMetadata.peaks}
                     duration={audioMetadata.duration}
@@ -511,12 +563,17 @@ export default function AnnotatorApp() {
                       setSelection(r);
                       setSelectedLabel(null);
                     }}
-                    height={110}
+                    height={waveformHeight}
+                  />
+                  <TrackResizeHandle
+                    onMouseDown={handleStartResizeWaveform}
+                    isResizing={resizingTrack === 'waveform'}
+                    label="波形"
                   />
                 </div>
 
                 {/* Spectrogram / Pitch Canvas (Dynamic Scale: 0-500Hz or 0-5000Hz) */}
-                <div className="flex-shrink-0 bg-white border-b border-[#e0e0e6]">
+                <div className="flex-shrink-0 bg-white">
                   <SpectrogramCanvas
                     analysisData={analysisData}
                     duration={audioMetadata.duration}
@@ -529,13 +586,19 @@ export default function AnnotatorApp() {
                     showFormants={showFormants}
                     showIntensity={showIntensity}
                     maxDisplayFreq={maxDisplayFreq}
+                    colorMap={colorMap}
                     onHoverTimeChange={setHoverTime}
                     onSeek={handleSeek}
                     onSelectRange={(r) => {
                       setSelection(r);
                       setSelectedLabel(null);
                     }}
-                    height={140}
+                    height={spectrogramHeight}
+                  />
+                  <TrackResizeHandle
+                    onMouseDown={handleStartResizeSpectrogram}
+                    isResizing={resizingTrack === 'spectrogram'}
+                    label="スペクトログラム"
                   />
                 </div>
 
@@ -601,11 +664,14 @@ export default function AnnotatorApp() {
                 currentTime={currentTime}
                 hoverTime={hoverTime}
                 analysisData={analysisData}
+                audioBuffer={audioBuffer}
                 isLoading={false}
                 onOpenSpectralSlice={handleOpenSpectralSlice}
+                onExportSelectedAudio={handleExportSelectedAudio}
               />
             </div>
           </div>
+
         ) : (
           <EmptyLandingView
             isDraggingFile={isDraggingFile}
@@ -661,6 +727,10 @@ export default function AnnotatorApp() {
         onCloseCommandPalette={() => setIsCommandPaletteOpen(false)}
         commands={commands}
       />
+
+      {/* Global Swiss-style Toast Feedback */}
+      <ToastNotification message={toastMessage} />
     </div>
   );
 }
+

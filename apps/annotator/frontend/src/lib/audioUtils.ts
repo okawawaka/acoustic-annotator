@@ -84,3 +84,71 @@ export function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
 
   return new Blob([arrayBuffer], { type: 'audio/wav' });
 }
+
+/**
+ * AudioBuffer から指定時間範囲 [startTime, endTime] (秒) を切り出した新しい AudioBuffer を生成
+ */
+export function sliceAudioBuffer(
+  buffer: AudioBuffer,
+  startTime: number,
+  endTime: number
+): AudioBuffer {
+  const sampleRate = buffer.sampleRate;
+  const numChannels = buffer.numberOfChannels;
+  const totalDuration = buffer.duration;
+
+  const s = Math.max(0, Math.min(totalDuration, Math.min(startTime, endTime)));
+  const e = Math.max(s, Math.min(totalDuration, Math.max(startTime, endTime)));
+
+  const startSample = Math.floor(s * sampleRate);
+  const endSample = Math.min(buffer.length, Math.ceil(e * sampleRate));
+  const frameCount = Math.max(1, endSample - startSample);
+
+  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  try {
+    const slicedBuffer = audioCtx.createBuffer(numChannels, frameCount, sampleRate);
+
+    for (let ch = 0; ch < numChannels; ch++) {
+      const srcData = buffer.getChannelData(ch);
+      const destData = slicedBuffer.getChannelData(ch);
+      destData.set(srcData.subarray(startSample, endSample));
+    }
+
+    return slicedBuffer;
+  } finally {
+    audioCtx.close();
+  }
+}
+
+
+/**
+ * 選択区間の音声をミリ秒精度で切り出し、16-bit PCM WAV ファイルとしてダウンロード
+ */
+export function downloadAudioSelectionAsWav(
+  buffer: AudioBuffer,
+  startTime: number,
+  endTime: number,
+  label?: string | null
+): void {
+  const sliced = sliceAudioBuffer(buffer, startTime, endTime);
+  const blob = audioBufferToWavBlob(sliced);
+  const url = URL.createObjectURL(blob);
+
+  const cleanLabel = (label || '')
+    .trim()
+    .replace(/[/\\?%*:|"<>]/g, '_')
+    .slice(0, 30);
+  const sStr = Math.min(startTime, endTime).toFixed(3);
+  const eStr = Math.max(startTime, endTime).toFixed(3);
+  const filename = cleanLabel
+    ? `clip_${cleanLabel}_${sStr}-${eStr}.wav`
+    : `clip_${sStr}-${eStr}.wav`;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

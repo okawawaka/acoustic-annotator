@@ -1,9 +1,8 @@
-'use client';
-
 import React, { useState } from 'react';
 import { IntervalMetrics, AcousticAnalysisData } from '@/types';
 import { copyMetricsToClipboard } from '@/lib/exportUtils';
-import { Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc, Copy, Check } from 'lucide-react';
+import { downloadAudioSelectionAsWav } from '@/lib/audioUtils';
+import { Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc, Copy, Check, Download } from 'lucide-react';
 
 interface AcousticInspectorProps {
   metrics: IntervalMetrics | null;
@@ -12,8 +11,10 @@ interface AcousticInspectorProps {
   currentTime: number;
   hoverTime?: number | null;
   analysisData: AcousticAnalysisData | null;
+  audioBuffer?: AudioBuffer | null;
   isLoading: boolean;
   onOpenSpectralSlice?: (time?: number) => void;
+  onExportSelectedAudio?: (start: number, end: number, label?: string | null) => void;
 }
 
 export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
@@ -23,8 +24,10 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
   currentTime,
   hoverTime = null,
   analysisData,
+  audioBuffer,
   isLoading,
   onOpenSpectralSlice,
+  onExportSelectedAudio,
 }) => {
   // カーソル点での瞬時値 (Praat Query: Get Pitch, Get Formants, Get Intensity)
   const queryTime = hoverTime !== null ? hoverTime : currentTime;
@@ -76,6 +79,7 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
   };
 
   const [copied, setCopied] = useState(false);
+  const [audioExported, setAudioExported] = useState(false);
 
   const handleCopyTSV = async () => {
     if (!selectedRange) return;
@@ -88,6 +92,17 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handleExportWav = () => {
+    if (!selectedRange) return;
+    if (onExportSelectedAudio) {
+      onExportSelectedAudio(selectedRange.start, selectedRange.end, selectedLabel);
+    } else if (audioBuffer) {
+      downloadAudioSelectionAsWav(audioBuffer, selectedRange.start, selectedRange.end, selectedLabel);
+    }
+    setAudioExported(true);
+    setTimeout(() => setAudioExported(false), 2000);
   };
 
   return (
@@ -125,36 +140,61 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons: Spectral Slice & Copy TSV */}
-        <div className="grid grid-cols-2 gap-1.5">
-          <button
-            onClick={() => onOpenSpectralSlice?.(selectedRange ? (selectedRange.start + selectedRange.end) / 2 : queryTime)}
-            className="py-1.5 px-2 border-2 border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1"
-            title="Praat 互換の FFT パワースペクトルと LPC スペクトル包絡線を表示"
-          >
-            <Layers className="w-3.5 h-3.5 text-[#E30613]" />
-            <span>断面</span>
-          </button>
+        {/* Action Buttons: Spectral Slice, Copy TSV & Export WAV */}
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => onOpenSpectralSlice?.(selectedRange ? (selectedRange.start + selectedRange.end) / 2 : queryTime)}
+              className="py-1.5 px-2 border-2 border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1"
+              title="Praat 互換の FFT パワースペクトルと LPC スペクトル包絡線を表示"
+            >
+              <Layers className="w-3.5 h-3.5 text-[#E30613]" />
+              <span>断面</span>
+            </button>
+
+            <button
+              onClick={handleCopyTSV}
+              disabled={!selectedRange}
+              className={`py-1.5 px-2 border-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1 ${
+                copied
+                  ? 'bg-[#10b981] border-[#10b981] text-white'
+                  : 'bg-white border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-30 disabled:border-[#e0e0e6] disabled:text-[#aaaaaf] disabled:hover:bg-white'
+              }`}
+              title="選択区間の全分析メトリクスをTSV形式でクリップボードにコピー（Excel/R貼付用）"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>COPIED</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>TSV COPY</span>
+                </>
+              )}
+            </button>
+          </div>
 
           <button
-            onClick={handleCopyTSV}
-            disabled={!selectedRange}
-            className={`py-1.5 px-2 border-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1 ${
-              copied
+            onClick={handleExportWav}
+            disabled={!selectedRange || (!audioBuffer && !onExportSelectedAudio)}
+            className={`w-full py-1.5 px-2 border-2 text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center justify-center space-x-1 ${
+              audioExported
                 ? 'bg-[#10b981] border-[#10b981] text-white'
                 : 'bg-white border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-30 disabled:border-[#e0e0e6] disabled:text-[#aaaaaf] disabled:hover:bg-white'
             }`}
-            title="選択区間の全分析メトリクスをTSV形式でクリップボードにコピー（Excel/R貼付用）"
+            title="選択区間の音声を16-bit PCM WAVファイルとして切り出し保存 (Praat: Extract selected sound)"
           >
-            {copied ? (
+            {audioExported ? (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>COPIED</span>
+                <span>WAV SAVED</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5" />
-                <span>TSV COPY</span>
+                <Download className="w-3.5 h-3.5 text-[#E30613]" />
+                <span>WAV 保存 (切り出し)</span>
               </>
             )}
           </button>

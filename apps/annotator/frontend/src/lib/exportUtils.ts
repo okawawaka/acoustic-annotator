@@ -192,3 +192,26 @@ export function downloadBlobFile(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Format Spectral Slice data (Frequency, FFT dB, LPC dB) into a tab-separated values (TSV) string.
+ */
+export function formatSpectralSliceTSV(
+  frequencies: number[],
+  fftDb: number[],
+  lpcDb: number[],
+  timeSec: number
+): string {
+  const meta = `# Spectral Slice at ${timeSec.toFixed(3)}s\n# Frequency(Hz)\tFFT_Power(dB)\tLPC_Envelope(dB)`;
+  const lines: string[] = [meta];
+
+  for (let i = 0; i < frequencies.length; i++) {
+    const f = frequencies[i].toFixed(1);
+    const fft = fftDb[i] !== undefined ? fftDb[i].toFixed(2) : '';
+    const lpc = lpcDb[i] !== undefined ? lpcDb[i].toFixed(2) : '';
+    lines.push(`${f}\t${fft}\t${lpc}`);
+  }
+
+  return lines.join('\n');
+}
+

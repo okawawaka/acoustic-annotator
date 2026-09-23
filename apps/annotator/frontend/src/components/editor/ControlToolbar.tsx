@@ -22,7 +22,9 @@ import {
   Terminal,
   Table,
   Languages,
+  Palette,
 } from 'lucide-react';
+import { SpectrogramColorMap } from '@/types';
 
 interface ControlToolbarProps {
   isPlaying: boolean;
@@ -38,6 +40,8 @@ interface ControlToolbarProps {
   showIpaBar?: boolean;
   maxDisplayFreq: number;
   maxFormantFreq: number;
+  colorMap?: SpectrogramColorMap;
+  onChangeColorMap?: (map: SpectrogramColorMap) => void;
   onTogglePlay: () => void;
   onPlaySelection: () => void;
   onToggleLoop: () => void;
@@ -65,6 +69,7 @@ interface ControlToolbarProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onExportTextGrid: () => void;
+  onExportSelectedAudio?: () => void;
 }
 
 export const ControlToolbar: React.FC<ControlToolbarProps> = ({
@@ -80,6 +85,8 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   showIntensity,
   maxDisplayFreq,
   maxFormantFreq,
+  colorMap = 'grayscale',
+  onChangeColorMap,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -108,6 +115,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onToggleFormants,
   onToggleIntensity,
   onExportTextGrid,
+  onExportSelectedAudio,
 }) => {
   const formatTime = (time: number) => {
     const mins = Math.floor(time / 60);
@@ -244,6 +252,23 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
             <option value="8000">0 - 8000 Hz (子音)</option>
           </select>
         </div>
+
+        {/* スペクトログラム配色切り替え */}
+        {onChangeColorMap && (
+          <div className="flex items-center space-x-1 border border-[#e0e0e6] px-1.5 py-0.5 bg-white text-[11px]" title="スペクトログラム配色（Praat白黒 / Dark暗色反転 / Thermal熱分布）">
+            <Palette className="w-3 h-3 text-[#777780]" />
+            <span className="text-[#777780] font-mono uppercase text-[10px]">Color:</span>
+            <select
+              value={colorMap}
+              onChange={(e) => onChangeColorMap(e.target.value as SpectrogramColorMap)}
+              className="bg-transparent font-semibold text-[#111111] outline-none cursor-pointer text-[11px]"
+            >
+              <option value="grayscale">Praat白黒</option>
+              <option value="dark">Dark反転</option>
+              <option value="color">Thermal熱分布</option>
+            </select>
+          </div>
+        )}
 
         {/* Pitch / Formant / Intensity Toggles with Color Status Indicators */}
         <div className="flex items-center border border-[#e0e0e6] bg-white overflow-hidden text-[11px]">
@@ -396,8 +421,20 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           title="Praat TextGrid形式で保存"
         >
           <Download className="w-3.5 h-3.5 mr-1" />
-          保存
+          TextGrid保存
         </button>
+
+        {onExportSelectedAudio && (
+          <button
+            onClick={onExportSelectedAudio}
+            disabled={!hasAudio || !selection || selection.start === selection.end}
+            className="flex items-center px-2 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-medium disabled:opacity-20 transition-colors text-[11px]"
+            title="選択範囲の音声をWAV形式で切り出し保存 (Praat: Extract selected sound)"
+          >
+            <Download className="w-3.5 h-3.5 mr-1 text-[#E30613]" />
+            選択WAV
+          </button>
+        )}
 
         {/* Command Palette Button */}
         {onOpenCommandPalette && (
