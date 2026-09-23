@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 import parselmouth
 from parselmouth.praat import call
 from typing import Dict, List, Any, Optional
@@ -56,16 +56,17 @@ class AnalysisService:
         times = [round(float(x), 3) for x in spectrogram.xs()]
         freqs = [round(float(y), 1) for y in spectrogram.ys()]
         vals = spectrogram.values
-        num_freqs, num_times = vals.shape
         
-        matrix = []
-        for j in range(num_freqs):
-            row = []
-            for i in range(num_times):
-                v = vals[j, i]
-                c = max(0.0, min(100.0, float(v))) if not np.isnan(v) else 0.0
-                row.append(round(c, 1))
-            matrix.append(row)
+        # Praat パワースペクトル密度を dB に変換し、ダイナミックレンジ (50dB) で 0-100 にスケーリング
+        db_vals = 10.0 * np.log10(np.maximum(1e-12, vals))
+        valid_mask = ~np.isnan(db_vals)
+        max_db = float(np.max(db_vals[valid_mask])) if np.any(valid_mask) else 0.0
+        min_thresh = max_db - 50.0
+
+        norm_vals = np.clip((db_vals - min_thresh) / 50.0 * 100.0, 0.0, 100.0)
+        norm_vals = np.nan_to_num(norm_vals, nan=0.0)
+
+        matrix = [[round(float(c), 1) for c in row] for row in norm_vals]
 
         return {
             "duration": round(duration, 3),

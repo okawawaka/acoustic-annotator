@@ -44,8 +44,9 @@ export async function analyzeAudioClient(
   const spectrogramType = settings.spectrogramType ?? 'wideband';
   const dynamicRange = settings.dynamicRange ?? 50;
 
-  // 1. スペクトログラム生成 (広帯域 / 狭帯域)
-  const spec = generateSpectrogram(channelData, sampleRate, 5000, 0.01, spectrogramType, dynamicRange);
+  // 1. スペクトログラム生成 (広帯域 / 狭帯域, 最大8000Hzまでカバー)
+  const maxSpectrogramFreq = Math.min(8000, Math.floor(sampleRate / 2));
+  const spec = generateSpectrogram(channelData, sampleRate, maxSpectrogramFreq, 0.01, spectrogramType, dynamicRange);
   await yieldToMain();
 
   // 2. ピッチ抽出 (自己相関法・ノンブロッキング版)
@@ -59,11 +60,10 @@ export async function analyzeAudioClient(
   // 4. 連続音圧曲線抽出 (Praat To Intensity)
   const intensity = extractIntensityPraat(channelData, sampleRate, 0.01, minPitch);
 
-
   return {
     duration: roundDigits(duration, 3),
     time_step: 0.01,
-    max_frequency: 5000,
+    max_frequency: maxSpectrogramFreq,
     max_formant_freq: maxFormantFreq,
     times: spec.times,
     frequencies: spec.frequencies,

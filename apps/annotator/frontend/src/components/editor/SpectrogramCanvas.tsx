@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AcousticAnalysisData, SpectrogramColorMap } from '@/types';
 
 // カラーパレット変換関数 (Grayscale / Dark Invert / Thermal Color)
@@ -83,12 +83,12 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
   const dragStartRef = useRef<number | null>(null);
 
   // 全体スペクトログラムのビットマップキャッシュ（パン・ズーム・スクロール時の超高速GPUハードウェア描画）
-  const cachedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [cachedCanvas, setCachedCanvas] = useState<HTMLCanvasElement | null>(null);
   const cacheKeyRef = useRef<string>('');
 
   useEffect(() => {
     if (!analysisData || !analysisData.spectrogram || analysisData.spectrogram.length === 0) {
-      cachedCanvasRef.current = null;
+      setCachedCanvas(null);
       cacheKeyRef.current = '';
       return;
     }
@@ -98,7 +98,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     const numTimes = spectrogram[0].length;
     const key = `${numTimes}_${numFreqs}_${analysisData.duration}_${colorMap}`;
 
-    if (cachedCanvasRef.current && cacheKeyRef.current === key) {
+    if (cacheKeyRef.current === key) {
       return;
     }
 
@@ -126,7 +126,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     }
 
     offCtx.putImageData(imgData, 0, 0);
-    cachedCanvasRef.current = offscreen;
+    setCachedCanvas(offscreen);
     cacheKeyRef.current = key;
   }, [analysisData, colorMap]);
 
@@ -147,29 +147,44 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     const span = viewRange.end - viewRange.start;
     if (span <= 0) return;
 
-    const currentMaxFreq = maxDisplayFreq; // 500Hz または 5000Hz
+    const currentMaxFreq = maxDisplayFreq; // 500Hz または 5000Hz, 8000Hz等
 
-    // 1. スペクトログラムの超高速スライス描画 (GPU ハードウェア補間転送)
-    if (analysisData && cachedCanvasRef.current && duration > 0) {
-      const cachedCanvas = cachedCanvasRef.current;
+    // 1. スペクトログラムの超高速スライス描画 (GPU ハードウェア補間転送 & 厳密時間/周波数軸配置)
+    if (analysisData && cachedCanvas && duration > 0) {
       const numTimes = cachedCanvas.width;
       const numFreqs = cachedCanvas.height;
       const maxFreq = analysisData.max_frequency || 5000;
 
-      // 表示時間範囲に対応するソース X 座標
-      const sx = Math.max(0, (viewRange.start / duration) * numTimes);
-      const sw = Math.min(numTimes - sx, (span / duration) * numTimes);
+      // 時間軸 (X軸) の厳密なマッピング:
+      // 表示範囲 [viewRange.start, viewRange.end] と音声区間 [0, duration] の重なりを算出
+      const visStart = Math.max(0, Math.min(duration, viewRange.start));
+      const visEnd = Math.max(0, Math.min(duration, viewRange.end));
 
-      // 表示周波数範囲に対応するソース Y 座標 (Canvas 上部が高周波、下部が 0Hz)
-      const freqRatio = Math.min(1.0, currentMaxFreq / maxFreq);
-      const sy = (1.0 - freqRatio) * numFreqs;
-      const sh = freqRatio * numFreqs;
+      if (visEnd > visStart) {
+        // ソース側の時間範囲 (cachedCanvas の X 座標)
+        const sx = (visStart / duration) * numTimes;
+        const sw = ((visEnd - visStart) / duration) * numTimes;
 
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'medium';
-      ctx.drawImage(cachedCanvas, sx, sy, sw, sh, 0, 0, width, h);
-      ctx.restore();
+        // スクリーン Canvas における配置先 X 座標・幅
+        const dx = ((visStart - viewRange.start) / span) * width;
+        const dw = ((visEnd - visStart) / span) * width;
+
+        // 周波数軸 (Y軸) の厳密なマッピング:
+        // 画面上部が currentMaxFreq、画面下部が 0Hz
+        // cachedCanvas の上部が maxFreq、下部が 0Hz
+        const visMaxFreq = Math.min(currentMaxFreq, maxFreq);
+        const sy = (1.0 - visMaxFreq / maxFreq) * numFreqs;
+        const sh = (visMaxFreq / maxFreq) * numFreqs;
+
+        const dy = (1.0 - visMaxFreq / currentMaxFreq) * h;
+        const dh = (visMaxFreq / currentMaxFreq) * h;
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'medium';
+        ctx.drawImage(cachedCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
+        ctx.restore();
+      }
     } else if (!analysisData) {
       ctx.fillStyle = isDark ? '#1e1e24' : '#f8fafc';
       ctx.fillRect(0, 0, width, h);
@@ -319,7 +334,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       }
     }
     ctx.setLineDash([]);
-  }, [analysisData, viewRange, boundaries, showPitch, showFormants, showIntensity, maxDisplayFreq, colorMap, duration]);
+  }, [analysisData, viewRange, boundaries, showPitch, showFormants, showIntensity, maxDisplayFreq, colorMap, duration, cachedCanvas]);
 
   useEffect(() => {
     const updateSize = () => {

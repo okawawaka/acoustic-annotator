@@ -19,7 +19,7 @@ export function generateSpectrogram(
   while (nFft < windowSamples && nFft < 2048) nFft <<= 1;
   if (spectrogramType === 'narrowband' && nFft < 1024) nFft = 1024;
 
-  const numFreqBins = 100;
+  const numFreqBins = Math.max(50, Math.round(maxFreq / 50));
   const df = maxFreq / numFreqBins;
   const frequencies = Array.from({ length: numFreqBins }, (_, i) => roundDigits(i * df, 1));
 
@@ -28,6 +28,15 @@ export function generateSpectrogram(
   const times: number[] = [];
 
   const matrix: number[][] = Array.from({ length: numFreqBins }, () => []);
+
+  // プリエンファシス (Praat 準拠: 50Hz からの高域強調フィルタ +6dB/oct)
+  // 音源の自然な -6dB/oct 減衰を補正し、F2〜F3フォルマントおよび子音の高域エネルギーを鮮明に可視化
+  const alpha = Math.exp((-2 * Math.PI * 50) / sampleRate);
+  const pre = new Float32Array(channelData.length);
+  pre[0] = channelData[0];
+  for (let i = 1; i < channelData.length; i++) {
+    pre[i] = channelData[i] - alpha * channelData[i - 1];
+  }
 
   // ハニング窓の事前計算
   const window = new Float32Array(windowSamples);
@@ -53,8 +62,8 @@ export function generateSpectrogram(
     real.fill(0);
     imag.fill(0);
 
-    for (let i = 0; i < windowSamples && offset + i < channelData.length; i++) {
-      real[i] = channelData[offset + i] * window[i];
+    for (let i = 0; i < windowSamples && offset + i < pre.length; i++) {
+      real[i] = pre[offset + i] * window[i];
     }
 
     fft(real, imag);
