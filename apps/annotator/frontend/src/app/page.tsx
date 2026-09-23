@@ -20,16 +20,13 @@ import {
   TextGridData,
   IntervalEntry,
   PointEntry,
-  AcousticAnalysisData,
-  IntervalMetrics,
-  AnalysisSettings,
-  SpectrogramColorMap,
 } from '@/types';
 
-import { analyzeAudioClient, computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 import { copyMetricsToClipboard } from '@/lib/exportUtils';
 import { downloadAudioSelectionAsWav } from '@/lib/audioUtils';
-import { checkBackendHealth } from '@/lib/api';
+import { useBackendHealth } from '@/hooks/useBackendHealth';
+import { useModalState } from '@/hooks/useModalState';
+import { useAcousticAnalysis } from '@/hooks/useAcousticAnalysis';
 import { useTextGridHistory } from '@/hooks/useTextGridHistory';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useViewportZoom } from '@/hooks/useViewportZoom';
@@ -41,63 +38,64 @@ import { useEditorCommands } from '@/hooks/useEditorCommands';
 import { useTrackHeights } from '@/hooks/useTrackHeights';
 
 export default function AnnotatorApp() {
-  // Backend Connection State
-  const [backendStatus, setBackendStatus] = useState<'online' | 'standalone' | 'checking'>('checking');
+  // Backend Connection State (Polling & Status)
+  const { backendStatus } = useBackendHealth();
 
   // Core Domain State
   const [audioMetadata, setAudioMetadata] = useState<AudioMetadata | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [textGridData, setTextGridData] = useState<TextGridData | null>(null);
-  const [analysisData, setAnalysisData] = useState<AcousticAnalysisData | null>(null);
-  const [selectedMetrics, setSelectedMetrics] = useState<IntervalMetrics | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [activeTierIdx, setActiveTierIdx] = useState<number>(0);
 
-  // Analysis Configuration State
-  const [maxFormantFreq, setMaxFormantFreq] = useState<number>(5500);
-  const [maxDisplayFreq, setMaxDisplayFreq] = useState<number>(5000);
-  const [colorMap, setColorMap] = useState<SpectrogramColorMap>('grayscale');
-  const [showPitch, setShowPitch] = useState(true);
-  const [showFormants, setShowFormants] = useState(true);
-  const [showIntensity, setShowIntensity] = useState(true);
-  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>({
-    spectrogramType: 'wideband',
-    minPitch: 75,
-    maxPitch: 600,
-    maxFormantFreq: 5500,
-    dynamicRange: 50,
-  });
+  // Acoustic Analysis State & Settings Handlers
+  const {
+    analysisData,
+    setAnalysisData,
+    selectedMetrics,
+    maxFormantFreq,
+    setMaxFormantFreq,
+    maxDisplayFreq,
+    setMaxDisplayFreq,
+    colorMap,
+    setColorMap,
+    showPitch,
+    setShowPitch,
+    showFormants,
+    setShowFormants,
+    showIntensity,
+    setShowIntensity,
+    analysisSettings,
+    handleChangeMaxFormantFreq,
+    handleApplyAnalysisSettings,
+  } = useAcousticAnalysis({ audioBuffer, selection });
 
-  // Backend Health Check
-  useEffect(() => {
-    let mounted = true;
-    const verifyHealth = async () => {
-      const isOk = await checkBackendHealth();
-      if (mounted) {
-        setBackendStatus(isOk ? 'online' : 'standalone');
-      }
-    };
-    verifyHealth();
-    const interval = setInterval(verifyHealth, 30000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Modals Visibility State
-  const [isASRModalOpen, setIsASRModalOpen] = useState(false);
-  const [isCustomTextModalOpen, setIsCustomTextModalOpen] = useState(false);
-  const [isVowelSpaceModalOpen, setIsVowelSpaceModalOpen] = useState(false);
-  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
-  const [isSpectralSliceOpen, setIsSpectralSliceOpen] = useState(false);
-  const [spectralSliceTargetTime, setSpectralSliceTargetTime] = useState(0);
-  const [isAnalysisSettingsOpen, setIsAnalysisSettingsOpen] = useState(false);
-  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [isAcousticTableOpen, setIsAcousticTableOpen] = useState(false);
-  const [showIpaBar, setShowIpaBar] = useState(false);
+  // Modals Visibility State & Helpers
+  const {
+    isASRModalOpen,
+    setIsASRModalOpen,
+    isCustomTextModalOpen,
+    setIsCustomTextModalOpen,
+    isVowelSpaceModalOpen,
+    setIsVowelSpaceModalOpen,
+    isRecordModalOpen,
+    setIsRecordModalOpen,
+    isSpectralSliceOpen,
+    setIsSpectralSliceOpen,
+    spectralSliceTargetTime,
+    isAnalysisSettingsOpen,
+    setIsAnalysisSettingsOpen,
+    isShortcutsModalOpen,
+    setIsShortcutsModalOpen,
+    isCommandPaletteOpen,
+    setIsCommandPaletteOpen,
+    isAcousticTableOpen,
+    setIsAcousticTableOpen,
+    showIpaBar,
+    setShowIpaBar,
+    handleOpenSpectralSlice: openSpectralSliceHelper,
+  } = useModalState();
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -275,74 +273,13 @@ export default function AnnotatorApp() {
     return Array.from(set).sort((a, b) => a - b);
   }, [textGridData]);
 
-  // Re-analyze client-side when speaker max formant freq changes
-  const handleChangeMaxFormantFreq = useCallback(
-    async (newFreq: number) => {
-      setMaxFormantFreq(newFreq);
-      setAnalysisSettings((prev) => ({ ...prev, maxFormantFreq: newFreq }));
-      if (!audioBuffer) return;
-      try {
-        const analysis = await analyzeAudioClient(audioBuffer, {
-          ...analysisSettings,
-          maxFormantFreq: newFreq,
-        });
-        setAnalysisData(analysis);
-      } catch (err) {
-        console.warn('Client re-analysis failed:', err);
-      }
-    },
-    [audioBuffer, analysisSettings]
-  );
-
-  // Apply new Praat analysis settings and re-run client analysis
-  const handleApplyAnalysisSettings = useCallback(
-    async (newSettings: AnalysisSettings) => {
-      setAnalysisSettings(newSettings);
-      setMaxFormantFreq(newSettings.maxFormantFreq);
-      if (!audioBuffer) return;
-      try {
-        const analysis = await analyzeAudioClient(audioBuffer, newSettings);
-        setAnalysisData(analysis);
-      } catch (err) {
-        console.warn('Client re-analysis with settings failed:', err);
-      }
-    },
-    [audioBuffer]
-  );
-
   // Open Spectral Slice Modal
   const handleOpenSpectralSlice = useCallback(
     (target?: number) => {
-      if (target !== undefined) {
-        setSpectralSliceTargetTime(target);
-      } else if (selection && selection.start !== selection.end) {
-        setSpectralSliceTargetTime((selection.start + selection.end) / 2);
-      } else {
-        setSpectralSliceTargetTime(currentTime);
-      }
-      setIsSpectralSliceOpen(true);
+      openSpectralSliceHelper(target, selection, currentTime);
     },
-    [selection, currentTime]
+    [openSpectralSliceHelper, selection, currentTime]
   );
-
-  // Compute selected interval acoustic metrics on the fly
-  useEffect(() => {
-    if (!selection) {
-      setSelectedMetrics(null);
-      return;
-    }
-    const s = Math.min(selection.start, selection.end);
-    const e = Math.max(selection.start, selection.end);
-    if (e - s < 0.015) {
-      setSelectedMetrics(null);
-      return;
-    }
-
-    const channelData = audioBuffer ? audioBuffer.getChannelData(0) : undefined;
-    const sr = audioBuffer ? audioBuffer.sampleRate : undefined;
-    const metrics = computeIntervalMetricsClient(analysisData, s, e, channelData, sr);
-    setSelectedMetrics(metrics);
-  }, [selection, analysisData, audioBuffer]);
 
   // Modal Action Handlers
   const handleRecordComplete = async (file: File) => {
