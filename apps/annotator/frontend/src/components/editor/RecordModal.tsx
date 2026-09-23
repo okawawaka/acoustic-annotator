@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Mic, MicOff, Square, Play, Pause, RotateCcw, Check, Volume2, AlertCircle } from 'lucide-react';
+import { X, Mic, MicOff, Square, Play, Pause, RotateCcw, Check, Volume2, AlertCircle, Info } from 'lucide-react';
 import { audioBufferToWavBlob } from '@/lib/audioUtils';
 
 interface RecordModalProps {
@@ -17,6 +17,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 }) => {
   const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showTechNotes, setShowTechNotes] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordedDuration, setRecordedDuration] = useState<number | null>(null);
@@ -80,9 +81,18 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     cleanupAudio();
     setErrorMessage(null);
 
+    // 非セキュア通信 (HTTP) の早期検知
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setPermissionState('denied');
+      setErrorMessage(
+        '【非セキュア環境】ブラウザのセキュリティ仕様により、マイク録音APIは HTTPS または localhost 接続でのみ利用可能です。HTTP接続ではPCM録音を行えません。'
+      );
+      return;
+    }
+
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('お使いのブラウザはマイク録音APIに対応していません。');
+        throw new Error('お使いのブラウザまたは環境はマイク録音API（getUserMedia）に対応していません。');
       }
 
       // 音声学分析用にエコーキャンセラーやノイズ抑制の自動歪みを最小化
@@ -175,11 +185,16 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     } catch (err: any) {
       console.error('Microphone init error:', err);
       setPermissionState('denied');
-      setErrorMessage(
-        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? 'マイクへのアクセスが拒否されました。ブラウザのアドレスバーからマイク許可を有効にしてください。'
-          : `マイクの初期化に失敗しました: ${err.message}`
-      );
+
+      let userMsg = `マイクの初期化に失敗しました: ${err.message}`;
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        userMsg = 'マイクへのアクセスが拒否されました。ブラウザのアドレスバーの鍵アイコンからマイク使用を許可してください。';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        userMsg = '録音可能なマイクデバイスが見つかりません。マイクが接続されているか確認してください。';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        userMsg = 'マイクにアクセスできません。他のアプリケーション（Zoom、Teams、Discord等）でマイクが占有されていないかご確認ください。';
+      }
+      setErrorMessage(userMsg);
     }
   }, [cleanupAudio]);
 
@@ -443,6 +458,43 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   <RotateCcw className="w-3.5 h-3.5 mr-1.5 text-[#777780]" />
                   再録音
                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* Technical Notes / Compatibility Limitations Accordion */}
+          <div className="border border-[#e0e0e6] bg-[#fafafa]">
+            <button
+              type="button"
+              onClick={() => setShowTechNotes(!showTechNotes)}
+              className="w-full px-3 py-2 flex items-center justify-between text-[11px] font-bold text-[#111111] hover:bg-[#f0f0f4] transition-colors"
+            >
+              <span className="flex items-center space-x-1.5">
+                <Info className="w-3.5 h-3.5 text-[#E30613]" />
+                <span>PCM録音の技術的制約・動作要件（補足）</span>
+              </span>
+              <span className="text-[10px] text-[#777780] font-mono flex items-center">
+                {showTechNotes ? '閉じる ▲' : '詳細を見る ▼'}
+              </span>
+            </button>
+            {showTechNotes && (
+              <div className="px-3 pb-3 pt-1 border-t border-[#e0e0e6] text-[10px] text-[#44444a] space-y-2 leading-relaxed">
+                <div>
+                  <span className="font-bold text-[#111111] block">① HTTPS / localhost の必須要件:</span>
+                  W3C セキュリティ仕様により、マイク録音は HTTPS または <code className="bg-[#e0e0e6] px-1 py-0.5">localhost</code> 接続でのみ動作します。非暗号化 HTTP 経由ではブラウザ側でマイク API が無効化されます。
+                </div>
+                <div>
+                  <span className="font-bold text-[#111111] block">② Bluetooth 機器の帯域制限 (8kHz / 16kHz):</span>
+                  AirPods などの無線ヘッドセットマイクは、Bluetooth 通話プロファイル（HFP）の制限により 8kHz または 16kHz に帯域制限されます。精密なフォルマント分析には <strong className="text-[#111111]">PC 内蔵マイクまたは有線 USB マイク</strong> をご使用ください。
+                </div>
+                <div>
+                  <span className="font-bold text-[#111111] block">③ スマホ / OS 側の自動補正 (DSP) の介入:</span>
+                  本アプリはノイズ抑制・エコーキャンセルを無効化する要求を出しますが、iOS (Safari) や一部スマホでは OS の通話処理が強制介入し、微弱な子音が削られる場合があります。生波形記録には PC（Chrome / Edge / Firefox）を推奨します。
+                </div>
+                <div>
+                  <span className="font-bold text-[#111111] block">④ アプリ内ブラウザ（WebView）の制限:</span>
+                  LINE、X (Twitter)、Instagram などのアプリ内ブラウザでは権限要求がブロックされることがあります。Safari や Chrome 等の標準ブラウザで開いてください。
+                </div>
               </div>
             )}
           </div>

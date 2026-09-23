@@ -33,6 +33,11 @@
 - 音響分析に最適化された歪みのないマイクキャプチャ（AGC・ノイズ抑制等の自動補正バイパス）。
 - 60fps Canvas リアルタイム VU メーター（クリッピング警告バー付き）。
 - Praat と完全な互換性を持つ **16-bit リニア PCM WAV**（44-byte RIFFヘッダー付き）への自動オンザフライ変換。
+- **⚠️ PCM録音に関する技術的制約・動作要件 (Technical Limitations & Best Practices)**:
+  - **HTTPS / localhost の必須要件**: W3C セキュリティ仕様により、マイク録音（`getUserMedia`）は HTTPS または `localhost` / `127.0.0.1` 接続でのみ許可されます。LAN内サーバー等の非暗号化 HTTP 経由ではブラウザ側でマイク API が無効化されます。
+  - **Bluetooth 機器の帯域制限 (8kHz / 16kHz)**: AirPods や Bluetooth ヘッドセットを使用した場合、Bluetooth 通話プロファイル（HFP: Hands-Free Profile）の規格上、サンプリングレートが 8kHz または 16kHz モノラルに強制制限され、高周波（F3以上のフォルマントや摩擦音）が削られます。音声学・音響分析には **PC 内蔵マイクまたは有線 USB マイク** の使用を推奨します。
+  - **OS / ハードウェアの自動音声補正 (DSP)**: 本アプリはブラウザに対してエコー除去・ノイズ抑制・自動ゲイン（AGC）の無効化を要求しますが、iOS (Safari) や一部のスマートフォンでは OS レベルの通話用 DSP が強制介入し、無音区間のヒスノイズ除去や微弱な子音の減衰が生じる場合があります。研究用途の精密分析には PC 環境（Google Chrome / Mozilla Firefox / Microsoft Edge）を推奨します。
+  - **アプリ内ブラウザ（In-App WebView）の制限**: LINE、X (旧Twitter)、Instagram 等のアプリ内ブラウザでは、マイク権限ダイアログが表示されず録音がブロックされることがあります。Safari や Chrome などの標準ブラウザで URL を開いてください。
 
 ### 4. 統合ファイルオープン & ドラッグ＆ドロップ
 - 1つの「ファイルを開く」ボタンまたはドラッグ＆ドロップで、**音声ファイルと TextGrid ファイルを同時に一括読み込み**可能。
