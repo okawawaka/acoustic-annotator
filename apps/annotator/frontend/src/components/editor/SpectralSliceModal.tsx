@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { X, Activity, Download, Layers, Crosshair } from 'lucide-react';
+import { X, Activity, Download, Layers, Crosshair, Copy, Check } from 'lucide-react';
 import { computeSpectralSlice, SpectralSliceData } from '@/lib/clientAudioAnalysis';
+import { formatSpectralSliceTSV } from '@/lib/exportUtils';
 
 interface SpectralSliceModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const SpectralSliceModal: React.FC<SpectralSliceModalProps> = ({
   const [lpcOrder, setLpcOrder] = useState<number>(16);
   const [showFft, setShowFft] = useState<boolean>(true);
   const [showLpc, setShowLpc] = useState<boolean>(true);
+  const [copied, setCopied] = useState<boolean>(false);
   const [hoverCoord, setHoverCoord] = useState<{ freq: number; db: number; x: number; y: number } | null>(null);
 
   // スペクトルスライス計算
@@ -251,6 +253,23 @@ export const SpectralSliceModal: React.FC<SpectralSliceModalProps> = ({
     link.click();
   };
 
+  const handleCopyTSV = async () => {
+    if (!sliceData) return;
+    try {
+      const tsv = formatSpectralSliceTSV(
+        sliceData.frequencies,
+        sliceData.fftDb,
+        sliceData.lpcDb,
+        sliceData.time
+      );
+      await navigator.clipboard.writeText(tsv);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy TSV:', err);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -273,6 +292,28 @@ export const SpectralSliceModal: React.FC<SpectralSliceModalProps> = ({
             )}
           </div>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={handleCopyTSV}
+              disabled={!sliceData}
+              className={`flex items-center px-2.5 py-1 border border-[#111111] text-xs font-mono uppercase tracking-wider font-bold transition-colors ${
+                copied
+                  ? 'bg-[#10b981] border-[#10b981] text-white'
+                  : 'bg-white hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20'
+              }`}
+              title="FFT/LPC スペクトルの周波数-dB データを TSV 形式でコピー (Excel/R用)"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 mr-1" />
+                  COPIED
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 mr-1" />
+                  TSV
+                </>
+              )}
+            </button>
             <button
               onClick={handleDownloadPng}
               className="flex items-center px-2.5 py-1 border border-[#111111] hover:bg-[#111111] hover:text-white text-xs font-mono uppercase tracking-wider font-bold transition-colors"

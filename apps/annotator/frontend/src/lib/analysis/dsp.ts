@@ -12,6 +12,17 @@ export function roundDigits(val: number, digits: number): number {
   return Math.round(val * factor) / factor;
 }
 
+/**
+ * メインスレッド（UIレンダリングループ）に制御を一時的に譲る協調マルチタスクヘルパー
+ */
+export function yieldToMain(): Promise<void> {
+  if (typeof (globalThis as any).scheduler?.yield === 'function') {
+    return (globalThis as any).scheduler.yield();
+  }
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+
 // 高速 1D FFT (Radix-2 Cooley-Tukey)
 export function fft(real: Float32Array, imag: Float32Array): void {
   const n = real.length;

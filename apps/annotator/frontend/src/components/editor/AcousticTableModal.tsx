@@ -19,6 +19,7 @@ import {
   formatTableRowsToCSV,
   downloadBlobFile,
 } from '@/lib/exportUtils';
+import { downloadAudioSelectionAsWav } from '@/lib/audioUtils';
 
 export interface IntervalRowData {
   id: string;
@@ -384,7 +385,7 @@ export const AcousticTableModal: React.FC<AcousticTableModalProps> = ({
                       <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
                     </div>
                   </th>
-                  <th className="py-2 px-2 text-center w-12">Action</th>
+                  <th className="py-2 px-2 text-center w-16">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e0e0e6]">
@@ -431,13 +432,31 @@ export const AcousticTableModal: React.FC<AcousticTableModalProps> = ({
                       {row.cog !== null ? row.cog.toFixed(0) : '-'}
                     </td>
                     <td className="py-1.5 px-2 text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => onPlayRange?.(row.start, row.end)}
-                        className="p-1 hover:bg-[#111111] hover:text-white rounded text-gray-600 transition-colors"
-                        title="この区間を再生"
-                      >
-                        <Play className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center justify-center space-x-1">
+                        <button
+                          onClick={() => onPlayRange?.(row.start, row.end)}
+                          className="p-1 hover:bg-[#111111] hover:text-white rounded text-gray-600 transition-colors"
+                          title="この区間を再生"
+                        >
+                          <Play className="w-3 h-3" />
+                        </button>
+                        {audioBuffer && (
+                          <button
+                            onClick={() =>
+                              downloadAudioSelectionAsWav(
+                                audioBuffer,
+                                row.start,
+                                row.end,
+                                row.label
+                              )
+                            }
+                            className="p-1 hover:bg-[#111111] hover:text-white rounded text-gray-600 transition-colors"
+                            title="この区間の音声をWAVとしてダウンロード"
+                          >
+                            <Download className="w-3 h-3 text-[#E30613]" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

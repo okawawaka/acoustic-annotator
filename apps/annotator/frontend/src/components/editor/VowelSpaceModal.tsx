@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { X, Download, User } from 'lucide-react';
+import { X, Download, User, Image as ImageIcon } from 'lucide-react';
 import { TextGridData, IntervalEntry, AcousticAnalysisData } from '@/types';
 import { computeIntervalMetricsClient } from '@/lib/clientAudioAnalysis';
 
@@ -280,6 +280,16 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPNG = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || points.length === 0) return;
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vowel_space_${maxFormantFreq}Hz.png`;
+    a.click();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -323,14 +333,26 @@ export const VowelSpaceModal: React.FC<VowelSpaceModalProps> = ({
                 </select>
               </div>
 
-              <button
-                onClick={handleExportCSV}
-                disabled={points.length === 0}
-                className="flex items-center text-xs px-3 py-1.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold uppercase tracking-wider transition-colors disabled:opacity-20"
-              >
-                <Download className="w-3.5 h-3.5 mr-1" />
-                CSV出力
-              </button>
+              <div className="flex items-center space-x-1.5">
+                <button
+                  onClick={handleExportPNG}
+                  disabled={points.length === 0}
+                  className="flex items-center text-xs px-2.5 py-1.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold uppercase tracking-wider transition-colors disabled:opacity-20"
+                  title="母音空間散布図を PNG 画像として保存"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 mr-1" />
+                  PNG保存
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  disabled={points.length === 0}
+                  className="flex items-center text-xs px-2.5 py-1.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold uppercase tracking-wider transition-colors disabled:opacity-20"
+                  title="全母音トークンのF1/F2音響データを CSV 形式でダウンロード"
+                >
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                  CSV出力
+                </button>
+              </div>
             </div>
           </div>
 

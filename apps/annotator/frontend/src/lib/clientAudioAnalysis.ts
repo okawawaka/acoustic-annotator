@@ -5,9 +5,9 @@ import {
   AnalysisSettings,
 } from '@/types';
 
-import { roundDigits } from './analysis/dsp';
-import { extractPitchAutocorr } from './analysis/pitch';
-import { extractFormantsLPC } from './analysis/formants';
+import { roundDigits, yieldToMain } from './analysis/dsp';
+import { extractPitchAutocorr, extractPitchAutocorrAsync } from './analysis/pitch';
+import { extractFormantsLPC, extractFormantsLPCAsync } from './analysis/formants';
 import { generateSpectrogram } from './analysis/spectrogram';
 import { extractIntensityPraat } from './analysis/intensity';
 import { computeSpectralMoments } from './analysis/moments';
@@ -23,7 +23,7 @@ export * from './analysis/slice';
 
 /**
  * 音声バッファ全体の統合クライアント音響解析
- * F0, フォルマント (F1-F3), スペクトログラム, 連続音圧を非同期一括計算
+ * F0, フォルマント (F1-F3), スペクトログラム, 連続音圧を非同期一括計算 (ノンブロッキング協調タスク)
  */
 export async function analyzeAudioClient(
   audioBuffer: AudioBuffer,
@@ -46,15 +46,19 @@ export async function analyzeAudioClient(
 
   // 1. スペクトログラム生成 (広帯域 / 狭帯域)
   const spec = generateSpectrogram(channelData, sampleRate, 5000, 0.01, spectrogramType, dynamicRange);
+  await yieldToMain();
 
-  // 2. ピッチ抽出 (自己相関法)
-  const pitch = extractPitchAutocorr(channelData, sampleRate, 0.01, minPitch, maxPitch);
+  // 2. ピッチ抽出 (自己相関法・ノンブロッキング版)
+  const pitch = await extractPitchAutocorrAsync(channelData, sampleRate, 0.01, minPitch, maxPitch);
+  await yieldToMain();
 
-  // 3. フォルマント抽出 (LPC Burg + Durand-Kerner)
-  const formants = extractFormantsLPC(channelData, sampleRate, maxFormantFreq, 0.01);
+  // 3. フォルマント抽出 (LPC Burg + Durand-Kerner・ノンブロッキング版)
+  const formants = await extractFormantsLPCAsync(channelData, sampleRate, maxFormantFreq, 0.01);
+  await yieldToMain();
 
   // 4. 連続音圧曲線抽出 (Praat To Intensity)
   const intensity = extractIntensityPraat(channelData, sampleRate, 0.01, minPitch);
+
 
   return {
     duration: roundDigits(duration, 3),
