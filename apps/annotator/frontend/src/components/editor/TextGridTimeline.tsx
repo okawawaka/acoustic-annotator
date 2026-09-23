@@ -557,12 +557,18 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                       Math.abs(selection.start - entry.start) < 0.01 &&
                       Math.abs(selection.end - entry.end) < 0.01;
 
+                    const isBlank = !entry.label || entry.label.trim() === '';
+
                     return (
                       <div
                         key={entryIdx}
                         style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                        className={`absolute top-0 bottom-0 border-r border-[#777780]/60 flex items-center justify-center px-1 text-xs cursor-pointer ${
-                          isSelected ? 'bg-[#111111]/10 font-bold text-[#111111] ring-1 ring-inset ring-[#111111]' : 'hover:bg-[#f0f0f4] text-[#111111]'
+                        className={`group absolute top-0 bottom-0 border-r border-[#777780]/60 flex items-center justify-center px-1 text-xs cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-[#111111]/10 font-bold text-[#111111] ring-1 ring-inset ring-[#111111]'
+                            : isBlank
+                            ? 'bg-[#fafafc]/60 hover:bg-[#f0f0f4] text-[#aaaaaf]'
+                            : 'bg-white hover:bg-[#f5f5f8] text-[#111111]'
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -603,8 +609,8 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <span className="truncate font-sans text-xs select-none px-1">
-                            {entry.label}
+                          <span className={`truncate font-sans text-xs select-none px-1 ${isBlank ? 'text-[10px] text-[#b0b0b8] font-mono italic opacity-0 group-hover:opacity-75 transition-opacity' : ''}`}>
+                            {isBlank ? '(空)' : entry.label}
                           </span>
                         )}
 

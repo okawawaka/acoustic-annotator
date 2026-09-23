@@ -41,6 +41,13 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
         { key: 'Shift + ホイール', desc: '時間軸を左右にスクロール' },
       ],
     },
+    {
+      title: 'コマンド & エクスポート (Commands & Export)',
+      items: [
+        { key: 'Ctrl + K / :', desc: 'コマンドパレットを開く' },
+        { key: 'Shift + E', desc: '選択区間の音声をWAV形式で切り出し保存 (Extract Sound)' },
+      ],
+    },
   ];
 
   return (

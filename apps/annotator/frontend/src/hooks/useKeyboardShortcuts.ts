@@ -11,6 +11,7 @@ interface UseKeyboardShortcutsOptions {
   onDeleteBoundary: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onExportSelectedAudio?: () => void;
   onOpenShortcutsModal?: () => void;
   onOpenCommandPalette?: () => void;
 }
@@ -24,6 +25,7 @@ export function useKeyboardShortcuts({
   onDeleteBoundary,
   onUndo,
   onRedo,
+  onExportSelectedAudio,
   onOpenShortcutsModal,
   onOpenCommandPalette,
 }: UseKeyboardShortcutsOptions) {
@@ -85,6 +87,9 @@ export function useKeyboardShortcuts({
       } else if (e.altKey && (e.code === 'Backspace' || e.code === 'Delete')) {
         e.preventDefault();
         onDeleteBoundary();
+      } else if (e.shiftKey && (e.code === 'KeyE' || e.key === 'E')) {
+        e.preventDefault();
+        onExportSelectedAudio?.();
       } else if (e.key === '?' || e.key === 'F1') {
         e.preventDefault();
         onOpenShortcutsModal?.();
@@ -105,6 +110,7 @@ export function useKeyboardShortcuts({
     onDeleteBoundary,
     onUndo,
     onRedo,
+    onExportSelectedAudio,
     onOpenShortcutsModal,
     onOpenCommandPalette,
   ]);
