@@ -1,7 +1,44 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { AcousticAnalysisData } from '@/types';
+import { AcousticAnalysisData, SpectrogramColorMap } from '@/types';
+
+// カラーパレット変換関数 (Grayscale / Dark Invert / Thermal Color)
+function getColorRGB(norm: number, colorMap: SpectrogramColorMap): [number, number, number] {
+  if (colorMap === 'dark') {
+    const val = Math.round(255 * norm);
+    return [val, val, val];
+  }
+  if (colorMap === 'color') {
+    // Thermal / Spectrogram Heatmap スタイル
+    if (norm <= 0.05) return [15, 23, 42]; // 濃紺
+    if (norm <= 0.35) {
+      const t = (norm - 0.05) / 0.3;
+      return [
+        Math.round(15 + t * (37 - 15)),
+        Math.round(23 + t * (99 - 23)),
+        Math.round(42 + t * (235 - 42)),
+      ];
+    }
+    if (norm <= 0.7) {
+      const t = (norm - 0.35) / 0.35;
+      return [
+        Math.round(37 + t * (234 - 37)),
+        Math.round(99 + t * (179 - 99)),
+        Math.round(235 + t * (8 - 235)),
+      ];
+    }
+    const t = (norm - 0.7) / 0.3;
+    return [
+      Math.round(234 + t * (255 - 234)),
+      Math.round(179 + t * (255 - 179)),
+      Math.round(8 + t * (255 - 8)),
+    ];
+  }
+  // Default 'grayscale' (Praat標準: 白背景 0 〜 黒 1)
+  const val = Math.round(255 * (1.0 - norm));
+  return [val, val, val];
+}
 
 interface SpectrogramCanvasProps {
   analysisData: AcousticAnalysisData | null;
@@ -15,6 +52,7 @@ interface SpectrogramCanvasProps {
   showFormants?: boolean;
   showIntensity?: boolean;
   maxDisplayFreq?: number; // 500 (F0観察用) または 5000 (フォルマント用)
+  colorMap?: SpectrogramColorMap;
   onHoverTimeChange?: (time: number | null) => void;
   onSeek?: (time: number) => void;
   onSelectRange?: (range: { start: number; end: number } | null) => void;
@@ -33,6 +71,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
   showFormants = true,
   showIntensity = true,
   maxDisplayFreq = 5000,
+  colorMap = 'grayscale',
   onHoverTimeChange,
   onSeek,
   onSelectRange,
@@ -42,6 +81,54 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<number | null>(null);
+
+  // 全体スペクトログラムのビットマップキャッシュ（パン・ズーム・スクロール時の超高速GPUハードウェア描画）
+  const cachedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cacheKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    if (!analysisData || !analysisData.spectrogram || analysisData.spectrogram.length === 0) {
+      cachedCanvasRef.current = null;
+      cacheKeyRef.current = '';
+      return;
+    }
+
+    const { spectrogram } = analysisData;
+    const numFreqs = spectrogram.length;
+    const numTimes = spectrogram[0].length;
+    const key = `${numTimes}_${numFreqs}_${analysisData.duration}_${colorMap}`;
+
+    if (cachedCanvasRef.current && cacheKeyRef.current === key) {
+      return;
+    }
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = numTimes;
+    offscreen.height = numFreqs;
+    const offCtx = offscreen.getContext('2d');
+    if (!offCtx) return;
+
+    const imgData = offCtx.createImageData(numTimes, numFreqs);
+    const buf32 = new Uint32Array(imgData.data.buffer);
+
+    for (let bin = 0; bin < numFreqs; bin++) {
+      // Canvas 上部 (y=0) が最高周波数、Canvas 下部 (y=numFreqs-1) が 0Hz
+      const py = numFreqs - 1 - bin;
+      for (let timeIdx = 0; timeIdx < numTimes; timeIdx++) {
+        const val = spectrogram[bin][timeIdx];
+        // 0〜100 の正規化強度
+        const norm = Math.max(0, Math.min(1, val <= 1 ? val : val / 100));
+        const [r, g, b] = getColorRGB(norm, colorMap);
+
+        // 32-bit リトルエンディアン (0xAABBGGRR)
+        buf32[py * numTimes + timeIdx] = (255 << 24) | (b << 16) | (g << 8) | r;
+      }
+    }
+
+    offCtx.putImageData(imgData, 0, 0);
+    cachedCanvasRef.current = offscreen;
+    cacheKeyRef.current = key;
+  }, [analysisData, colorMap]);
 
   const renderSpectrogram = useCallback(() => {
     const canvas = canvasRef.current;
@@ -53,7 +140,8 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     const h = canvas.height;
     ctx.clearRect(0, 0, width, h);
 
-    ctx.fillStyle = '#ffffff';
+    const isDark = colorMap === 'dark';
+    ctx.fillStyle = isDark ? '#09090b' : colorMap === 'color' ? '#0f172a' : '#ffffff';
     ctx.fillRect(0, 0, width, h);
 
     const span = viewRange.end - viewRange.start;
@@ -61,62 +149,41 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
 
     const currentMaxFreq = maxDisplayFreq; // 500Hz または 5000Hz
 
-    // 1. スペクトログラムの描画
-    if (analysisData && analysisData.spectrogram.length > 0) {
-      const { spectrogram, max_frequency } = analysisData;
-      const numFreqs = spectrogram.length;
-      const numTimes = spectrogram[0].length;
+    // 1. スペクトログラムの超高速スライス描画 (GPU ハードウェア補間転送)
+    if (analysisData && cachedCanvasRef.current && duration > 0) {
+      const cachedCanvas = cachedCanvasRef.current;
+      const numTimes = cachedCanvas.width;
+      const numFreqs = cachedCanvas.height;
+      const maxFreq = analysisData.max_frequency || 5000;
 
-      const imgData = ctx.createImageData(width, h);
-      const data = imgData.data;
+      // 表示時間範囲に対応するソース X 座標
+      const sx = Math.max(0, (viewRange.start / duration) * numTimes);
+      const sw = Math.min(numTimes - sx, (span / duration) * numTimes);
 
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = 255;
-        data[i + 1] = 255;
-        data[i + 2] = 255;
-        data[i + 3] = 255;
-      }
+      // 表示周波数範囲に対応するソース Y 座標 (Canvas 上部が高周波、下部が 0Hz)
+      const freqRatio = Math.min(1.0, currentMaxFreq / maxFreq);
+      const sy = (1.0 - freqRatio) * numFreqs;
+      const sh = freqRatio * numFreqs;
 
-      const dt = analysisData.time_step || 0.01;
-      const df = max_frequency / numFreqs;
-
-      for (let px = 0; px < width; px++) {
-        const t = viewRange.start + (px / width) * span;
-        const timeIdx = Math.floor(t / dt);
-        if (timeIdx < 0 || timeIdx >= numTimes) continue;
-
-        for (let py = 0; py < h; py++) {
-          // 現在の縦軸上限周波数 (currentMaxFreq) に基づいて周波数を計算
-          const f = (1.0 - py / h) * currentMaxFreq;
-          const freqIdx = Math.floor(f / df);
-          if (freqIdx < 0 || freqIdx >= numFreqs) continue;
-
-          const db = spectrogram[freqIdx][timeIdx];
-          const norm = Math.max(0, Math.min(1, (db - 15) / 55));
-          const gray = Math.round(255 * (1.0 - norm));
-
-          const pixelIdx = (py * width + px) * 4;
-          data[pixelIdx] = gray;
-          data[pixelIdx + 1] = gray;
-          data[pixelIdx + 2] = gray;
-          data[pixelIdx + 3] = 255;
-        }
-      }
-      ctx.putImageData(imgData, 0, 0);
-    } else {
-      ctx.fillStyle = '#f8fafc';
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      ctx.drawImage(cachedCanvas, sx, sy, sw, sh, 0, 0, width, h);
+      ctx.restore();
+    } else if (!analysisData) {
+      ctx.fillStyle = isDark ? '#1e1e24' : '#f8fafc';
       ctx.fillRect(0, 0, width, h);
-      ctx.fillStyle = '#94a3b8';
+      ctx.fillStyle = isDark ? '#71717a' : '#94a3b8';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('音声を読み込むと音響データが描画されます', width / 2, h / 2);
     }
 
     // 周波数グリッド線と目盛りラベル
-    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
-    ctx.fillStyle = '#64748b';
+    ctx.fillStyle = isDark ? '#a1a1aa' : '#64748b';
     ctx.font = '9px monospace';
     ctx.textAlign = 'right';
 
@@ -252,7 +319,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       }
     }
     ctx.setLineDash([]);
-  }, [analysisData, viewRange, boundaries, showPitch, showFormants, showIntensity, maxDisplayFreq]);
+  }, [analysisData, viewRange, boundaries, showPitch, showFormants, showIntensity, maxDisplayFreq, colorMap, duration]);
 
   useEffect(() => {
     const updateSize = () => {

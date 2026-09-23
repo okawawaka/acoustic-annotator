@@ -86,10 +86,13 @@ export interface IntervalMetrics {
   spectral_moments?: SpectralMoments | null;
 }
 
+export type SpectrogramColorMap = 'grayscale' | 'dark' | 'color';
+
 export interface AnalysisSettings {
   spectrogramType: 'wideband' | 'narrowband'; // wideband: 5ms (フォルマント), narrowband: 30ms (倍音)
   minPitch: number;      // e.g. 75
   maxPitch: number;      // e.g. 500
   maxFormantFreq: number;// e.g. 5000 / 5500 / 6000
   dynamicRange: number;  // e.g. 50 dB (30 - 70)
+  colorMap?: SpectrogramColorMap;
 }

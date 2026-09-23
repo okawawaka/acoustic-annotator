@@ -102,21 +102,45 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       ctx.setLineDash([]); // Reset line dash
     }
 
-    // Waveform bars
+    // Waveform envelope path (単一パス一括レンダリングで描画APIコールを激減・高速化)
     if (peaks && peaks.length > 0 && duration > 0) {
       ctx.fillStyle = '#0f172a'; // Deep slate/black
 
       const numPoints = peaks.length;
+      const midY = waveHeight / 2;
+      const maxH = midY * 0.95;
+
+      ctx.beginPath();
+      let started = false;
       for (let i = 0; i < width; i++) {
         const timeAtPixel = viewRange.start + (i / width) * viewSpan;
         if (timeAtPixel < 0 || timeAtPixel > duration) continue;
 
         const peakIdx = Math.min(numPoints - 1, Math.max(0, Math.floor((timeAtPixel / duration) * numPoints)));
         const amp = peaks[peakIdx] || 0;
-        const barH = Math.max(0.5, amp * (waveHeight / 2) * 0.95);
+        const barH = Math.max(0.5, amp * maxH);
 
-        ctx.fillRect(i, waveHeight / 2 - barH, 1, barH * 2);
+        if (!started) {
+          ctx.moveTo(i, midY - barH);
+          started = true;
+        } else {
+          ctx.lineTo(i, midY - barH);
+        }
       }
+
+      for (let i = width - 1; i >= 0; i--) {
+        const timeAtPixel = viewRange.start + (i / width) * viewSpan;
+        if (timeAtPixel < 0 || timeAtPixel > duration) continue;
+
+        const peakIdx = Math.min(numPoints - 1, Math.max(0, Math.floor((timeAtPixel / duration) * numPoints)));
+        const amp = peaks[peakIdx] || 0;
+        const barH = Math.max(0.5, amp * maxH);
+
+        ctx.lineTo(i, midY + barH);
+      }
+
+      ctx.closePath();
+      ctx.fill();
     }
 
     // Time Ruler bottom line

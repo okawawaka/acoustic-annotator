@@ -39,6 +39,13 @@ export function generateSpectrogram(
   const real = new Float32Array(nFft);
   const imag = new Float32Array(nFft);
 
+  // 一時バッファに全ビンの dB を保存し、最大 dB を算出
+  const rawDbMatrix: Float32Array[] = Array.from(
+    { length: numFreqBins },
+    () => new Float32Array(numFrames)
+  );
+  let globalMaxDb = -Infinity;
+
   for (let frameIdx = 0; frameIdx < numFrames; frameIdx++) {
     const offset = frameIdx * stepSamples;
     times.push(roundDigits(offset / sampleRate, 3));
@@ -57,8 +64,24 @@ export function generateSpectrogram(
       const targetFreq = bin * df;
       const fftIdx = Math.min(nFft / 2 - 1, Math.round(targetFreq / fftDf));
       const power = real[fftIdx] * real[fftIdx] + imag[fftIdx] * imag[fftIdx];
-      const db = 10 * Math.log10(power + 1e-12) + 70; // 0〜85dB程度
-      matrix[bin].push(roundDigits(Math.max(0, Math.min(85, db)), 1));
+      const rawDb = 10 * Math.log10(power + 1e-12);
+      rawDbMatrix[bin][frameIdx] = rawDb;
+      if (rawDb > globalMaxDb) {
+        globalMaxDb = rawDb;
+      }
+    }
+  }
+
+  // Praat 標準のダイナミックレンジ正規化:
+  // 最大エネルギー globalMaxDb を 100 とし、[globalMaxDb - dynamicRange, globalMaxDb] の範囲を 0〜100 にスケーリング
+  const minThreshold = globalMaxDb - Math.max(10, dynamicRange);
+  const drSpan = Math.max(1, dynamicRange);
+
+  for (let bin = 0; bin < numFreqBins; bin++) {
+    for (let frameIdx = 0; frameIdx < numFrames; frameIdx++) {
+      const rawDb = rawDbMatrix[bin][frameIdx];
+      const norm = Math.max(0, Math.min(100, ((rawDb - minThreshold) / drSpan) * 100));
+      matrix[bin].push(roundDigits(norm, 1));
     }
   }
 
