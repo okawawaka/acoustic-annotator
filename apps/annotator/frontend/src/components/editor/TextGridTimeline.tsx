@@ -444,13 +444,13 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
             >
               {/* Tier Left Header */}
               <div
-                className={`w-32 flex-shrink-0 border-r px-2 py-1 flex flex-col justify-between z-10 transition-colors cursor-pointer ${
+                className={`w-16 sm:w-32 flex-shrink-0 border-r px-1 sm:px-2 py-1 flex flex-col justify-between z-10 transition-colors cursor-pointer ${
                   isActive ? 'bg-[#f0f0f4] border-[#111111]' : 'bg-[#fafafc] border-[#e0e0e6]'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`font-semibold text-xs truncate ${
+                    className={`font-semibold text-[10px] sm:text-xs truncate ${
                       isActive ? 'text-[#111111] font-bold' : 'text-[#444448]'
                     }`}
                     title={tier.name}
@@ -616,7 +616,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 
                         <div
                           onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
-                          className="absolute -right-[5px] top-0 bottom-0 w-[10px] cursor-col-resize z-20 group/handle flex items-center justify-center"
+                          className="absolute -right-[8px] top-0 bottom-0 w-[16px] cursor-col-resize z-20 group/handle flex items-center justify-center touch-none"
                           title="境界をドラッグして移動"
                         >
                           <div className="w-[2px] h-full bg-transparent group-hover/handle:bg-[#E30613] transition-colors" />

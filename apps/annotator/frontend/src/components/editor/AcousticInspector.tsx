@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { IntervalMetrics, AcousticAnalysisData } from '@/types';
 import { copyMetricsToClipboard } from '@/lib/exportUtils';
 import { downloadAudioSelectionAsWav } from '@/lib/audioUtils';
-import { Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc, Copy, Check, Download } from 'lucide-react';
+import { X, Activity, Clock, Zap, Volume2, BarChart2, Layers, Disc, Copy, Check, Download } from 'lucide-react';
 
 interface AcousticInspectorProps {
   metrics: IntervalMetrics | null;
@@ -15,6 +15,9 @@ interface AcousticInspectorProps {
   isLoading: boolean;
   onOpenSpectralSlice?: (time?: number) => void;
   onExportSelectedAudio?: (start: number, end: number, label?: string | null) => void;
+  className?: string;
+  isMobileDrawer?: boolean;
+  onClose?: () => void;
 }
 
 export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
@@ -28,6 +31,9 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
   isLoading,
   onOpenSpectralSlice,
   onExportSelectedAudio,
+  className,
+  isMobileDrawer = false,
+  onClose,
 }) => {
   // カーソル点での瞬時値 (Praat Query: Get Pitch, Get Formants, Get Intensity)
   const queryTime = hoverTime !== null ? hoverTime : currentTime;
@@ -106,16 +112,32 @@ export const AcousticInspector: React.FC<AcousticInspectorProps> = ({
   };
 
   return (
-    <div className="w-64 flex-shrink-0 border-l-2 border-[#111111] bg-white flex flex-col h-full overflow-y-auto text-[#111111]">
+    <div
+      className={
+        className ||
+        'w-64 flex-shrink-0 border-l-2 border-[#111111] bg-white flex flex-col h-full overflow-y-auto text-[#111111]'
+      }
+    >
       {/* Header */}
       <div className="h-10 px-3 border-b-2 border-[#111111] flex items-center justify-between bg-white flex-shrink-0">
         <div className="flex items-center space-x-2 font-bold text-xs uppercase tracking-wider text-[#111111]">
-          <Activity className="w-3.5 h-3.5" />
+          <Activity className="w-3.5 h-3.5 text-[#E30613]" />
           <span>Acoustic Inspector</span>
         </div>
-        {isLoading && (
-          <span className="text-[10px] text-[#E30613] font-bold font-mono tracking-wider">CALC...</span>
-        )}
+        <div className="flex items-center space-x-2">
+          {isLoading && (
+            <span className="text-[10px] text-[#E30613] font-bold font-mono tracking-wider">CALC...</span>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 border border-[#e0e0e6] hover:bg-[#111111] hover:text-white transition-colors"
+              title="閉じる"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="p-3 space-y-3.5 flex-1">

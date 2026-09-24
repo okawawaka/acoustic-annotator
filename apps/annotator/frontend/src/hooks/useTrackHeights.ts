@@ -59,51 +59,59 @@ export function useTrackHeights({
   }, [spectrogramHeight]);
 
   const handleStartResizeWaveform = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent | React.PointerEvent) => {
       e.preventDefault();
       setResizingTrack('waveform');
       const startY = e.clientY;
       const initialHeight = waveformHeight;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
+      const handleMove = (moveEvent: MouseEvent | PointerEvent) => {
         const delta = moveEvent.clientY - startY;
         const newHeight = Math.max(minWaveformHeight, Math.min(maxWaveformHeight, initialHeight + delta));
         setWaveformHeight(newHeight);
       };
 
-      const handleMouseUp = () => {
+      const handleUp = () => {
         setResizingTrack(null);
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleUp);
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleUp);
       };
 
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleUp);
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', handleUp);
     },
     [waveformHeight, minWaveformHeight, maxWaveformHeight]
   );
 
   const handleStartResizeSpectrogram = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent | React.PointerEvent) => {
       e.preventDefault();
       setResizingTrack('spectrogram');
       const startY = e.clientY;
       const initialHeight = spectrogramHeight;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
+      const handleMove = (moveEvent: MouseEvent | PointerEvent) => {
         const delta = moveEvent.clientY - startY;
         const newHeight = Math.max(minSpectrogramHeight, Math.min(maxSpectrogramHeight, initialHeight + delta));
         setSpectrogramHeight(newHeight);
       };
 
-      const handleMouseUp = () => {
+      const handleUp = () => {
         setResizingTrack(null);
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleUp);
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleUp);
       };
 
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleUp);
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', handleUp);
     },
     [spectrogramHeight, minSpectrogramHeight, maxSpectrogramHeight]
   );

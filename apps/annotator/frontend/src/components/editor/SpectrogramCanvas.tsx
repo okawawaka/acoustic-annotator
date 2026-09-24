@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AcousticAnalysisData, SpectrogramColorMap } from '@/types';
@@ -373,8 +373,8 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     return viewRange.start + (x / rect.width) * viewSpan;
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     const time = getTimeFromX(e.clientX);
     isDraggingRef.current = true;
     dragStartRef.current = time;
@@ -382,7 +382,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     if (onSelectRange) onSelectRange({ start: time, end: time });
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     const time = getTimeFromX(e.clientX);
     if (onHoverTimeChange) onHoverTimeChange(time);
 
@@ -396,13 +396,20 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
     isDraggingRef.current = false;
     dragStartRef.current = null;
   };
 
+  const handlePointerLeave = () => {
+    if (onHoverTimeChange) onHoverTimeChange(null);
+    if (!isDraggingRef.current) {
+      dragStartRef.current = null;
+    }
+  };
+
   // Selection Edge Resize Handler (drag left or right boundary)
-  const handleStartResize = (edge: 'start' | 'end', e: React.MouseEvent) => {
+  const handleStartResize = (edge: 'start' | 'end', e: React.PointerEvent) => {
     e.stopPropagation();
     if (!selection) return;
 
@@ -415,7 +422,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       end: Math.max(selection.start, selection.end),
     };
 
-    const onMove = (moveEv: MouseEvent) => {
+    const onMove = (moveEv: PointerEvent) => {
       const x = moveEv.clientX - rect.left;
       const t = Math.max(0, Math.min(duration, viewRange.start + (x / rect.width) * viewSpan));
       const roundedT = Math.round(t * 1000) / 1000;
@@ -430,12 +437,12 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
     };
 
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
     };
 
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
   };
 
   const selectionStyle = React.useMemo(() => {
@@ -462,12 +469,12 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
   return (
     <div className="flex w-full border-b border-[#e0e0e6] bg-white select-none">
       {/* Track Label Header (w-32) */}
-      <div className="w-32 flex-shrink-0 flex flex-col justify-between p-2 border-r border-[#e0e0e6] bg-[#fafafc] text-xs">
+      <div className="w-16 sm:w-32 flex-shrink-0 flex flex-col justify-between p-1.5 sm:p-2 border-r border-[#e0e0e6] bg-[#fafafc] text-xs">
         <div>
-          <div className="font-bold text-[#111111] text-[11px] leading-tight uppercase tracking-tight">
+          <div className="font-bold text-[#111111] text-[10px] sm:text-[11px] leading-tight uppercase tracking-tight truncate">
             {isPitchScale ? 'Pitch (F0)' : 'Spectrogram'}
           </div>
-          <div className="text-[10px] text-[#777780] font-mono">
+          <div className="text-[8px] sm:text-[10px] text-[#777780] font-mono">
             {isPitchScale ? '0 - 500 Hz' : `0 - ${(maxDisplayFreq / 1000).toFixed(1)} kHz`}
           </div>
         </div>
@@ -496,15 +503,12 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
 
       <div
         ref={containerRef}
-        className="flex-1 relative cursor-crosshair overflow-hidden"
+        className="flex-1 relative cursor-crosshair overflow-hidden touch-none select-none"
         style={{ height }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => {
-          isDraggingRef.current = false;
-          if (onHoverTimeChange) onHoverTimeChange(null);
-        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
       >
         <canvas ref={canvasRef} className="block w-full h-full pointer-events-none" />
 
@@ -516,7 +520,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
           >
             {/* Left Edge Resize Handle */}
             <div
-              onMouseDown={(e) => handleStartResize('start', e)}
+              onPointerDown={(e) => handleStartResize('start', e)}
               className="absolute left-0 top-0 bottom-0 w-3 -translate-x-1/2 cursor-ew-resize hover:bg-[#E30613]/50 transition-colors z-20 group flex items-center justify-center"
               title="ドラッグして開始位置を微調整"
             >
@@ -525,7 +529,7 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
 
             {/* Right Edge Resize Handle */}
             <div
-              onMouseDown={(e) => handleStartResize('end', e)}
+              onPointerDown={(e) => handleStartResize('end', e)}
               className="absolute right-0 top-0 bottom-0 w-3 translate-x-1/2 cursor-ew-resize hover:bg-[#E30613]/50 transition-colors z-20 group flex items-center justify-center"
               title="ドラッグして終了位置を微調整"
             >

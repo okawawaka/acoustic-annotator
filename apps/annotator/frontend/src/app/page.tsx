@@ -12,6 +12,8 @@ import { IpaPaletteBar } from '@/components/editor/IpaPaletteBar';
 import { PlayBars } from '@/components/editor/PlayBars';
 import { EmptyLandingView } from '@/components/editor/EmptyLandingView';
 import { HeaderBar } from '@/components/layout/HeaderBar';
+import { MobileBottomBar } from '@/components/editor/MobileBottomBar';
+import { MobileToolsDrawer } from '@/components/editor/MobileToolsDrawer';
 import { TrackResizeHandle } from '@/components/editor/TrackResizeHandle';
 import { ToastNotification } from '@/components/common/ToastNotification';
 
@@ -96,6 +98,10 @@ export default function AnnotatorApp() {
     setShowIpaBar,
     handleOpenSpectralSlice: openSpectralSliceHelper,
   } = useModalState();
+
+  // Mobile UI States
+  const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
+  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -428,8 +434,8 @@ export default function AnnotatorApp() {
               />
             </div>
 
-            {/* Toolbar */}
-            <div className="flex-shrink-0">
+            {/* Toolbar (Desktop Only) */}
+            <div className="hidden md:block flex-shrink-0">
               <ControlToolbar
                 isPlaying={isPlaying}
                 playbackRate={playbackRate}
@@ -504,6 +510,7 @@ export default function AnnotatorApp() {
                   />
                   <TrackResizeHandle
                     onMouseDown={handleStartResizeWaveform}
+                    onPointerDown={handleStartResizeWaveform}
                     isResizing={resizingTrack === 'waveform'}
                     label="波形"
                   />
@@ -534,6 +541,7 @@ export default function AnnotatorApp() {
                   />
                   <TrackResizeHandle
                     onMouseDown={handleStartResizeSpectrogram}
+                    onPointerDown={handleStartResizeSpectrogram}
                     isResizing={resizingTrack === 'spectrogram'}
                     label="スペクトログラム"
                   />
@@ -595,6 +603,7 @@ export default function AnnotatorApp() {
 
               {/* Right Side: Acoustic Inspector Panel */}
               <AcousticInspector
+                className="w-64 flex-shrink-0 border-l-2 border-[#111111] bg-white hidden md:flex flex-col h-full overflow-y-auto text-[#111111]"
                 metrics={selectedMetrics}
                 selectedLabel={selectedLabel}
                 selectedRange={selection}
@@ -606,6 +615,29 @@ export default function AnnotatorApp() {
                 onOpenSpectralSlice={handleOpenSpectralSlice}
                 onExportSelectedAudio={handleExportSelectedAudio}
               />
+
+              {/* Mobile Bottom Sheet Inspector */}
+              {isMobileInspectorOpen && (
+                <div className="fixed inset-0 z-40 md:hidden flex flex-col justify-end bg-[#111111]/60 backdrop-blur-none">
+                  <div className="bg-white border-t-2 border-[#111111] max-h-[75vh] flex flex-col shadow-2xl">
+                    <AcousticInspector
+                      className="w-full flex-1 flex flex-col overflow-y-auto bg-white text-[#111111]"
+                      metrics={selectedMetrics}
+                      selectedLabel={selectedLabel}
+                      selectedRange={selection}
+                      currentTime={currentTime}
+                      hoverTime={hoverTime}
+                      analysisData={analysisData}
+                      audioBuffer={audioBuffer}
+                      isLoading={false}
+                      isMobileDrawer={true}
+                      onClose={() => setIsMobileInspectorOpen(false)}
+                      onOpenSpectralSlice={handleOpenSpectralSlice}
+                      onExportSelectedAudio={handleExportSelectedAudio}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -617,6 +649,57 @@ export default function AnnotatorApp() {
           />
         )}
       </main>
+
+      {/* Mobile Bottom Bar (Thumb-friendly Navigation & Controls) */}
+      <MobileBottomBar
+        isPlaying={isPlaying}
+        hasAudio={!!audioMetadata}
+        hasSelection={!!selection && selection.start !== selection.end}
+        onTogglePlay={handleTogglePlay}
+        onPlaySelection={handlePlaySelection}
+        onOpenRecordModal={() => setIsRecordModalOpen(true)}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+        onToggleInspector={() => setIsMobileInspectorOpen((prev) => !prev)}
+        isInspectorOpen={isMobileInspectorOpen}
+        onOpenToolsMenu={() => setIsMobileToolsOpen(true)}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+      />
+
+      {/* Mobile Tools Drawer (Collapsible Complete Toolbar for Mobile) */}
+      <MobileToolsDrawer
+        isOpen={isMobileToolsOpen}
+        onClose={() => setIsMobileToolsOpen(false)}
+        showPitch={showPitch}
+        showFormants={showFormants}
+        showIntensity={showIntensity}
+        onTogglePitch={() => setShowPitch((prev) => !prev)}
+        onToggleFormants={() => setShowFormants((prev) => !prev)}
+        onToggleIntensity={() => setShowIntensity((prev) => !prev)}
+        colorMap={colorMap}
+        onChangeColorMap={setColorMap}
+        onOpenASRModal={() => setIsASRModalOpen(true)}
+        onOpenCustomTextModal={() => setIsCustomTextModalOpen(true)}
+        onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
+        onOpenSpectralSliceModal={() => handleOpenSpectralSlice()}
+        onOpenAnalysisSettingsModal={() => setIsAnalysisSettingsOpen(true)}
+        onOpenAcousticTable={() => setIsAcousticTableOpen(true)}
+        showIpaBar={showIpaBar}
+        onToggleIpaBar={() => setShowIpaBar((prev) => !prev)}
+        onOpenShortcutsModal={() => setIsShortcutsModalOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onExportTextGrid={() => {
+          handleExportTextGrid();
+          showToast('TextGrid を保存しました');
+        }}
+        onExportSelectedAudio={() => handleExportSelectedAudio()}
+        hasAudio={!!audioMetadata}
+        hasSelection={!!selection && selection.start !== selection.end}
+      />
 
       {/* Modals Container */}
       <EditorModalsContainer

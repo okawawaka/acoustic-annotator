@@ -331,8 +331,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/70 backdrop-blur-none p-4">
-      <div className="w-full max-w-md bg-white border-2 border-[#111111] text-[#111111] text-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/70 backdrop-blur-none p-2 sm:p-4">
+      <div className="w-full max-w-md max-h-[92vh] flex flex-col bg-white border-2 border-[#111111] text-[#111111] text-xs shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#111111] bg-white">
           <div className="flex items-center space-x-2 font-extrabold text-xs uppercase tracking-wider text-[#111111]">
@@ -351,7 +351,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 space-y-4">
+        <div className="p-3.5 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
           {/* Error Banner */}
           {errorMessage && (
             <div className="p-3 bg-[#E30613]/10 border border-[#E30613] text-[#E30613] flex items-start space-x-2 text-[11px] leading-relaxed font-mono">
@@ -414,7 +414,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 type="button"
                 onClick={isRecording ? handleStopRecording : handleStartRecording}
                 disabled={permissionState !== 'granted' || isProcessingWav}
-                className={`w-14 h-14 border-2 border-[#111111] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed ${
+                className={`w-16 h-16 border-2 border-[#111111] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed ${
                   isRecording
                     ? 'bg-[#E30613] text-white border-[#E30613] animate-pulse'
                     : 'bg-[#111111] text-white hover:bg-[#E30613] hover:border-[#E30613]'
@@ -521,7 +521,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             type="button"
             onClick={handleApplyRecording}
             disabled={!recordedWavFile || isRecording || isProcessingWav}
-            className="flex items-center px-4 py-1.5 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+            className="min-h-[38px] flex items-center px-4 py-1.5 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
           >
             <Check className="w-3.5 h-3.5 mr-1.5" />
             分析エディタに読み込む
