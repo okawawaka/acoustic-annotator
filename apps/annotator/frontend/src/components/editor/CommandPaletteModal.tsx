@@ -131,7 +131,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="コマンドを検索 (例: play, split, slice, vad, zoom, pitch, tsv)..."
-            className="w-full bg-transparent text-sm font-semibold outline-none text-[#111111] placeholder:text-[#aaaaaf] font-sans"
+            className="w-full bg-transparent text-base sm:text-sm font-semibold outline-none text-[#111111] placeholder:text-[#aaaaaf] font-sans"
           />
           <kbd className="text-[10px] font-mono px-1.5 py-0.5 bg-[#f0f0f4] border border-[#e0e0e6] text-[#777780] uppercase tracking-wider ml-2 flex-shrink-0">
             ESC

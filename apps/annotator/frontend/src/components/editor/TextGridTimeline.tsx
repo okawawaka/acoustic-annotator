@@ -291,7 +291,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 }
               }}
               placeholder={selection ? "ラベル (Enter確定)..." : "区間を選択"}
-              className="w-full px-2.5 py-1 bg-white border border-[#111111] font-sans text-[#111111] text-xs font-semibold outline-none focus:ring-1 focus:ring-[#111111] disabled:bg-[#f0f0f4] disabled:text-[#aaaaaf]"
+              className="w-full px-2.5 py-1 bg-white border border-[#111111] font-sans text-[#111111] text-base sm:text-xs font-semibold outline-none focus:ring-1 focus:ring-[#111111] disabled:bg-[#f0f0f4] disabled:text-[#aaaaaf]"
             />
           </div>
 
@@ -305,7 +305,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleInsertChar(sym)}
-                  className="px-1.5 h-6 min-w-[22px] flex items-center justify-center font-sans text-xs font-bold bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-colors"
+                  className="px-1.5 sm:px-1.5 h-7 sm:h-6 min-w-[28px] sm:min-w-[22px] flex items-center justify-center font-sans text-sm sm:text-xs font-bold bg-white border border-[#e0e0e6] hover:border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-colors"
                   title={`${sym} : ${name} (クリックでカーソル位置に挿入)`}
                 >
                   {sym}

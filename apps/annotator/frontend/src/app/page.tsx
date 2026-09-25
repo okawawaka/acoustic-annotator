@@ -14,6 +14,7 @@ import { EmptyLandingView } from '@/components/editor/EmptyLandingView';
 import { HeaderBar } from '@/components/layout/HeaderBar';
 import { MobileBottomBar } from '@/components/editor/MobileBottomBar';
 import { MobileToolsDrawer } from '@/components/editor/MobileToolsDrawer';
+import { MobileLabelEditorBar } from '@/components/editor/MobileLabelEditorBar';
 import { TrackResizeHandle } from '@/components/editor/TrackResizeHandle';
 import { ToastNotification } from '@/components/common/ToastNotification';
 
@@ -102,6 +103,7 @@ export default function AnnotatorApp() {
   // Mobile UI States
   const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
   const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
+  const [isMobileLabelBarOpen, setIsMobileLabelBarOpen] = useState(true);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -111,6 +113,13 @@ export default function AnnotatorApp() {
       setToastMessage((cur) => (cur === msg ? null : cur));
     }, 2500);
   }, []);
+
+  // Auto open mobile label bar on selection
+  useEffect(() => {
+    if (selection && selection.start !== selection.end) {
+      setIsMobileLabelBarOpen(true);
+    }
+  }, [selection]);
 
   // Track dynamic heights resizing hook
   const {
@@ -650,6 +659,20 @@ export default function AnnotatorApp() {
         )}
       </main>
 
+      {/* Mobile Quick Label & IPA Editor Bar */}
+      {selection && selection.start !== selection.end && isMobileLabelBarOpen && (
+        <MobileLabelEditorBar
+          selectedLabel={selectedLabel}
+          selection={selection}
+          activeTierName={textGridData?.tiers[activeTierIdx]?.name}
+          onUpdateLabel={handleUpdateSelectedLabel}
+          onSelectPrevInterval={handleSelectPrevInterval}
+          onSelectNextInterval={handleSelectNextInterval}
+          onPlaySelection={handlePlaySelection}
+          onClose={() => setIsMobileLabelBarOpen(false)}
+        />
+      )}
+
       {/* Mobile Bottom Bar (Thumb-friendly Navigation & Controls) */}
       <MobileBottomBar
         isPlaying={isPlaying}
@@ -664,6 +687,9 @@ export default function AnnotatorApp() {
         onToggleInspector={() => setIsMobileInspectorOpen((prev) => !prev)}
         isInspectorOpen={isMobileInspectorOpen}
         onOpenToolsMenu={() => setIsMobileToolsOpen(true)}
+        onToggleLabelEditor={() => setIsMobileLabelBarOpen((prev) => !prev)}
+        isLabelEditorOpen={isMobileLabelBarOpen}
+        onInsertBoundary={() => handleInsertBoundaryAt()}
         canUndo={canUndo}
         canRedo={canRedo}
         onUndo={handleUndo}

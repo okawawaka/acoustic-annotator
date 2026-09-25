@@ -70,7 +70,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="ここに手動で起こしたテキストを貼り付けてください。&#10;改行ごとに1つの区間として自動配置されます。"
-              className="w-full bg-white border border-[#111111] p-2.5 text-xs font-mono outline-none resize-none"
+              className="w-full bg-white border border-[#111111] p-2.5 text-base sm:text-xs font-mono outline-none resize-none"
             />
           </div>
 
@@ -102,7 +102,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
               <select
                 value={selectedTier}
                 onChange={(e) => setSelectedTier(e.target.value)}
-                className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none font-mono"
+                className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none font-mono text-base sm:text-xs"
               >
                 {existingTierNames.map((name) => (
                   <option key={name} value={name}>
@@ -115,7 +115,7 @@ export const CustomTextModal: React.FC<CustomTextModalProps> = ({
                 type="text"
                 value={newTierName}
                 onChange={(e) => setNewTierName(e.target.value)}
-                className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none font-mono"
+                className="w-full bg-white border border-[#111111] px-2.5 py-1.5 outline-none font-mono text-base sm:text-xs"
                 placeholder="Script"
               />
             )}

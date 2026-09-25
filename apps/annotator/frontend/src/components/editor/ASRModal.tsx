@@ -179,7 +179,7 @@ export const ASRModal: React.FC<ASRModalProps> = ({
                   <select
                     value={whisperModel}
                     onChange={(e) => setWhisperModel(e.target.value)}
-                    className="w-full bg-white border border-[#111111] px-2.5 py-1.5 text-xs outline-none font-mono font-semibold"
+                    className="w-full bg-white border border-[#111111] px-2.5 py-1.5 text-base sm:text-xs outline-none font-mono font-semibold"
                   >
                     <option value="tiny">tiny (最速 / 軽量)</option>
                     <option value="base">base (標準 / 推奨)</option>

@@ -1,7 +1,18 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
-import { Play, Pause, Mic, ZoomIn, ZoomOut, Maximize2, Activity, MoreHorizontal, RotateCcw, RotateCw } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  Mic,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Activity,
+  MoreHorizontal,
+  Type,
+  SplitSquareVertical,
+} from 'lucide-react';
 
 interface MobileBottomBarProps {
   isPlaying: boolean;
@@ -16,6 +27,9 @@ interface MobileBottomBarProps {
   onToggleInspector: () => void;
   isInspectorOpen: boolean;
   onOpenToolsMenu: () => void;
+  onToggleLabelEditor?: () => void;
+  isLabelEditorOpen?: boolean;
+  onInsertBoundary?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   onUndo?: () => void;
@@ -35,6 +49,9 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
   onToggleInspector,
   isInspectorOpen,
   onOpenToolsMenu,
+  onToggleLabelEditor,
+  isLabelEditorOpen = false,
+  onInsertBoundary,
   canUndo = false,
   canRedo = false,
   onUndo,
@@ -70,17 +87,31 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
           </span>
         </button>
 
-        {/* Play Selection */}
-        {hasSelection && onPlaySelection && (
+        {/* Label Editor Toggle (When Selection is active) */}
+        {hasSelection && onToggleLabelEditor ? (
           <button
-            onClick={onPlaySelection}
-            className="flex flex-col items-center justify-center flex-1 py-1 px-1 bg-[#f0f0f4] text-[#111111] border border-[#111111] active:bg-[#111111] active:text-white transition-colors"
-            title="選択区間再生 (Tab)"
+            onClick={onToggleLabelEditor}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 border transition-colors ${
+              isLabelEditorOpen
+                ? 'bg-[#111111] text-white border-[#111111]'
+                : 'bg-[#f0f0f4] text-[#111111] border-[#111111] active:bg-[#111111] active:text-white'
+            }`}
+            title="選択区間のテキスト入力・IPA記号パレット"
           >
-            <Play className="w-4 h-4 mb-0.5 fill-current" />
-            <span className="text-[9px] font-bold uppercase tracking-wider font-mono">区間</span>
+            <Type className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px] font-bold uppercase tracking-wider font-mono">文字入力</span>
           </button>
-        )}
+        ) : onInsertBoundary ? (
+          <button
+            onClick={onInsertBoundary}
+            disabled={!hasAudio}
+            className="flex flex-col items-center justify-center flex-1 py-1 px-1 bg-white border border-[#111111] text-[#111111] active:bg-[#111111] active:text-white disabled:opacity-30 transition-colors"
+            title="現在位置に境界線を挿入"
+          >
+            <SplitSquareVertical className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px] font-bold uppercase tracking-wider font-mono">+境界</span>
+          </button>
+        ) : null}
 
         {/* Zoom Controls Compact */}
         <div className="flex items-center border border-[#111111] bg-[#f9f9fb]">
