@@ -84,7 +84,7 @@ export function useKeyboardShortcuts({
       } else if (e.altKey && e.code === 'ArrowLeft') {
         e.preventDefault();
         onSelectPrevInterval();
-      } else if (e.altKey && (e.code === 'Backspace' || e.code === 'Delete')) {
+      } else if (e.code === 'Backspace' || e.code === 'Delete' || e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         onDeleteBoundary();
       } else if (e.shiftKey && (e.code === 'KeyE' || e.key === 'E')) {

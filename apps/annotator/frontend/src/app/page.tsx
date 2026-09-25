@@ -469,6 +469,7 @@ export default function AnnotatorApp() {
                 onZoomOut={handleZoomOut}
                 onResetZoom={handleResetZoom}
                 onInsertBoundary={() => handleInsertBoundaryAt()}
+                onDeleteBoundary={handleDeleteBoundary}
                 onOpenASRModal={() => setIsASRModalOpen(true)}
                 onOpenCustomTextModal={() => setIsCustomTextModalOpen(true)}
                 onOpenVowelSpaceModal={() => setIsVowelSpaceModalOpen(true)}
@@ -669,6 +670,7 @@ export default function AnnotatorApp() {
           onSelectPrevInterval={handleSelectPrevInterval}
           onSelectNextInterval={handleSelectNextInterval}
           onPlaySelection={handlePlaySelection}
+          onDeleteBoundary={handleDeleteBoundary}
           onClose={() => setIsMobileLabelBarOpen(false)}
         />
       )}

@@ -26,7 +26,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
       title: 'TextGrid 編集 (Boundary & Annotation)',
       items: [
         { key: 'Enter', desc: '再生ヘッド位置に新しい境界線を挿入' },
-        { key: 'Alt + Delete / BS', desc: '選択区間の境界線を削除して前後の区間を結合' },
+        { key: 'Delete / BS (Alt+Del)', desc: '選択区間の境界線を削除して前後の区間を結合' },
         { key: '文字入力', desc: '区間を選択した状態で直接キー入力するとラベルを編集' },
         { key: 'マウスドラッグ', desc: '波形・スペクトログラム上でドラッグして範囲選択' },
         { key: '境界線上ドラッグ', desc: 'TextGridの境界線を左右にドラッグしてタイミング微調整' },

@@ -52,6 +52,7 @@ interface ControlToolbarProps {
   onZoomOut: () => void;
   onResetZoom: () => void;
   onInsertBoundary: () => void;
+  onDeleteBoundary?: () => void;
   onOpenASRModal: () => void;
   onOpenCustomTextModal: () => void;
   onOpenVowelSpaceModal: () => void;
@@ -101,6 +102,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
   onZoomOut,
   onResetZoom,
   onInsertBoundary,
+  onDeleteBoundary,
   onOpenASRModal,
   onOpenCustomTextModal,
   onOpenVowelSpaceModal,

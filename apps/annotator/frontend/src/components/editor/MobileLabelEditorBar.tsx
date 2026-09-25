@@ -9,6 +9,7 @@ import {
   X,
   Volume2,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 interface MobileLabelEditorBarProps {
@@ -19,6 +20,7 @@ interface MobileLabelEditorBarProps {
   onSelectPrevInterval: () => void;
   onSelectNextInterval: () => void;
   onPlaySelection: () => void;
+  onDeleteBoundary?: () => void;
   onClose?: () => void;
 }
 
@@ -109,6 +111,7 @@ export const MobileLabelEditorBar: React.FC<MobileLabelEditorBarProps> = ({
   onSelectPrevInterval,
   onSelectNextInterval,
   onPlaySelection,
+  onDeleteBoundary,
   onClose,
 }) => {
   const [activeTabIdx, setActiveTabIdx] = useState(0);
@@ -162,6 +165,17 @@ export const MobileLabelEditorBar: React.FC<MobileLabelEditorBarProps> = ({
         </div>
 
         <div className="flex items-center space-x-1 flex-shrink-0">
+          {onDeleteBoundary && (
+            <button
+              type="button"
+              onClick={onDeleteBoundary}
+              className="p-1 px-1.5 bg-white border border-[#E30613] active:bg-[#E30613] active:text-white text-[#E30613] flex items-center space-x-0.5 text-[10px] font-bold transition-colors"
+              title="この区間の境界を削除して直前区間とマージ"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>削除</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onPlaySelection}

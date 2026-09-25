@@ -193,6 +193,49 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
     setEditingKey(null);
   };
 
+  // タイムライン上の特定の境界線を直接削除して前後区間をマージ
+  const handleDeleteSpecificBoundary = (tierIdx: number, entryIdx: number) => {
+    const tier = tiers[tierIdx];
+    if (tier.tier_type !== 'interval' || tier.entries.length <= 1) return;
+    if (entryIdx >= tier.entries.length - 1) return; // 終端境界は削除不可
+
+    onBoundaryDragStart?.(); // 履歴プッシュ
+
+    const entries = [...(tier.entries as IntervalEntry[])];
+    const left = entries[entryIdx];
+    const right = entries[entryIdx + 1];
+
+    const merged: IntervalEntry = {
+      start: left.start,
+      end: right.end,
+      label: left.label || right.label,
+    };
+
+    entries.splice(entryIdx, 2, merged);
+
+    const newTiers = [...tiers];
+    newTiers[tierIdx] = { ...tier, entries };
+    onUpdateTiers(newTiers, true);
+    onSelectInterval(merged.start, merged.end, merged.label);
+    onSeek?.(merged.start);
+  };
+
+  // ポイントティア上の特定の点を直接削除
+  const handleDeletePoint = (tierIdx: number, pointIdx: number) => {
+    const tier = tiers[tierIdx];
+    if (tier.tier_type !== 'point' || tier.entries.length === 0) return;
+
+    onBoundaryDragStart?.(); // 履歴プッシュ
+
+    const entries = [...(tier.entries as PointEntry[])];
+    entries.splice(pointIdx, 1);
+
+    const newTiers = [...tiers];
+    newTiers[tierIdx] = { ...tier, entries };
+    onUpdateTiers(newTiers, true);
+    setEditingKey(null);
+  };
+
   const handleBoundaryDragStart = (e: React.PointerEvent, tierIdx: number, entryIdx: number) => {
     e.stopPropagation();
     onBoundaryDragStart?.();
