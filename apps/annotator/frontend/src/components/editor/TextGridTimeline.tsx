@@ -20,8 +20,8 @@ interface TextGridTimelineProps {
   onUpdateTiers: (tiers: Tier[], saveHistory?: boolean) => void;
   onSelectInterval: (start: number, end: number, label?: string) => void;
   onSeek?: (time: number) => void;
-  onUpdateSelectedLabel?: (label: string) => void;
-  onInsertBoundaryAt?: (time: number) => void;
+  onUpdateSelectedLabel?: (label: string, targetInterval?: { start: number; end: number }) => void;
+  onInsertBoundaryAt?: (time?: number) => void;
   onDeleteBoundary?: () => void;
   onSelectPrevInterval?: () => void;
   onSelectNextInterval?: () => void;
@@ -65,6 +65,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   const paletteRef = useRef<HTMLDivElement>(null);
   const [showIpaPalette, setShowIpaPalette] = useState(false);
   const [activeIpaTab, setActiveIpaTab] = useState(0);
+
+  // 選択区間またはアクティブティアが変更されたら、インライン編集モードを自動終了
+  useEffect(() => {
+    setEditingKey(null);
+  }, [selection?.start, selection?.end, activeTierIdx]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -183,6 +188,7 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
   };
 
   const saveEditLabel = (tierIdx: number, entryIdx: number) => {
+    if (editingKey !== `${tierIdx}-${entryIdx}`) return;
     const newTiers = [...tiers];
     const targetTier = { ...newTiers[tierIdx] };
     const targetEntry = { ...targetTier.entries[entryIdx] };
@@ -313,7 +319,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
               type="text"
               disabled={!selection}
               value={selection ? (selectedLabel ?? '') : ''}
-              onChange={(e) => onUpdateSelectedLabel?.(e.target.value)}
+              onChange={(e) => {
+                if (selection) {
+                  onUpdateSelectedLabel?.(e.target.value, selection);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === 'Escape') {
                   e.preventDefault();
@@ -548,6 +558,10 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                 onPointerMove={handleTrackPointerMove}
                 onPointerLeave={() => onHoverTimeChange(null)}
                 onClick={(e) => {
+                  setEditingKey(null);
+                  if (labelInputRef.current && document.activeElement === labelInputRef.current) {
+                    labelInputRef.current.blur();
+                  }
                   const rect = e.currentTarget.getBoundingClientRect();
                   const clickX = e.clientX - rect.left;
                   const ratio = rect.width > 0 ? Math.max(0, Math.min(1, clickX / rect.width)) : 0;
@@ -615,6 +629,10 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
+                          setEditingKey(null);
+                          if (labelInputRef.current && document.activeElement === labelInputRef.current) {
+                            labelInputRef.current.blur();
+                          }
                           const rect = e.currentTarget.getBoundingClientRect();
                           const clickX = e.clientX - rect.left;
                           const ratio = rect.width > 0 ? Math.max(0, Math.min(1, clickX / rect.width)) : 0;
@@ -635,6 +653,9 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                               autoFocus
                               value={editingText}
                               onChange={(e) => setEditingText(e.target.value)}
+                              onBlur={() => {
+                                saveEditLabel(tierIdx, entryIdx);
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEditLabel(tierIdx, entryIdx);
                                 if (e.key === 'Escape') setEditingKey(null);
@@ -678,6 +699,15 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                         key={pointIdx}
                         style={{ left: `${leftPct}%` }}
                         className="absolute top-0 bottom-0 -ml-[1px] w-[2px] bg-[#111111] flex flex-col items-center justify-start cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingKey(null);
+                          if (labelInputRef.current && document.activeElement === labelInputRef.current) {
+                            labelInputRef.current.blur();
+                          }
+                          onSelectTier(tierIdx);
+                          onSeek?.(point.time);
+                        }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           startEditLabel(tierIdx, pointIdx, point.label);
@@ -691,6 +721,9 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                               autoFocus
                               value={editingText}
                               onChange={(e) => setEditingText(e.target.value)}
+                              onBlur={() => {
+                                saveEditLabel(tierIdx, pointIdx);
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEditLabel(tierIdx, pointIdx);
                                 if (e.key === 'Escape') setEditingKey(null);

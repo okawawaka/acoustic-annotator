@@ -16,7 +16,7 @@ interface MobileLabelEditorBarProps {
   selectedLabel: string | null;
   selection: { start: number; end: number } | null;
   activeTierName?: string;
-  onUpdateLabel: (newLabel: string) => void;
+  onUpdateLabel: (newLabel: string, targetInterval?: { start: number; end: number }) => void;
   onSelectPrevInterval: () => void;
   onSelectNextInterval: () => void;
   onPlaySelection: () => void;
@@ -119,6 +119,7 @@ export const MobileLabelEditorBar: React.FC<MobileLabelEditorBarProps> = ({
 
   // Focus preservation helper for inserting symbols at cursor position
   const handleInsertSymbol = (sym: string) => {
+    if (!selection) return;
     const input = inputRef.current;
     const currentVal = selectedLabel || '';
 
@@ -126,7 +127,7 @@ export const MobileLabelEditorBar: React.FC<MobileLabelEditorBarProps> = ({
       const start = input.selectionStart ?? currentVal.length;
       const end = input.selectionEnd ?? currentVal.length;
       const nextVal = currentVal.slice(0, start) + sym + currentVal.slice(end);
-      onUpdateLabel(nextVal);
+      onUpdateLabel(nextVal, selection);
 
       // Restore cursor position right after the inserted symbol
       requestAnimationFrame(() => {
@@ -137,12 +138,13 @@ export const MobileLabelEditorBar: React.FC<MobileLabelEditorBarProps> = ({
         }
       });
     } else {
-      onUpdateLabel(currentVal + sym);
+      onUpdateLabel(currentVal + sym, selection);
     }
   };
 
   const handleClear = () => {
-    onUpdateLabel('');
+    if (!selection) return;
+    onUpdateLabel('', selection);
     inputRef.current?.focus();
   };
 
@@ -221,7 +223,11 @@ export const MobileLabelEditorBar: React.FC<MobileLabelEditorBarProps> = ({
             ref={inputRef}
             type="text"
             value={selectedLabel ?? ''}
-            onChange={(e) => onUpdateLabel(e.target.value)}
+            onChange={(e) => {
+              if (selection) {
+                onUpdateLabel(e.target.value, selection);
+              }
+            }}
             placeholder="ラベルを入力 (例: a, ʃ, sil)..."
             className="w-full h-10 px-3 pr-8 bg-[#f9f9fb] border-2 border-[#111111] text-[#111111] font-sans font-bold text-base outline-none focus:bg-white focus:border-[#E30613] transition-colors"
             autoComplete="off"

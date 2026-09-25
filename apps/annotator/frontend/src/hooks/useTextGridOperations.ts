@@ -70,9 +70,14 @@ export function useTextGridOperations({
   }, [textGridData, currentTime, activeTierIdx, pushHistory, setTextGridData, setSelection, setSelectedLabel]);
 
   // 選択区間ラベルの更新
-  const handleUpdateSelectedLabel = useCallback((newLabel: string) => {
-    setSelectedLabel(newLabel);
-    if (!textGridData || !selection) return;
+  const handleUpdateSelectedLabel = useCallback((newLabel: string, targetInterval?: { start: number; end: number }) => {
+    const activeTarget = targetInterval || selection;
+    if (!textGridData || !activeTarget) return;
+
+    // 現在の選択区間への更新、またはターゲット指定がない場合は選択中ラベルStateも更新
+    if (!targetInterval || (selection && Math.abs(selection.start - targetInterval.start) < 0.005 && Math.abs(selection.end - targetInterval.end) < 0.005)) {
+      setSelectedLabel(newLabel);
+    }
 
     recordTypingSession();
 
@@ -80,7 +85,7 @@ export function useTextGridOperations({
     const newTiers = textGridData.tiers.map((tier, idx) => {
       if (idx === targetIdx && tier.tier_type === 'interval') {
         const entries = (tier.entries as IntervalEntry[]).map((entry) => {
-          const match = Math.abs(entry.start - selection.start) < 0.005 && Math.abs(entry.end - selection.end) < 0.005;
+          const match = Math.abs(entry.start - activeTarget.start) < 0.005 && Math.abs(entry.end - activeTarget.end) < 0.005;
           if (match) {
             return { ...entry, label: newLabel };
           }
