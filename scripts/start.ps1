@@ -54,9 +54,15 @@ Write-Host ""
 $rootPath = (Resolve-Path "$PSScriptRoot\..").Path
 $backendPath = Join-Path $rootPath "apps\annotator\backend"
 $frontendPath = Join-Path $rootPath "apps\annotator\frontend"
+$backendVenvPython = Join-Path $backendPath ".venv\Scripts\python.exe"
 
 Write-Host "1. Starting Backend (FastAPI with hot-reload)..." -ForegroundColor Yellow
-Start-Process -FilePath $uvCmd -ArgumentList "run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $backendPath
+if (Test-Path $backendVenvPython) {
+    # 日本語パス等で uv trampoline のパス正規化エラーを防止するため venv python を直接起動
+    Start-Process -FilePath $backendVenvPython -ArgumentList "-m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $backendPath
+} else {
+    Start-Process -FilePath $uvCmd -ArgumentList "run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $backendPath
+}
 
 Write-Host "2. Starting Frontend (Next.js)..." -ForegroundColor Yellow
 Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm run dev" -WorkingDirectory $frontendPath

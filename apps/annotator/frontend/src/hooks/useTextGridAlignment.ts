@@ -5,7 +5,7 @@ import { AudioMetadata, TextGridData } from '@/types';
 import { ASRModalRunParams } from '@/components/editor/ASRModal';
 import { computeAcousticVAD, createContiguousIntervalsFromSpeechSegments } from '@/lib/vadUtils';
 import { audioBufferToWavBlob } from '@/lib/audioUtils';
-import { uploadAudio, transcribeAudio } from '@/lib/api';
+import { uploadAudio, transcribeAudio, checkBackendHealth } from '@/lib/api';
 
 interface UseTextGridAlignmentProps {
   audioMetadata: AudioMetadata | null;

@@ -12,7 +12,12 @@ echo "  PCブラウザ用URL:    http://localhost:3000"
 echo "  iPad / スマホ用URL: http://${LOCAL_IP}:3000"
 echo "========================================================"
 
-cd apps/annotator/backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+cd apps/annotator/backend
+if [ -f ".venv/bin/python" ]; then
+  .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+else
+  uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+fi
 BACKEND_PID=$!
 
 cd ../frontend && npm run dev &

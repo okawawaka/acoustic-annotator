@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, SplitSquareVertical, Sparkles, Mic, Volume2 } from 'lucide-react';
+import { X, SplitSquareVertical, Sparkles, Mic, Volume2, AlertTriangle } from 'lucide-react';
 
 export interface ASRModalRunParams {
   mode: 'vad' | 'whisper';
@@ -171,6 +171,28 @@ export const ASRModal: React.FC<ASRModalProps> = ({
                 音声認識モデルにより音声を自動文字起こしし、さらに音響エネルギーの極小値（acoustic energy valley）にタイムスタンプをスナップ補正して正確な TextGrid 境界を作成します。
               </div>
 
+              {!isBackendOnline && (
+                <div className="p-3.5 bg-amber-50 border-2 border-amber-500 text-amber-950 space-y-2 text-xs">
+                  <div className="flex items-center space-x-1.5 font-bold text-amber-900">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span>バックエンドAPIサーバー（FastAPI）が未接続です</span>
+                  </div>
+                  <p className="leading-relaxed text-[11px] text-amber-900">
+                    Whisper AI 文字起こしはローカルPython環境（ポート 8000）で動作します。<br />
+                    本機能を利用するには、同梱の <code className="bg-amber-100 px-1.5 py-0.5 font-mono font-bold border border-amber-300">start.bat</code>（Mac/Linuxは <code className="bg-amber-100 px-1.5 py-0.5 font-mono font-bold border border-amber-300">start.sh</code>）を実行してサーバーを起動してください。
+                  </p>
+                  <div className="pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('vad')}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase tracking-wider transition-colors flex items-center space-x-1"
+                    >
+                      <span>サーバー不要の「VAD 無音ポーズ分割」を使う →</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777780] mb-1">
@@ -271,14 +293,16 @@ export const ASRModal: React.FC<ASRModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={isLoading}
-                className="px-4 py-1.5 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-30 flex items-center space-x-1.5"
+                disabled={isLoading || (!isBackendOnline && activeTab === 'whisper')}
+                className="px-4 py-1.5 border border-[#111111] bg-[#111111] text-white hover:bg-white hover:text-[#111111] font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center space-x-1.5"
               >
                 {isLoading ? (
                   <>
                     <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
                     <span>処理中...</span>
                   </>
+                ) : !isBackendOnline && activeTab === 'whisper' ? (
+                  <span>API未接続 (start.batを起動)</span>
                 ) : (
                   <span>{activeTab === 'whisper' ? 'Whisper 認識を開始' : '自動分割を実行'}</span>
                 )}
