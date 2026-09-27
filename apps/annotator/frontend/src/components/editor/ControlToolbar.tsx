@@ -149,7 +149,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           className="px-2 py-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] disabled:opacity-20 font-medium transition-colors text-[11px]"
           title="選択区間を再生 (Tab)"
         >
-          区間再生 [Tab]
+          区間再生
         </button>
 
         <button
@@ -180,12 +180,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         <div className="font-mono text-[#444448] bg-[#f0f0f4] px-1.5 py-1 border border-[#e0e0e6] text-[11px] whitespace-nowrap">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
-
-        {selectionDuration && (
-          <div className="font-mono text-[#E30613] bg-[#E30613]/10 px-1.5 py-1 border border-[#E30613]/30 text-[11px] font-semibold whitespace-nowrap" title="選択区間の長さ">
-            SEL: {selectionDuration}s
-          </div>
-        )}
       </div>
 
       {/* Group 2: Editing Controls */}
@@ -197,7 +191,7 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
           title="現在位置に境界を挿入 (Enter)"
         >
           <SplitSquareVertical className="w-3.5 h-3.5 mr-1" />
-          境界挿入 [Enter]
+          境界挿入
         </button>
 
         <button
@@ -226,7 +220,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         {/* 話者設定 */}
         <div className="flex items-center space-x-1 border border-[#e0e0e6] px-1.5 py-0.5 bg-white text-[11px]" title="話者の声道長に応じたLPCフォルマント上限周波数（女性: 5500Hz / 男性: 5000Hz）">
           <User className="w-3 h-3 text-[#777780]" />
-          <span className="text-[#777780] font-mono uppercase text-[10px]">LPC:</span>
           <select
             value={maxFormantFreq}
             onChange={(e) => onChangeMaxFormantFreq(parseFloat(e.target.value))}
@@ -241,7 +234,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         {/* 縦軸周波数レンジの手動切り替えセレクター */}
         <div className="flex items-center space-x-1 border border-[#e0e0e6] px-1.5 py-0.5 bg-white text-[11px]" title="音響キャンバスの縦軸上限周波数を手動設定（F0単体観察時は500Hz、フォルマント時は5000Hz等）">
           <Sliders className="w-3 h-3 text-[#777780]" />
-          <span className="text-[#777780] font-mono uppercase text-[10px]">Freq:</span>
           <select
             value={maxDisplayFreq}
             onChange={(e) => onChangeDisplayFreq(parseFloat(e.target.value))}
@@ -259,7 +251,6 @@ export const ControlToolbar: React.FC<ControlToolbarProps> = ({
         {onChangeColorMap && (
           <div className="flex items-center space-x-1 border border-[#e0e0e6] px-1.5 py-0.5 bg-white text-[11px]" title="スペクトログラム配色（Praat白黒 / Dark暗色反転 / Thermal熱分布）">
             <Palette className="w-3 h-3 text-[#777780]" />
-            <span className="text-[#777780] font-mono uppercase text-[10px]">Color:</span>
             <select
               value={colorMap}
               onChange={(e) => onChangeColorMap(e.target.value as SpectrogramColorMap)}

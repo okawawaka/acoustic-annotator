@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AcousticAnalysisData, SpectrogramColorMap } from '@/types';
@@ -471,31 +471,28 @@ export const SpectrogramCanvas: React.FC<SpectrogramCanvasProps> = ({
       {/* Track Label Header (w-32) */}
       <div className="w-16 sm:w-32 flex-shrink-0 flex flex-col justify-between p-1.5 sm:p-2 border-r border-[#e0e0e6] bg-[#fafafc] text-xs">
         <div>
-          <div className="font-bold text-[#111111] text-[10px] sm:text-[11px] leading-tight uppercase tracking-tight truncate">
-            {isPitchScale ? 'Pitch (F0)' : 'Spectrogram'}
-          </div>
-          <div className="text-[8px] sm:text-[10px] text-[#777780] font-mono">
-            {isPitchScale ? '0 - 500 Hz' : `0 - ${(maxDisplayFreq / 1000).toFixed(1)} kHz`}
+          <div className="font-bold text-[#111111] text-[10px] sm:text-xs leading-tight tracking-tight truncate">
+            {isPitchScale ? 'ピッチ' : 'スペクトログラム'}
           </div>
         </div>
 
-        <div className="space-y-1 mt-2">
+        <div className="space-y-1">
           {showPitch && (
             <div className="flex items-center text-[10px] text-[#2563eb] font-mono font-bold">
-              <span className="w-2.5 h-0.5 bg-[#2563eb] inline-block mr-1"></span>
+              <span className="w-2 h-0.5 bg-[#2563eb] inline-block mr-1"></span>
               F0
             </div>
           )}
           {showFormants && (
             <div className="flex items-center text-[10px] text-[#E30613] font-mono font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-[#E30613] inline-block mr-1"></span>
-              F1-3
+              フォルマント
             </div>
           )}
           {showIntensity && (
             <div className="flex items-center text-[10px] text-[#10b981] font-mono font-bold">
-              <span className="w-2.5 h-0.5 bg-[#10b981] inline-block mr-1"></span>
-              Int
+              <span className="w-2 h-0.5 bg-[#10b981] inline-block mr-1"></span>
+              音圧
             </div>
           )}
         </div>

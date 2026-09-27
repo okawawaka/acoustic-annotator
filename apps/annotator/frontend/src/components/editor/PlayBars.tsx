@@ -40,8 +40,8 @@ export const PlayBars: React.FC<PlayBarsProps> = ({
         title="表示中の時間範囲を再生"
       >
         <Play className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 fill-current" />
-        <span className="font-bold text-[8px] sm:text-[10px] text-[#777780] group-hover:text-white/70 uppercase">
-          Window:
+        <span className="font-bold text-[9px] sm:text-[10px] text-[#777780] group-hover:text-white/70">
+          表示:
         </span>
         <span className="font-bold">{windowSpan.toFixed(3)}s</span>
       </button>
@@ -59,11 +59,11 @@ export const PlayBars: React.FC<PlayBarsProps> = ({
       >
         <Play className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 fill-current" />
         <span
-          className={`font-bold text-[8px] sm:text-[10px] uppercase ${
+          className={`font-bold text-[9px] sm:text-[10px] ${
             hasSelection ? 'text-[#E30613] group-hover:text-white' : 'text-[#aaaaaf]'
           }`}
         >
-          Selection:
+          選択:
         </span>
         <span className="font-bold">
           {hasSelection ? `${selSpan.toFixed(3)}s` : '---'}
@@ -77,8 +77,8 @@ export const PlayBars: React.FC<PlayBarsProps> = ({
         title="音声全体を再生"
       >
         <Play className="w-2.5 h-2.5 opacity-60 group-hover:opacity-100 fill-current" />
-        <span className="font-bold text-[8px] sm:text-[10px] text-[#777780] group-hover:text-white/70 uppercase">
-          Total:
+        <span className="font-bold text-[9px] sm:text-[10px] text-[#777780] group-hover:text-white/70">
+          全体:
         </span>
         <span className="font-bold">{duration.toFixed(3)}s</span>
       </button>

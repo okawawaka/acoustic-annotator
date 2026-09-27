@@ -456,43 +456,40 @@ export default function AnnotatorApp() {
             </div>
 
             {/* Mobile Track Mode Toggle Ribbon (スマホ専用の画面モード切替) */}
-            <div className="md:hidden flex items-center justify-between px-2.5 py-1 bg-[#f0f0f4] border-b border-[#e0e0e6] text-[11px] font-mono flex-shrink-0">
-              <span className="text-[#777780] font-bold text-[10px] uppercase">表示:</span>
-              <div className="flex items-center space-x-1">
-                <button
-                  type="button"
-                  onClick={() => setMobileTrackMode('all')}
-                  className={`px-2 py-0.5 border text-[10px] font-bold transition-colors ${
-                    mobileTrackMode === 'all'
-                      ? 'bg-[#111111] text-white border-[#111111]'
-                      : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
-                  }`}
-                >
-                  すべて
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileTrackMode('waveform')}
-                  className={`px-2 py-0.5 border text-[10px] font-bold transition-colors ${
-                    mobileTrackMode === 'waveform'
-                      ? 'bg-[#111111] text-white border-[#111111]'
-                      : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
-                  }`}
-                >
-                  波形＋文字
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileTrackMode('spectrogram')}
-                  className={`px-2 py-0.5 border text-[10px] font-bold transition-colors ${
-                    mobileTrackMode === 'spectrogram'
-                      ? 'bg-[#111111] text-white border-[#111111]'
-                      : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
-                  }`}
-                >
-                  スペクトロ＋文字
-                </button>
-              </div>
+            <div className="md:hidden flex items-center justify-center space-x-1.5 px-2.5 py-1 bg-[#f0f0f4] border-b border-[#e0e0e6] text-[11px] font-mono flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileTrackMode('all')}
+                className={`flex-1 py-1 border text-[10px] font-bold text-center transition-colors ${
+                  mobileTrackMode === 'all'
+                    ? 'bg-[#111111] text-white border-[#111111]'
+                    : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
+                }`}
+              >
+                すべて
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTrackMode('waveform')}
+                className={`flex-1 py-1 border text-[10px] font-bold text-center transition-colors ${
+                  mobileTrackMode === 'waveform'
+                    ? 'bg-[#111111] text-white border-[#111111]'
+                    : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
+                }`}
+              >
+                波形＋文字
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTrackMode('spectrogram')}
+                className={`flex-1 py-1 border text-[10px] font-bold text-center transition-colors ${
+                  mobileTrackMode === 'spectrogram'
+                    ? 'bg-[#111111] text-white border-[#111111]'
+                    : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
+                }`}
+              >
+                スペクトロ＋文字
+              </button>
             </div>
 
             {/* Toolbar (Desktop Only) */}

@@ -308,11 +308,11 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
       {/* Praat-style Quick Label & Operation Bar */}
       <div className="flex flex-wrap items-center justify-between px-3 py-1.5 bg-[#f0f0f4] border-b border-[#e0e0e6] text-xs gap-2">
         <div className="flex items-center space-x-2 flex-1 min-w-[300px]">
-          <span className="text-[#111111] font-mono font-bold whitespace-nowrap text-[11px]">
-            {selection
-              ? `[${tiers[activeTierIdx]?.name || 'Tier'}] ${(selection.end - selection.start).toFixed(3)}s (${Math.round((selection.end - selection.start) * 1000)}ms)`
-              : '区間未選択 (クリックで選択)'}
-          </span>
+          {selection && (
+            <span className="text-[#111111] font-mono font-bold whitespace-nowrap text-[11px]">
+              [{tiers[activeTierIdx]?.name || 'Tier'}] {(selection.end - selection.start).toFixed(3)}s
+            </span>
+          )}
           <div className="relative flex-1 max-w-[240px]">
             <input
               ref={labelInputRef}
@@ -343,15 +343,14 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
                   onDeleteBoundary?.();
                 }
               }}
-              placeholder={selection ? "ラベル (Enter確定)..." : "区間を選択"}
+              placeholder={selection ? "ラベル..." : ""}
               className="w-full px-2.5 py-1 bg-white border border-[#111111] font-sans text-[#111111] text-base sm:text-xs font-semibold outline-none focus:ring-1 focus:ring-[#111111] disabled:bg-[#f0f0f4] disabled:text-[#aaaaaf]"
             />
           </div>
 
-          {/* Quick IPA Buttons (Hard-to-type & High-frequency) */}
+          {/* Quick IPA Buttons */}
           {selection && (
             <div className="flex items-center space-x-1 flex-wrap gap-y-1">
-              <span className="text-[10px] text-[#777780] font-mono font-bold ml-1 mr-0.5 whitespace-nowrap uppercase">IPA:</span>
               {QUICK_IPA_SYMBOLS.map(({ sym, name }) => (
                 <button
                   key={sym}
