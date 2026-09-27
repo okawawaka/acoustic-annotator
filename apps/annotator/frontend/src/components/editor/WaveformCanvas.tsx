@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useRef, useEffect } from 'react';
 
@@ -283,19 +283,19 @@ export const WaveformCanvas: React.FC<WaveformCanvasProps> = ({
       style={{ height: `${height}px` }}
     >
       {/* Audio Left Header (Matches TextGrid Timeline Header) */}
-      <div className="w-32 flex-shrink-0 bg-[#fafafc] border-r border-[#e0e0e6] px-2 py-1.5 flex flex-col justify-between select-none z-10 text-[#111111]">
+      <div className="w-16 sm:w-32 flex-shrink-0 bg-[#fafafc] border-r border-[#e0e0e6] px-1 sm:px-2 py-1 sm:py-1.5 flex flex-col justify-between select-none z-10 text-[#111111]">
         <div>
-          <span className="font-bold text-xs text-[#111111] uppercase tracking-tight">Audio (波形)</span>
-          <div className="text-[10px] text-[#777780] font-mono mt-0.5">Mono</div>
+          <span className="font-bold text-[10px] sm:text-xs text-[#111111] uppercase tracking-tight block truncate">波形</span>
+          <div className="text-[9px] sm:text-[10px] text-[#777780] font-mono mt-0.5">Mono</div>
         </div>
 
-        <div className="text-[9px] text-[#777780] font-mono flex flex-col justify-between py-1" style={{ height: `${height - 55}px` }}>
+        <div className="text-[8px] sm:text-[9px] text-[#777780] font-mono flex flex-col justify-between py-0.5 sm:py-1" style={{ height: `${Math.max(20, height - 55)}px` }}>
           <span>+1.0</span>
           <span> 0.0</span>
           <span>-1.0</span>
         </div>
 
-        <div className="text-[9px] text-[#777780] font-mono">
+        <div className="text-[8px] sm:text-[9px] text-[#777780] font-mono truncate">
           {(duration || 0).toFixed(2)}s
         </div>
       </div>

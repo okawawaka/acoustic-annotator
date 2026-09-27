@@ -162,10 +162,16 @@ export default function AnnotatorApp() {
     handleZoomOut,
     handleResetZoom,
     handleWheel,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
   } = useViewportZoom({
     audioMetadata,
     currentTime: 0,
   });
+
+  // Mobile layout track display mode: 'all' | 'waveform' | 'spectrogram'
+  const [mobileTrackMode, setMobileTrackMode] = useState<'all' | 'waveform' | 'spectrogram'>('all');
 
   // Custom Hook: Audio Player & Playhead
   const {
@@ -429,7 +435,13 @@ export default function AnnotatorApp() {
       {/* Main Workspace */}
       <main className="flex-1 flex overflow-hidden bg-[#f9f9fb]">
         {audioMetadata ? (
-          <div className="flex-1 flex flex-col overflow-hidden bg-white" onWheel={handleWheel}>
+          <div
+            className="flex-1 flex flex-col overflow-hidden bg-white"
+            onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             {/* Minimap */}
             <div className="flex-shrink-0 border-b border-[#e0e0e6]">
               <OverviewMinimap
@@ -441,6 +453,46 @@ export default function AnnotatorApp() {
                 onSeek={handleSeek}
                 height={28}
               />
+            </div>
+
+            {/* Mobile Track Mode Toggle Ribbon (スマホ専用の画面モード切替) */}
+            <div className="md:hidden flex items-center justify-between px-2.5 py-1 bg-[#f0f0f4] border-b border-[#e0e0e6] text-[11px] font-mono flex-shrink-0">
+              <span className="text-[#777780] font-bold text-[10px] uppercase">表示:</span>
+              <div className="flex items-center space-x-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileTrackMode('all')}
+                  className={`px-2 py-0.5 border text-[10px] font-bold transition-colors ${
+                    mobileTrackMode === 'all'
+                      ? 'bg-[#111111] text-white border-[#111111]'
+                      : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
+                  }`}
+                >
+                  すべて
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTrackMode('waveform')}
+                  className={`px-2 py-0.5 border text-[10px] font-bold transition-colors ${
+                    mobileTrackMode === 'waveform'
+                      ? 'bg-[#111111] text-white border-[#111111]'
+                      : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
+                  }`}
+                >
+                  波形＋文字
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTrackMode('spectrogram')}
+                  className={`px-2 py-0.5 border text-[10px] font-bold transition-colors ${
+                    mobileTrackMode === 'spectrogram'
+                      ? 'bg-[#111111] text-white border-[#111111]'
+                      : 'bg-white text-[#777780] border-[#e0e0e6] active:bg-[#e0e0e6]'
+                  }`}
+                >
+                  スペクトロ＋文字
+                </button>
+              </div>
             </div>
 
             {/* Toolbar (Desktop Only) */}
@@ -501,7 +553,7 @@ export default function AnnotatorApp() {
             <div className="flex-1 flex overflow-hidden border-t border-[#e0e0e6]">
               <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
                 {/* Waveform */}
-                <div className="flex-shrink-0 bg-white">
+                <div className={`flex-shrink-0 bg-white ${mobileTrackMode === 'spectrogram' ? 'hidden md:block' : 'block'}`}>
                   <WaveformCanvas
                     peaks={audioMetadata.peaks}
                     duration={audioMetadata.duration}
@@ -527,7 +579,7 @@ export default function AnnotatorApp() {
                 </div>
 
                 {/* Spectrogram / Pitch Canvas (Dynamic Scale: 0-500Hz or 0-5000Hz) */}
-                <div className="flex-shrink-0 bg-white">
+                <div className={`flex-shrink-0 bg-white ${mobileTrackMode === 'waveform' ? 'hidden md:block' : 'block'}`}>
                   <SpectrogramCanvas
                     analysisData={analysisData}
                     duration={audioMetadata.duration}

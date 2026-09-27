@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Type,
   SplitSquareVertical,
+  Undo2,
 } from 'lucide-react';
 
 interface MobileBottomBarProps {
@@ -140,6 +141,19 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {/* Undo Action */}
+        {onUndo && (
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="flex flex-col items-center justify-center flex-1 py-1 px-1 bg-white text-[#111111] border border-[#111111] active:bg-[#111111] active:text-white disabled:opacity-30 transition-colors"
+            title="直前の操作を取り消す (Undo)"
+          >
+            <Undo2 className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px] font-bold uppercase tracking-wider font-mono">戻す</span>
+          </button>
+        )}
 
         {/* Inspector Bottom Sheet Toggle */}
         <button

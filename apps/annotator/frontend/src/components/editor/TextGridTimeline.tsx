@@ -680,10 +680,10 @@ export const TextGridTimeline: React.FC<TextGridTimelineProps> = ({
 
                         <div
                           onPointerDown={(e) => handleBoundaryDragStart(e, tierIdx, entryIdx)}
-                          className="absolute -right-[8px] top-0 bottom-0 w-[16px] cursor-col-resize z-20 group/handle flex items-center justify-center touch-none"
+                          className="absolute -right-[16px] sm:-right-[8px] top-0 bottom-0 w-[32px] sm:w-[16px] cursor-col-resize z-20 group/handle flex items-center justify-center touch-none select-none"
                           title="境界をドラッグして移動"
                         >
-                          <div className="w-[2px] h-full bg-transparent group-hover/handle:bg-[#E30613] transition-colors" />
+                          <div className="w-[2px] h-full bg-transparent group-hover/handle:bg-[#E30613] active:bg-[#E30613] transition-colors pointer-events-none" />
                         </div>
                       </div>
                     );
