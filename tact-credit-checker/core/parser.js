@@ -124,7 +124,7 @@ export function detectCourseOrigin(siteId = "", title = "", rawSite = {}) {
   const combined = `${siteId} ${title} ${rawSite.title || ""} ${(rawSite.props && rawSite.props.dept) || ""}`.toLowerCase();
 
   // 1. 文学部専門科目固有の明確なキーワード（人文学入門、共通基盤、共通実践、専修、特殊講義等）
-  if (/専門基礎|人文学入門|日本文化事情|異文化理解|人間と倫理|ジェンダー学概論|セクシュアリティ学概論|国際移民論|ナショナリズム|情報リテラシー|科学技術と人文学|応用倫理学演習|デジタル人文学|コミュニケーションスキル|イノベーション創出|特殊講義|特論|特殊研究|文学部.*専修|演習|講読|史料講読|原典講読|卒業論文|卒論|学士論文|巡検|実測|発掘調査|心理学実験|社会調査実習/i.test(combined)) {
+  if (/人文学入門|日本文化事情|異文化理解|人間と倫理|ジェンダー学概論|セクシュアリティ学概論|国際移民論|ナショナリズム|情報リテラシー|科学技術と人文学|応用倫理学演習|デジタル人文学|コミュニケーションスキル|イノベーション創出|特殊講義|特論|特殊研究|文学部.*専修|演習|講読|史料講読|原典講読|卒業論文|卒論|学士論文|巡検|実測|発掘調査|心理学実験|社会調査実習/i.test(combined)) {
     return "faculty";
   }
 
@@ -373,6 +373,7 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
   }
 
   const title = cleanTitle.toLowerCase();
+  const normTitle = normalizeTitle(cleanTitle);
 
   // 開講元（教養教育院 vs 文学部）による候補カテゴリプールの厳格分離
   let targetPool = categories;
@@ -407,8 +408,8 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
   // -------------------------------------------------------------
   // [B] 文学部専門科目マスターによる完全・高信頼判定
   // -------------------------------------------------------------
-  // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ）
-  if (LIT_MAJOR_BASICS.some(kw => title.includes(kw)) || title.includes("人文学入門") || title.includes("専門基礎")) {
+  // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ のみ厳格判定）
+  if (normTitle.includes("人文学入門") || LIT_MAJOR_BASICS.some(kw => title.includes(kw))) {
     const cat = targetPool.find(c => c.id === "major_basics");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
@@ -432,7 +433,6 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
   }
 
   // 5. 各専修の専門科目（courseList による高精度一致）
-  const normTitle = normalizeTitle(title);
   for (const cat of targetPool) {
     if (cat.courseList && Array.isArray(cat.courseList) && cat.courseList.length > 0) {
       for (const item of cat.courseList) {

@@ -96,9 +96,22 @@ const sportsPrac = parsed.find(c => c.categoryId === "health_sports_prac");
 assert(sportsPrac !== undefined, "健康・スポーツ科学実習 correctly categorized into health_sports_prac");
 assert(sportsPrac.credits === 1, `スポーツ科学実習は1単位 (got ${sportsPrac.credits})`);
 
-// 専門系科目：専門基礎科目（人文学入門Ⅰ・Ⅱ）
+// 専門系科目：専門基礎科目（人文学入門Ⅰ・Ⅱ のみ）
 const majorBasics = parsed.filter(c => c.categoryId === "major_basics");
 assert(majorBasics.length >= 2, `人文学入門Ⅰ・Ⅱ categorized into major_basics (found ${majorBasics.length})`);
+
+// 「人文学入門」以外の「専門基礎」を含む科目が絶対に major_basics に誤分類されないことの検証
+const nonBasicsCourses = [
+  "専門基礎英語",
+  "専門基礎物理学",
+  "専門基礎数学",
+  "哲学専門基礎演習",
+  "社会学専門基礎研究"
+];
+nonBasicsCourses.forEach(title => {
+  const p = parseCourseSite({ id: "mock_test_site", title }, categories);
+  assert(p.categoryId !== "major_basics", `'${title}' must NOT be categorized into major_basics (got '${p.categoryId}')`);
+});
 
 // 専門科目：共通基盤科目（必要2単位: 日本文化事情, 人間と倫理, ジェンダー学概論）
 const commonBaseCat = categories.find(c => c.id === "major_common_base");

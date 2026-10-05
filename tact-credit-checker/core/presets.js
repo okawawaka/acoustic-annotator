@@ -6,7 +6,7 @@
  *           名古屋大学文学部履修要覧（卒業要件124単位・専攻専門32単位・選択35単位モデル）
  */
 
-export const PRESET_VERSION = "2026.10.literature_v10";
+export const PRESET_VERSION = "2026.10.literature_v11";
 
 export const SUPPORTED_FACULTIES = [
   { id: "nu-humanities", name: "名古屋大学 文学部（人文学科・22専攻対応）" },
@@ -767,7 +767,11 @@ export function buildLiteratureCategories(deptId = "linguistics") {
       requiredCredits: 2,
       advancementRequired: 2,
       note: "人文学入門Ⅰ・人文学入門Ⅱ・人文学入門Ⅲ・人文学入門Ⅳから2単位必修（2年次進級要件。2単位を超える分は選択科目へ算入）",
-      keywords: ["人文学入門Ⅰ", "人文学入門Ⅱ", "人文学入門Ⅲ", "人文学入門Ⅳ", "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門", "専門基礎"]
+      courseList: expandCourseVariants([
+        "人文学入門Ⅰ", "人文学入門Ⅱ", "人文学入門Ⅲ", "人文学入門Ⅳ",
+        "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門"
+      ]),
+      keywords: ["人文学入門Ⅰ", "人文学入門Ⅱ", "人文学入門Ⅲ", "人文学入門Ⅳ", "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門"]
     },
 
     // --- 専門科目（計82単位） ---
