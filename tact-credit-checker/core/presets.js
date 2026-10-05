@@ -6,12 +6,45 @@
  *           名古屋大学文学部履修要覧（卒業要件124単位・専攻専門32単位・選択35単位モデル）
  */
 
-export const PRESET_VERSION = "2026.10.literature_v9";
+export const PRESET_VERSION = "2026.10.literature_v10";
 
 export const SUPPORTED_FACULTIES = [
   { id: "nu-humanities", name: "名古屋大学 文学部（人文学科・22専攻対応）" },
   { id: "general-model", name: "【自由設定】汎用大学・学部モデル" }
 ];
+
+/**
+ * 講義名の全角・半角英数バリエーションを展開
+ * TACT上の「言語学概論ａ」のような全角アルファベット表記に100%完全対応
+ * @param {Array<string>} list
+ * @returns {Array<string>}
+ */
+export function expandCourseVariants(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return [];
+  const result = new Set();
+
+  list.forEach(name => {
+    if (!name) return;
+    result.add(name);
+
+    // 半角 -> 全角変換 (a -> ａ, A -> Ａ, 1 -> １)
+    const toFull = name.replace(/[a-zA-Z0-9]/g, ch =>
+      String.fromCharCode(ch.charCodeAt(0) + 0xFEE0)
+    );
+    result.add(toFull);
+
+    // 全角 -> 半角変換 (ａ -> a, Ａ -> A, １ -> 1)
+    const toHalf = name.replace(/[ａ-ｚＡ-Ｚ０-９]/g, ch =>
+      String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)
+    );
+    result.add(toHalf);
+
+    // NFKC正規化版
+    result.add(name.normalize("NFKC"));
+  });
+
+  return Array.from(result);
+}
 
 /**
  * 文学部専攻プリセット生成ヘルパー関数
@@ -51,7 +84,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】概論系科目`,
       requiredCredits: surveyCredits,
       note: `${name}の基礎理論・概論科目（必修/選択必修）`,
-      courseList: courses.survey || [],
+      courseList: expandCourseVariants(courses.survey || []),
       keywords: courses.surveyKeywords || [name.replace("専修", "") + "概論"]
     });
   }
@@ -63,7 +96,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】講義系科目`,
       requiredCredits: lectureCredits,
       note: `${name}の講義・特殊講義科目`,
-      courseList: courses.lecture || [],
+      courseList: expandCourseVariants(courses.lecture || []),
       keywords: courses.lectureKeywords || [name.replace("専修", "") + "講義", name.replace("専修", "") + "特殊講義"]
     });
   }
@@ -75,7 +108,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】語学系科目`,
       requiredCredits: languageCredits,
       note: `${name}に関連する古典語・専門語外科目`,
-      courseList: courses.language || [],
+      courseList: expandCourseVariants(courses.language || []),
       keywords: courses.languageKeywords || ["ギリシア語", "ラテン語", "サンスクリット語", "イタリア語"]
     });
   }
@@ -87,7 +120,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】入門演習系科目`,
       requiredCredits: introSeminarCredits,
       note: `${name}の入門演習・基礎演習科目`,
-      courseList: courses.introSeminar || [],
+      courseList: expandCourseVariants(courses.introSeminar || []),
       keywords: courses.introSeminarKeywords || [name.replace("専修", "") + "入門演習", name.replace("専修", "") + "基礎演習"]
     });
   }
@@ -99,7 +132,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】調査・実習系科目`,
       requiredCredits: practiceCredits,
       note: `${name}の実習・調査・実験・フィールドワーク科目`,
-      courseList: courses.practice || [],
+      courseList: expandCourseVariants(courses.practice || []),
       keywords: courses.practiceKeywords || [name.replace("専修", "") + "実習", "調査実習", "実験実習"]
     });
   }
@@ -111,7 +144,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】演習系科目`,
       requiredCredits: seminarCredits,
       note: `${name}の演習・文献講読科目`,
-      courseList: courses.seminar || [],
+      courseList: expandCourseVariants(courses.seminar || []),
       keywords: courses.seminarKeywords || [name.replace("専修", "") + "演習", name.replace("専修", "") + "講読"]
     });
   }
@@ -123,7 +156,7 @@ export function createDepartmentPreset({
       name: `【${name.replace("専修", "")}】卒業論文演習`,
       requiredCredits: thesisSeminarCredits,
       note: `${name}の卒業論文作成に向けた演習`,
-      courseList: courses.thesisSeminar || [],
+      courseList: expandCourseVariants(courses.thesisSeminar || []),
       keywords: courses.thesisSeminarKeywords || [name.replace("専修", "") + "卒業論文演習", name.replace("専修", "") + "卒論演習"]
     });
   }
@@ -153,7 +186,7 @@ export const LIT_DEPARTMENTS = [
     thesisSeminarCredits: 2,
     courses: {
       survey: [
-        "言語学概論a", "言語学概論b", "言語学概論A", "言語学概論B"
+        "言語学概論ａ", "言語学概論ｂ", "言語学概論a", "言語学概論b", "言語学概論Ａ", "言語学概論Ｂ", "言語学概論A", "言語学概論B"
       ],
       surveyKeywords: ["言語学概論"],
       lecture: [
@@ -164,14 +197,14 @@ export const LIT_DEPARTMENTS = [
       ],
       lectureKeywords: ["音声学講義", "音韻論講義", "意味論講義", "言語学講義"],
       language: [
-        "ギリシア語a", "ギリシア語b", "ギリシア語A", "ギリシア語B",
-        "ラテン語a", "ラテン語b", "ラテン語A", "ラテン語B",
-        "サンスクリット語a", "サンスクリット語b", "サンスクリット語A", "サンスクリット語B",
-        "イタリア語a", "イタリア語b", "イタリア語A", "イタリア語B"
+        "ギリシア語ａ", "ギリシア語ｂ", "ギリシア語a", "ギリシア語b", "ギリシア語Ａ", "ギリシア語Ｂ", "ギリシア語A", "ギリシア語B",
+        "ラテン語ａ", "ラテン語ｂ", "ラテン語a", "ラテン語b", "ラテン語Ａ", "ラテン語Ｂ", "ラテン語A", "ラテン語B",
+        "サンスクリット語ａ", "サンスクリット語ｂ", "サンスクリット語a", "サンスクリット語b", "サンスクリット語Ａ", "サンスクリット語Ｂ", "サンスクリット語A", "サンスクリット語B",
+        "イタリア語ａ", "イタリア語ｂ", "イタリア語a", "イタリア語b", "イタリア語Ａ", "イタリア語Ｂ", "イタリア語A", "イタリア語B"
       ],
       languageKeywords: ["ギリシア語", "ラテン語", "サンスクリット語", "イタリア語"],
       introSeminar: [
-        "言語学入門演習a", "言語学入門演習b", "言語学入門演習A", "言語学入門演習B"
+        "言語学入門演習ａ", "言語学入門演習ｂ", "言語学入門演習a", "言語学入門演習b", "言語学入門演習Ａ", "言語学入門演習Ｂ", "言語学入門演習A", "言語学入門演習B"
       ],
       introSeminarKeywords: ["言語学入門演習"],
       seminar: [
@@ -181,8 +214,9 @@ export const LIT_DEPARTMENTS = [
       ],
       seminarKeywords: ["言語学演習"],
       thesisSeminar: [
-        "言語学卒業論文演習a", "言語学卒業論文演習b", "言語学卒業論文演習A", "言語学卒業論文演習B",
-        "言語学卒論演習a", "言語学卒論演習b"
+        "言語学卒業論文演習ａ", "言語学卒業論文演習ｂ", "言語学卒業論文演習a", "言語学卒業論文演習b",
+        "言語学卒業論文演習Ａ", "言語学卒業論文演習Ｂ", "言語学卒業論文演習A", "言語学卒業論文演習B",
+        "言語学卒論演習ａ", "言語学卒論演習ｂ", "言語学卒論演習a", "言語学卒論演習b"
       ],
       thesisSeminarKeywords: ["言語学卒業論文演習", "言語学卒論演習"]
     }

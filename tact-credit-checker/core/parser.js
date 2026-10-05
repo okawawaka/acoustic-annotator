@@ -449,7 +449,8 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     if (cat.id && (cat.id.startsWith("dept_") || cat.id.startsWith("major_"))) {
       if (cat.keywords && cat.keywords.length > 0) {
         for (const kw of cat.keywords) {
-          if (title.includes(kw.toLowerCase())) {
+          const normKw = normalizeTitle(kw);
+          if (title.includes(kw.toLowerCase()) || (normKw && normTitle.includes(normKw))) {
             return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
           }
         }
@@ -531,7 +532,8 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
   for (const cat of targetPool) {
     if (!cat.keywords || cat.keywords.length === 0) continue;
     for (const kw of cat.keywords) {
-      if (title.includes(kw.toLowerCase())) {
+      const normKw = normalizeTitle(kw);
+      if (title.includes(kw.toLowerCase()) || (normKw && normTitle.includes(normKw))) {
         return { categoryId: cat.id, confidence: 0.7, isEstimated: true };
       }
     }

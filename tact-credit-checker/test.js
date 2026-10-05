@@ -170,20 +170,31 @@ assert(lingSeminar && lingSeminar.requiredCredits === 8, "Linguistics seminar cr
 const lingThesisSem = lingCats.find(c => c.id === "dept_thesis_seminar");
 assert(lingThesisSem && lingThesisSem.requiredCredits === 2, "Linguistics thesis seminar credits = 2");
 
-// 科目マッピング検証（ユーザー提供リスト）
+// 科目マッピング検証（半角およびTACT全角文字表記の双方を検証）
 const testCourses = [
   { title: "言語学概論a", expectedCat: "dept_survey", expectedCredits: 2 },
+  { title: "言語学概論ａ", expectedCat: "dept_survey", expectedCredits: 2 },
+  { title: "言語学概論ｂ", expectedCat: "dept_survey", expectedCredits: 2 },
   { title: "音声学講義", expectedCat: "dept_lecture", expectedCredits: 2 },
   { title: "音韻論講義", expectedCat: "dept_lecture", expectedCredits: 2 },
   { title: "意味論講義", expectedCat: "dept_lecture", expectedCredits: 2 },
   { title: "言語学講義Ⅰ", expectedCat: "dept_lecture", expectedCredits: 2 },
+  { title: "言語学講義１", expectedCat: "dept_lecture", expectedCredits: 2 },
   { title: "ギリシア語a", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "ギリシア語ａ", expectedCat: "dept_language", expectedCredits: 2 },
   { title: "ラテン語b", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "ラテン語ｂ", expectedCat: "dept_language", expectedCredits: 2 },
   { title: "サンスクリット語a", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "サンスクリット語ａ", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "イタリア語ａ", expectedCat: "dept_language", expectedCredits: 2 },
   { title: "言語学入門演習a", expectedCat: "dept_intro_seminar", expectedCredits: 2 },
+  { title: "言語学入門演習ａ", expectedCat: "dept_intro_seminar", expectedCredits: 2 },
   { title: "言語学演習Ⅰａ", expectedCat: "dept_seminar", expectedCredits: 2 },
+  { title: "言語学演習Ⅰa", expectedCat: "dept_seminar", expectedCredits: 2 },
   { title: "言語学演習Ⅱ", expectedCat: "dept_seminar", expectedCredits: 2 },
-  { title: "言語学卒業論文演習a", expectedCat: "dept_thesis_seminar", expectedCredits: 2 }
+  { title: "言語学卒業論文演習a", expectedCat: "dept_thesis_seminar", expectedCredits: 2 },
+  { title: "言語学卒業論文演習ａ", expectedCat: "dept_thesis_seminar", expectedCredits: 2 },
+  { title: "言語学卒業論文演習ｂ", expectedCat: "dept_thesis_seminar", expectedCredits: 2 }
 ];
 
 testCourses.forEach(tc => {
