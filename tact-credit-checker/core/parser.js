@@ -413,37 +413,57 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
-  // 4. 卒業論文演習・卒論演習（専修必修演習区分へ、卒論本体と明確に区別）
-  if (/卒業論文演習|卒論演習/i.test(title)) {
-    const cat = targetPool.find(c => c.id === "dept_req_seminar" || c.id === "major_req");
-    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
-  }
-
-  // 5. 文学部 卒業論文（10単位・論文審査科目）
-  if (/卒業論文|卒業研究|卒論|学士論文/i.test(title)) {
+  // 4. 文学部 卒業論文（10単位・論文審査科目）
+  if (/卒業論文$|卒業論文\s|卒業研究|学士論文/i.test(title) && !/演習/i.test(title)) {
     const cat = targetPool.find(c => c.id === "major_thesis");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
-  // 5. 文学部 専修実習科目（発掘調査、心理学実験、社会調査実習、野外実習巡検等）
+  // 5. 各専修の専門科目（courseList による高精度一致）
+  for (const cat of targetPool) {
+    if (cat.courseList && Array.isArray(cat.courseList) && cat.courseList.length > 0) {
+      for (const item of cat.courseList) {
+        const normItem = item.toLowerCase().replace(/\s+/g, "");
+        const normTitle = title.replace(/\s+/g, "");
+        if (normTitle === normItem || normTitle.includes(normItem)) {
+          return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+        }
+      }
+    }
+  }
+
+  // 6. 各専修の専門科目（専攻カテゴリ固有の keywords 一致）
+  for (const cat of targetPool) {
+    if (cat.id && (cat.id.startsWith("dept_") || cat.id.startsWith("major_"))) {
+      if (cat.keywords && cat.keywords.length > 0) {
+        for (const kw of cat.keywords) {
+          if (title.includes(kw.toLowerCase())) {
+            return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+          }
+        }
+      }
+    }
+  }
+
+  // 7. 文学部 専修実習科目（発掘調査、心理学実験、社会調査実習、野外実習巡検等 - 汎用）
   if (/発掘調査|実測|調査実習|野外実習|巡検|心理学実験|心理学実習|社会調査実習/i.test(title)) {
-    const cat = targetPool.find(c => c.id === "dept_req_prac");
-    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+    const cat = targetPool.find(c => c.id === "dept_practice" || c.id === "dept_req_prac");
+    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
   }
 
-  // 6. 文学部 専修演習・講読科目
+  // 8. 文学部 専修演習・講読科目（汎用）
   if (/演習|講読|史料講読|原典講読|文献講読/i.test(title) && origin !== "ilas") {
-    const cat = targetPool.find(c => c.id === "dept_req_seminar" || c.id === "major_req");
-    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
+    const cat = targetPool.find(c => c.id === "dept_seminar" || c.id === "dept_req_seminar" || c.id === "major_req");
+    if (cat) return { categoryId: cat.id, confidence: 0.85, isEstimated: false };
   }
 
-  // 7. 文学部 特殊講義・専門講義
+  // 9. 文学部 特殊講義・専門講義（汎用）
   if (/特殊講義|特論|特殊研究/i.test(title) && origin !== "ilas") {
-    const cat = targetPool.find(c => c.id === "dept_elec_lecture" || c.id === "major_elec");
-    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
+    const cat = targetPool.find(c => c.id === "dept_lecture" || c.id === "dept_elec_lecture" || c.id === "major_elec");
+    if (cat) return { categoryId: cat.id, confidence: 0.85, isEstimated: false };
   }
 
-  // 8. 全学教育科目固有の確実なキーワード判定
+  // 10. 全学教育科目固有の確実なキーワード判定
   if (title.includes("大学での学び")) {
     const cat = targetPool.find(c => c.id === "intro_study");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
@@ -502,6 +522,14 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
       if (title.includes(kw.toLowerCase())) {
         return { categoryId: cat.id, confidence: 0.7, isEstimated: true };
       }
+    }
+  }
+
+  // 10. 学部専門科目（faculty）だが自専修の特定区分に該当しない場合、専攻外選択科目（他専修・関連科目）へ自動判定
+  if (origin === "faculty") {
+    const freeCat = targetPool.find(c => c.id === "dept_free" || c.id === "free_elec");
+    if (freeCat) {
+      return { categoryId: freeCat.id, confidence: 0.8, isEstimated: true };
     }
   }
 
@@ -600,13 +628,39 @@ export function calculateCredits(courses = [], categories = []) {
     }
   });
 
-  // 各カテゴリの充足・不足・超過計算
+  // 1. 各カテゴリの基本充足・不足・超過計算（第1パス）
   Object.values(catMap).forEach(cat => {
     cat.potential = cat.passed + cat.enrolled;
     cat.isFulfilled = cat.passed >= cat.required;
     cat.shortfall = Math.max(0, cat.required - cat.passed);
     cat.excess = Math.max(0, cat.passed - cat.required);
   });
+
+  // 2. 専攻外選択科目（dept_free: 35単位）への専門系・専攻科目超過分の自動振替算入（第2パス）
+  // 名古屋大学文学部履修要覧要件:
+  // ①人文学入門（専門基礎）超過分、②共通基盤・共通実践超過分、③専攻専門超過分が選択科目に算入。
+  // ※全学教育科目の超過分はこの35単位に含めてはならない！
+  const freeCat = catMap["dept_free"] || catMap["free_elec"];
+  if (freeCat) {
+    let overflowCredits = 0;
+    Object.values(catMap).forEach(cat => {
+      if (cat.id === freeCat.id || cat.id === "major_thesis") return;
+      // 全学教育科目（教養教育院科目）は厳格に対象外
+      if (cat.section === "全学教育科目" || cat.scope === "ilas") return;
+      // 専門基礎、共通基盤、共通実践、専攻専門各区分の超過分を加算
+      if (cat.excess > 0) {
+        overflowCredits += cat.excess;
+      }
+    });
+
+    freeCat.directPassed = freeCat.passed;
+    freeCat.overflowCredits = overflowCredits;
+    freeCat.passed = freeCat.directPassed + overflowCredits;
+    freeCat.potential = freeCat.passed + freeCat.enrolled;
+    freeCat.isFulfilled = freeCat.passed >= freeCat.required;
+    freeCat.shortfall = Math.max(0, freeCat.required - freeCat.passed);
+    freeCat.excess = Math.max(0, freeCat.passed - freeCat.required);
+  }
 
   Object.values(sectionSummary).forEach(s => {
     s.potential = s.passed + s.enrolled;

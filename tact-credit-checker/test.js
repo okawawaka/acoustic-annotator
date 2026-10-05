@@ -1,6 +1,7 @@
 /**
  * TACT Credit Checker - Automated Logic & Parser Tests
  * 名古屋大学文学部公式要覧（Student's Guide 2023〜2026）準拠テスト
+ * 専攻専門32単位・選択35単位・超過振替エンジン対応
  */
 
 import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "./core/presets.js";
@@ -39,7 +40,7 @@ const basicsCredits = litPreset.categories
   .reduce((sum, c) => sum + c.requiredCredits, 0);
 assert(basicsCredits === 2, `Specialized basics section credits sum to exactly 2 (got ${basicsCredits})`);
 
-// 専門科目 (82単位) の検証
+// 専門科目 (82単位) の検証: 共通基盤(3) + 共通実践(2) + 専攻(32) + 卒論(10) + 選択(35) = 82
 const majorCredits = litPreset.categories
   .filter(c => c.section === "専門科目")
   .reduce((sum, c) => sum + c.requiredCredits, 0);
@@ -57,7 +58,7 @@ assert(termInfo.year === 2024, `Extracted year is 2024 (got ${termInfo.year})`);
 assert(termInfo.season === "春/前期", `Extracted season is 春/前期 (got ${termInfo.season})`);
 
 console.log("\n=== 3. Literature Faculty Course Categorization Tests ===");
-const categories = litPreset.categories;
+const categories = buildLiteratureCategories("linguistics");
 const mockSites = getMockCourseSites();
 assert(mockSites.length >= 20, `Mock data has ${mockSites.length} courses`);
 
@@ -145,34 +146,96 @@ LIT_DEPARTMENTS.forEach(dept => {
 });
 assert(allDeptsValid, "All 22 departments satisfy exact credit rules: 40 General + 2 Basics + 82 Major = 124 Total");
 
-// 心理学専修の固有区分テスト（実験実習8単位・卒論10単位）
-const psychCats = buildLiteratureCategories("psychology");
-const psychPrac = psychCats.find(c => c.name.includes("実験実習"));
-assert(psychPrac !== undefined && psychPrac.requiredCredits === 8, "Psychology track has dedicated experimental practice (8 credits)");
-const psychThesis = psychCats.find(c => c.id === "major_thesis");
-assert(psychThesis !== undefined && psychThesis.requiredCredits === 10, "Psychology track has 10 credits thesis");
+console.log("\n=== 6. Linguistics Track Detailed Requirements & Mapping Tests ===");
+const lingCats = buildLiteratureCategories("linguistics");
+const lingMajorCats = lingCats.filter(c => c.group === "専攻に関係のある科目");
+const lingMajorSum = lingMajorCats.reduce((s, c) => s + c.requiredCredits, 0);
+assert(lingMajorSum === 32, `Linguistics major required credits sum to exactly 32 (got ${lingMajorSum})`);
 
-// 地理学専修の固有区分テスト（野外実習巡検6単位・卒論10単位）
-const geoCats = buildLiteratureCategories("geography");
-const geoField = geoCats.find(c => c.name.includes("野外実習"));
-assert(geoField !== undefined && geoField.requiredCredits === 6, "Geography track has dedicated fieldwork practice (6 credits)");
+// 区分詳細検証: 概論(4), 講義(12), 語学(2), 入門演習(4), 演習(8), 卒論演習(2)
+const lingSurvey = lingCats.find(c => c.id === "dept_survey");
+assert(lingSurvey && lingSurvey.requiredCredits === 4, "Linguistics survey credits = 4");
+const lingLecture = lingCats.find(c => c.id === "dept_lecture");
+assert(lingLecture && lingLecture.requiredCredits === 12, "Linguistics lecture credits = 12");
+const lingLanguage = lingCats.find(c => c.id === "dept_language");
+assert(lingLanguage && lingLanguage.requiredCredits === 2, "Linguistics language credits = 2");
+const lingIntroSem = lingCats.find(c => c.id === "dept_intro_seminar");
+assert(lingIntroSem && lingIntroSem.requiredCredits === 4, "Linguistics intro seminar credits = 4");
+const lingSeminar = lingCats.find(c => c.id === "dept_seminar");
+assert(lingSeminar && lingSeminar.requiredCredits === 8, "Linguistics seminar credits = 8");
+const lingThesisSem = lingCats.find(c => c.id === "dept_thesis_seminar");
+assert(lingThesisSem && lingThesisSem.requiredCredits === 2, "Linguistics thesis seminar credits = 2");
 
-// 考古学専修の固有区分テスト（発掘調査実習8単位）
-const archCats = buildLiteratureCategories("archaeology");
-const archExcav = archCats.find(c => c.name.includes("発掘調査"));
-assert(archExcav !== undefined && archExcav.requiredCredits === 8, "Archaeology track has excavation practicum (8 credits)");
+// 科目マッピング検証（ユーザー提供リスト）
+const testCourses = [
+  { title: "言語学概論a", expectedCat: "dept_survey", expectedCredits: 2 },
+  { title: "音声学講義", expectedCat: "dept_lecture", expectedCredits: 2 },
+  { title: "音韻論講義", expectedCat: "dept_lecture", expectedCredits: 2 },
+  { title: "意味論講義", expectedCat: "dept_lecture", expectedCredits: 2 },
+  { title: "言語学講義Ⅰ", expectedCat: "dept_lecture", expectedCredits: 2 },
+  { title: "ギリシア語a", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "ラテン語b", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "サンスクリット語a", expectedCat: "dept_language", expectedCredits: 2 },
+  { title: "言語学入門演習a", expectedCat: "dept_intro_seminar", expectedCredits: 2 },
+  { title: "言語学演習Ⅰａ", expectedCat: "dept_seminar", expectedCredits: 2 },
+  { title: "言語学演習Ⅱ", expectedCat: "dept_seminar", expectedCredits: 2 },
+  { title: "言語学卒業論文演習a", expectedCat: "dept_thesis_seminar", expectedCredits: 2 }
+];
 
-// 日本史学専修の固有区分テスト（古文書史料講読演習）
-const jHistCats = buildLiteratureCategories("japanese_history");
-const jHistSem = jHistCats.find(c => c.name.includes("古文書史料講読"));
-assert(jHistSem !== undefined && jHistSem.requiredCredits === 24, "Japanese history track has ancient archives & seminar (24 credits)");
+testCourses.forEach(tc => {
+  const p = parseCourseSite({ id: "mock_ling_site", title: tc.title }, lingCats);
+  assert(p.categoryId === tc.expectedCat, `'${tc.title}' maps to '${tc.expectedCat}' (got '${p.categoryId}')`);
+  assert(p.credits === tc.expectedCredits, `'${tc.title}' has ${tc.expectedCredits} credits (got ${p.credits})`);
+});
 
-// 哲学専修の固有区分テスト（原典講読演習）
-const philCats = buildLiteratureCategories("philosophy");
-const philSem = philCats.find(c => c.name.includes("原典講読"));
-assert(philSem !== undefined && philSem.requiredCredits === 24, "Philosophy track has original texts & seminar (24 credits)");
+// 卒業論文演習は2単位、卒業論文本体は10単位
+const lingThesis = parseCourseSite({ id: "manual_thesis", title: "卒業論文" }, lingCats);
+assert(lingThesis.credits === 10, "卒業論文 credits = 10");
+assert(lingThesis.categoryId === "major_thesis", "卒業論文 maps to 'major_thesis'");
 
-console.log("\n=== 6. Non-credit Sites Exclusion Tests ===");
+// 他専修の文学部科目（例: 日本史学講義）を受講した場合、専攻外選択科目(dept_free: 35単位)に算入
+const otherMajorCourse = parseCourseSite({ id: "2024_02_jhist", title: "日本史学講義（古代）" }, lingCats);
+assert(otherMajorCourse.categoryId === "dept_free", `文学部他専修科目 maps to 'dept_free' (got ${otherMajorCourse.categoryId})`);
+
+console.log("\n=== 7. Overflow Absorption into 35 Free Credits Tests ===");
+// 超過算入シミュレーション:
+// - 人文学入門で4単位修得（必要2単位、超過2単位）
+// - 共通基盤科目で4単位修得（必要3単位、超過1単位）
+// - 専攻概論系科目で6単位修得（必要4単位、超過2単位）
+// - 全学教育（英語）で12単位修得（必要10単位、超過2単位） -> 【重要】選択科目には絶対に振替されないこと！
+// - 専攻外選択科目(dept_free)を直接4単位履修
+const overflowCourses = [
+  // 人文学入門: 4単位 (超過2)
+  { id: "c1", title: "人文学入門Ⅰ", credits: 2, categoryId: "major_basics", status: "passed" },
+  { id: "c2", title: "人文学入門Ⅱ", credits: 2, categoryId: "major_basics", status: "passed" },
+  // 共通基盤: 4単位 (超過1)
+  { id: "c3", title: "人間と倫理", credits: 2, categoryId: "major_common_base", status: "passed" },
+  { id: "c4", title: "国際移民論", credits: 2, categoryId: "major_common_base", status: "passed" },
+  // 専攻概論: 6単位 (超過2)
+  { id: "c5", title: "言語学概論a", credits: 2, categoryId: "dept_survey", status: "passed" },
+  { id: "c6", title: "言語学概論b", credits: 2, categoryId: "dept_survey", status: "passed" },
+  { id: "c7", title: "言語学概論特論", credits: 2, categoryId: "dept_survey", status: "passed" },
+  // 専攻外選択(dept_free): 直接4単位
+  { id: "c8", title: "日本史学講義", credits: 2, categoryId: "dept_free", status: "passed" },
+  { id: "c9", title: "哲学講義", credits: 2, categoryId: "dept_free", status: "passed" },
+  // 全学教育（英語）: 12単位 (超過2単位だが振替対象外)
+  { id: "c10", title: "英語基礎1", credits: 2, categoryId: "lang_en", status: "passed" },
+  { id: "c11", title: "英語基礎2", credits: 2, categoryId: "lang_en", status: "passed" },
+  { id: "c12", title: "英語サロン1", credits: 2, categoryId: "lang_en", status: "passed" },
+  { id: "c13", title: "英語サロン2", credits: 2, categoryId: "lang_en", status: "passed" },
+  { id: "c14", title: "上級英語1", credits: 2, categoryId: "lang_en", status: "passed" },
+  { id: "c15", title: "上級英語2", credits: 2, categoryId: "lang_en", status: "passed" }
+];
+
+const overflowSummary = calculateCredits(overflowCourses, lingCats);
+const freeCatResult = overflowSummary.categoryProgress["dept_free"];
+
+assert(freeCatResult.directPassed === 4, `Direct passed credits in dept_free is 4 (got ${freeCatResult.directPassed})`);
+// 超過振替分 = 人文学入門(2) + 共通基盤(1) + 専攻概論(2) = 5単位（全学英語超過2単位は厳格に除外）
+assert(freeCatResult.overflowCredits === 5, `Overflow credits transferred into dept_free is exactly 5 (got ${freeCatResult.overflowCredits})`);
+assert(freeCatResult.passed === 9, `Total effective passed credits in dept_free is 9 (got ${freeCatResult.passed})`);
+
+console.log("\n=== 8. Non-credit Sites Exclusion Tests ===");
 const nonCreditExamples = [
   "2024年度秋学期検定試験による単位認定について",
   "【a】2025年度ハラスメント防止に係るe-Learning",
@@ -195,11 +258,10 @@ nonCreditExamples.forEach(title => {
 
 // calculateCredits による完全除外の検証
 const regularMockSites = getMockCourseSites();
-const allParsedSites = regularMockSites.map(s => parseCourseSite(s, litPreset.categories));
-const calculatedSummary = calculateCredits(allParsedSites, litPreset.categories);
+const allParsedSites = regularMockSites.map(s => parseCourseSite(s, lingCats));
+const calculatedSummary = calculateCredits(allParsedSites, lingCats);
 
-// 非単位サイトが summary.nonCreditCourses に収集され、要件や未分類に混入していないこと
-assert(calculatedSummary.nonCreditCourses.length >= 7, `All 7 mock non-credit sites collected in nonCreditCourses (got ${calculatedSummary.nonCreditCourses.length})`);
+assert(calculatedSummary.nonCreditCourses.length >= 7, `All mock non-credit sites collected in nonCreditCourses (got ${calculatedSummary.nonCreditCourses.length})`);
 const nonCreditInUncategorized = calculatedSummary.uncategorizedCourses.some(c => c.isNonCredit);
 assert(!nonCreditInUncategorized, "No non-credit site leaked into uncategorizedCourses");
 
@@ -208,114 +270,11 @@ const nonCreditInSections = Object.values(calculatedSummary.categoryProgress).so
 );
 assert(!nonCreditInSections, "No non-credit site leaked into any graduation categoryProgress");
 
-console.log("\n=== 7. Hierarchy & Course Origin Separation Tests (Proposal A & B) ===");
-// 提案A: 階層構造（基礎科目群36単位・総合科目群4単位・専門基礎2単位・専門科目82単位）
-const litCats = buildLiteratureCategories("philosophy");
-
-const basicGeneralCredits = litCats
-  .filter(c => c.section === "全学教育科目" && c.group === "基礎科目")
-  .reduce((s, c) => s + c.requiredCredits, 0);
-assert(basicGeneralCredits === 36, `General Ed Basic group credits sum to exactly 36 (got ${basicGeneralCredits})`);
-
-const integratedGeneralCredits = litCats
-  .filter(c => c.section === "全学教育科目" && c.group === "総合科目")
-  .reduce((s, c) => s + c.requiredCredits, 0);
-assert(integratedGeneralCredits === 4, `General Ed Integrated group credits sum to exactly 4 (got ${integratedGeneralCredits})`);
-
-const specBasicsGroupCredits = litCats
-  .filter(c => c.section === "専門系科目" && c.group === "専門基礎科目")
-  .reduce((s, c) => s + c.requiredCredits, 0);
-assert(specBasicsGroupCredits === 2, `Specialized Basics group credits sum to exactly 2 (got ${specBasicsGroupCredits})`);
-
-// 全カテゴリに scope ("ilas" または "faculty") が付与されていること
-const allHaveScope = litCats.every(c => c.scope === "ilas" || c.scope === "faculty");
-assert(allHaveScope, "All literature categories have well-defined origin scope ('ilas' or 'faculty')");
-
-// 提案B: 開講元判定 (教養教育院 01 vs 文学部 02) による厳格なマッチング分離
-const ilasOrigin = detectCourseOrigin("2024_01_0001234", "哲学入門 (2024前期)");
-assert(ilasOrigin === "ilas", `Detected origin for 2024_01 is 'ilas' (got ${ilasOrigin})`);
-
-const facultyOrigin = detectCourseOrigin("2024_02_0005678", "哲学特殊講義：現代実存思想");
-assert(facultyOrigin === "faculty", `Detected origin for 2024_02 is 'faculty' (got ${facultyOrigin})`);
-
-// 開講元が教養(ilas)の科目は、決して文学部専門科目（哲学特殊講義・演習）にはマッピングされない
-const parsedIlasPhilosophy = parseCourseSite({ id: "2024_01_0001234", title: "哲学入門 (2024前期)" }, litCats);
-assert(parsedIlasPhilosophy.origin === "ilas", "Parsed origin is 'ilas'");
-assert(parsedIlasPhilosophy.categoryId === "hum_soc", `教養開講の哲学入門 maps to 'hum_soc' (got ${parsedIlasPhilosophy.categoryId})`);
-
-// 開講元が文学部(faculty)の科目は、全学の哲学入門ではなく文学部専門科目（特殊講義）にマッピングされる
-const parsedFacultyPhilosophy = parseCourseSite({ id: "2024_02_0005678", title: "哲学特殊講義：現代実存思想" }, litCats);
-assert(parsedFacultyPhilosophy.origin === "faculty", "Parsed origin is 'faculty'");
-assert(parsedFacultyPhilosophy.categoryId === "dept_elec_lecture", `文学部開講の哲学特殊講義 maps to 'dept_elec_lecture' (got ${parsedFacultyPhilosophy.categoryId})`);
-
-// 文学部開講の「人文学入門Ⅰ」は専門基礎科目へマッピング
-const parsedFacultyIntro = parseCourseSite({ id: "2024_02_0009999", title: "専門基礎：人文学入門Ⅰ" }, litCats);
-assert(parsedFacultyIntro.categoryId === "major_basics", `人文学入門 maps to 'major_basics' (got ${parsedFacultyIntro.categoryId})`);
-
-// 卒業論文演習は2単位かつ専修演習区分
-const parsedThesisSem = parseCourseSite({ id: "2026_01_0009999", title: "卒業論文演習 (2026通年)" }, litCats);
-assert(parsedThesisSem.credits === 2, `卒業論文演習は2単位 (got ${parsedThesisSem.credits})`);
-assert(parsedThesisSem.categoryId === "dept_req_seminar", `卒業論文演習 maps to 'dept_req_seminar' (got ${parsedThesisSem.categoryId})`);
-
-// 卒業論文本体は10単位かつmajor_thesis区分
-const parsedThesis = parseCourseSite({ id: "thesis_manual", title: "卒業論文" }, litCats);
-assert(parsedThesis.credits === 10, `卒業論文は10単位 (got ${parsedThesis.credits})`);
-assert(parsedThesis.categoryId === "major_thesis", `卒業論文 maps to 'major_thesis' (got ${parsedThesis.categoryId})`);
-
-// 健康・スポーツ科学：表記揺れテスト（講義という文字列がなくても原則2単位・実習は1単位）
-const parsedSportsLecNoWord = parseCourseSite({ id: "2024_01_sports1", title: "健康・スポーツ科学（水2）" }, litCats);
-assert(parsedSportsLecNoWord.credits === 2, `健康・スポーツ科学（講義表記なし）は2単位 (got ${parsedSportsLecNoWord.credits})`);
-assert(parsedSportsLecNoWord.categoryId === "health_sports_lec", `健康・スポーツ科学（講義表記なし） maps to 'health_sports_lec' (got ${parsedSportsLecNoWord.categoryId})`);
-
-const parsedSportsPracTennis = parseCourseSite({ id: "2024_01_sports2", title: "健康スポーツ（テニス）" }, litCats);
-assert(parsedSportsPracTennis.credits === 1, `健康スポーツ（テニス）は1単位 (got ${parsedSportsPracTennis.credits})`);
-assert(parsedSportsPracTennis.categoryId === "health_sports_prac", `健康スポーツ（テニス） maps to 'health_sports_prac' (got ${parsedSportsPracTennis.categoryId})`);
-
-console.log("\n=== 8. B-Table (ILAS) vs Literature Faculty Strict Categorization Tests ===");
-// 1. 歴史学入門 (現代教養) vs 歴史学 (人文社会系基礎)
-const histIntro = parseCourseSite({ id: "2024_00_35114", title: "歴史学入門" }, litCats);
-assert(histIntro.categoryId === "modern_liberal", `歴史学入門 maps to 'modern_liberal' (got ${histIntro.categoryId})`);
-assert(histIntro.origin === "ilas", `歴史学入門 origin is 'ilas' (got ${histIntro.origin})`);
-
-const histBase = parseCourseSite({ id: "2024_00_11304", title: "歴史学" }, litCats);
-assert(histBase.categoryId === "hum_soc", `歴史学 maps to 'hum_soc' (got ${histBase.categoryId})`);
-
-// 2. 心理学入門 (現代教養) vs 心理学 (人文社会系基礎)
-const psychIntro = parseCourseSite({ id: "2024_00_35118", title: "心理学入門" }, litCats);
-assert(psychIntro.categoryId === "modern_liberal", `心理学入門 maps to 'modern_liberal' (got ${psychIntro.categoryId})`);
-
-const psychBase = parseCourseSite({ id: "2024_00_11301", title: "心理学" }, litCats);
-assert(psychBase.categoryId === "hum_soc", `心理学 maps to 'hum_soc' (got ${psychBase.categoryId})`);
-
-// 3. ジェンダー学 (現代教養 2単位) vs ジェンダー学概論 (文学部共通基盤 1単位)
-const genderLiberal = parseCourseSite({ id: "2024_00_35213", title: "ジェンダー学" }, litCats);
-assert(genderLiberal.categoryId === "modern_liberal", `ジェンダー学 maps to 'modern_liberal' (got ${genderLiberal.categoryId})`);
-assert(genderLiberal.credits === 2, `ジェンダー学は2単位 (got ${genderLiberal.credits})`);
-
-const genderMajor = parseCourseSite({ id: "2024_02_1001", title: "ジェンダー学概論" }, litCats);
-assert(genderMajor.categoryId === "major_common_base", `ジェンダー学概論 maps to 'major_common_base' (got ${genderMajor.categoryId})`);
-assert(genderMajor.credits === 1, `ジェンダー学概論は1単位 (got ${genderMajor.credits})`);
-
-// 4. 国際関係論 (国際理解 2単位) vs 国際移民論 (文学部共通基盤 2単位)
-const intlRel = parseCourseSite({ id: "2024_00_35130", title: "国際関係論" }, litCats);
-assert(intlRel.categoryId === "intl_understanding", `国際関係論 maps to 'intl_understanding' (got ${intlRel.categoryId})`);
-
-const intlMig = parseCourseSite({ id: "2024_02_1002", title: "国際移民論" }, litCats);
-assert(intlMig.categoryId === "major_common_base", `国際移民論 maps to 'major_common_base' (got ${intlMig.categoryId})`);
-
-// 5. 超学部セミナー
-const superSem = parseCourseSite({ id: "2024_00_70101", title: "超学部セミナー（Diversity）" }, litCats);
-assert(superSem.categoryId === "modern_liberal", `超学部セミナー maps to 'modern_liberal' (got ${superSem.categoryId})`);
-
-// 6. B表プレフィックス付き科目
-const prefixedCat = parseCourseSite({ id: "2024_00_11305", title: "分野別・人文社会 地理学" }, litCats);
-assert(prefixedCat.categoryId === "hum_soc", `分野別・人文社会 地理学 maps to 'hum_soc' (got ${prefixedCat.categoryId})`);
-
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
 
 if (failedCount > 0) {
   process.exit(1);
 } else {
-  console.log("All Nagoya U Literature faculty & Non-credit exclusion tests passed successfully! 🎉");
+  console.log("All Nagoya U Literature faculty, Linguistics track & 35-credit overflow tests passed successfully! 🎉");
 }

@@ -403,11 +403,23 @@ function renderSummary() {
         </div>
       ` : '';
 
+      const isFreeCat = cat.id === "dept_free" || cat.id === "free_elec";
+      const overflowBadge = (isFreeCat && data.overflowCredits > 0) ? `
+        <div style="font-size: 11px; color: #0284c7; margin-top: 3px; font-weight: 500;">
+          🔄 超過振替算入: +${data.overflowCredits}単位 (直接履修: ${data.directPassed || 0}単位)
+        </div>
+      ` : '';
+
+      const excessNotice = (data.excess > 0 && cat.section !== "全学教育科目" && !isFreeCat)
+        ? `<span style="font-size: 10px; color: #059669; margin-left: 4px;">(+${data.excess}超過振替)</span>`
+        : '';
+
       row.innerHTML = `
         <td style="color: var(--tact-text-sub); font-size: 11.5px;">${cat.group || cat.section || ''}</td>
         <td>
           <span style="font-weight: 600; color: var(--tact-navy);">${isExpanded ? '▼' : '▶'} ${cat.name}</span>
           <span style="font-size: 11px; color: var(--tact-text-sub); margin-left: 6px;">(${data.courses.length}科目)</span>
+          ${overflowBadge}
           ${thesisHtml}
         </td>
         <td style="font-size: 12px; color: var(--tact-text-sub);">${cat.note || '-'}</td>
@@ -416,7 +428,7 @@ function renderSummary() {
         <td style="text-align: right; color: #0284c7;">${data.enrolled > 0 ? `+${data.enrolled}` : '-'}</td>
         <td style="text-align: right; font-weight: 700;">${shortfall > 0 ? `<span class="badge-unfulfilled">残 ${shortfall}</span>` : '-'}</td>
         <td style="text-align: center;">
-          ${isFulfilled ? '<span class="badge-fulfilled">✓ 充足</span>' : `<span class="badge-unfulfilled">あと ${shortfall}</span>`}
+          ${isFulfilled ? `<span class="badge-fulfilled">✓ 充足${excessNotice}</span>` : `<span class="badge-unfulfilled">あと ${shortfall}</span>`}
         </td>
       `;
 
