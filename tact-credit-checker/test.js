@@ -4,7 +4,7 @@
  */
 
 import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "./core/presets.js";
-import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear } from "./core/parser.js";
+import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear, isNonCreditCourse } from "./core/parser.js";
 import { getMockCourseSites } from "./core/api.js";
 
 let passedCount = 0;
@@ -171,11 +171,47 @@ const philCats = buildLiteratureCategories("philosophy");
 const philSem = philCats.find(c => c.name.includes("原典講読"));
 assert(philSem !== undefined && philSem.requiredCredits === 24, "Philosophy track has original texts & seminar (24 credits)");
 
+console.log("\n=== 6. Non-credit Sites Exclusion Tests ===");
+const nonCreditExamples = [
+  "2024年度秋学期検定試験による単位認定について",
+  "【a】2025年度ハラスメント防止に係るe-Learning",
+  "文学部お知らせ",
+  "文学部特別コース",
+  "（学部）学生支援本部_1A",
+  "（学部）学生支援本部_2A",
+  "（学部）学生支援本部_3A"
+];
+
+nonCreditExamples.forEach(title => {
+  const isExcluded = isNonCreditCourse(cleanCourseTitle(title), title);
+  assert(isExcluded === true, `Non-credit detected: '${title}'`);
+
+  const parsed = parseCourseSite({ id: "mock_test_id", title: title });
+  assert(parsed.isNonCredit === true, `Parsed flag isNonCredit === true for '${title}'`);
+  assert(parsed.credits === 0, `Parsed credits === 0 for '${title}'`);
+  assert(parsed.categoryId === "non_credit", `Parsed categoryId === 'non_credit' for '${title}'`);
+});
+
+// calculateCredits による完全除外の検証
+const regularMockSites = getMockCourseSites();
+const allParsedSites = regularMockSites.map(s => parseCourseSite(s, litPreset.categories));
+const calculatedSummary = calculateCredits(allParsedSites, litPreset.categories);
+
+// 非単位サイトが summary.nonCreditCourses に収集され、要件や未分類に混入していないこと
+assert(calculatedSummary.nonCreditCourses.length >= 7, `All 7 mock non-credit sites collected in nonCreditCourses (got ${calculatedSummary.nonCreditCourses.length})`);
+const nonCreditInUncategorized = calculatedSummary.uncategorizedCourses.some(c => c.isNonCredit);
+assert(!nonCreditInUncategorized, "No non-credit site leaked into uncategorizedCourses");
+
+const nonCreditInSections = Object.values(calculatedSummary.categoryProgress).some(cat =>
+  cat.courses.some(c => c.isNonCredit)
+);
+assert(!nonCreditInSections, "No non-credit site leaked into any graduation categoryProgress");
+
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
 
 if (failedCount > 0) {
   process.exit(1);
 } else {
-  console.log("All Nagoya U Literature faculty 22 majors tests passed successfully! 🎉");
+  console.log("All Nagoya U Literature faculty & Non-credit exclusion tests passed successfully! 🎉");
 }

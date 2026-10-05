@@ -368,6 +368,42 @@ export function getMockCourseSites() {
       id: "2026_01_0009999",
       title: "卒業論文・演習 (2026通年)",
       props: { term: "2026年度 通年" }
+    },
+    // --- 単位対象外（事務・連絡・研修・ガイダンス・学生支援等）のTACTサイト ---
+    {
+      id: "tact_cert_2024fall",
+      title: "2024年度秋学期検定試験による単位認定について",
+      props: { term: "2024年度" }
+    },
+    {
+      id: "tact_elearn_harass_2025",
+      title: "【a】2025年度ハラスメント防止に係るe-Learning",
+      props: { term: "2025年度" }
+    },
+    {
+      id: "tact_lit_notice",
+      title: "文学部お知らせ",
+      props: { term: "通年" }
+    },
+    {
+      id: "tact_lit_special_course",
+      title: "文学部特別コース",
+      props: { term: "通年" }
+    },
+    {
+      id: "tact_support_1a",
+      title: "（学部）学生支援本部_1A",
+      props: { term: "通年" }
+    },
+    {
+      id: "tact_support_2a",
+      title: "（学部）学生支援本部_2A",
+      props: { term: "通年" }
+    },
+    {
+      id: "tact_support_3a",
+      title: "（学部）学生支援本部_3A",
+      props: { term: "通年" }
     }
   ];
 }

@@ -10,6 +10,62 @@
  * @param {Object} customMappings - ユーザーが過去に設定した科目名→カテゴリIDのマッピング
  * @returns {Object} CourseItem
  */
+/**
+ * TACTサイトが単位対象外（事務・連絡・研修・e-Learning・学生支援・検定試験手続き等）であるかを判定
+ * @param {string} cleanTitle
+ * @param {string} rawTitle
+ * @param {Object} rawSite
+ * @returns {boolean}
+ */
+export function isNonCreditCourse(cleanTitle, rawTitle = "", rawSite = {}) {
+  const text = `${cleanTitle} ${rawTitle} ${rawSite.title || ""} ${rawSite.description || ""}`.toLowerCase();
+
+  // 1. TACT/Sakai サイトタイプが講義(course)以外の場合（project など事務・プロジェクト用サイト）
+  if (rawSite.type && rawSite.type !== "course") {
+    return true;
+  }
+
+  // 2. お知らせ・掲示板・事務連絡
+  if (/お知らせ|おしらせ|連絡事項|事務連絡|掲示板|公式連絡/i.test(text)) {
+    return true;
+  }
+
+  // 3. e-Learning / ハラスメント / コンプライアンス / 安全教育研修
+  if (/e-?learning|eラーニング|イーラーニング/i.test(text)) {
+    return true;
+  }
+  if (/ハラスメント防止|安全衛生教育|情報セキュリティ研修|コンプライアンス|倫理教育|研究倫理/i.test(text)) {
+    return true;
+  }
+
+  // 4. 学生支援・相談・本部・事務組織
+  if (/学生支援本部|キャリア支援|就職支援|学生相談|保健管理センター|留学生センター/i.test(text)) {
+    return true;
+  }
+
+  // 5. 検定試験・単位認定手続き・ガイダンス・オリエンテーション
+  if (/検定試験.*単位認定|単位認定について|単位認定手続|単位認定申請/i.test(text)) {
+    return true;
+  }
+  if (/オリエンテーション|プレイスメントテスト|履修ガイダンス|新入生ガイダンス/i.test(text)) {
+    return true;
+  }
+
+  // 6. 特別コース・課外・プログラム
+  if (/特別コース|課外プログラム|課外活動|オープンキャンパス/i.test(text)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * TACTサイトオブジェクトから履修科目データを正規化・抽出
+ * @param {Object} rawSite - TACT Direct API のサイトオブジェクト
+ * @param {Array} categories - 現在適用中のカテゴリ定義
+ * @param {Object} customMappings - ユーザーが過去に設定した科目名→カテゴリIDのマッピング
+ * @returns {Object} CourseItem
+ */
 export function parseCourseSite(rawSite, categories = [], customMappings = {}) {
   const siteId = rawSite.id || "";
   const rawTitle = (rawSite.title || "").trim();
@@ -18,19 +74,24 @@ export function parseCourseSite(rawSite, categories = [], customMappings = {}) {
   const termInfo = extractTermAndYear(rawTitle, rawSite.props);
   const cleanTitle = cleanCourseTitle(rawTitle);
 
-  // 単位数の推測
-  const credits = estimateCredits(cleanTitle, rawTitle);
+  // 単位対象外サイトかどうかの判定
+  const nonCredit = isNonCreditCourse(cleanTitle, rawTitle, rawSite);
+
+  // 単位数の推測（単位対象外サイトは 0 単位）
+  const credits = nonCredit ? 0 : estimateCredits(cleanTitle, rawTitle);
 
   // カテゴリの推測
   let categoryId = "uncategorized";
-  if (customMappings[cleanTitle]) {
+  if (nonCredit) {
+    categoryId = "non_credit";
+  } else if (customMappings[cleanTitle]) {
     categoryId = customMappings[cleanTitle];
   } else {
     categoryId = guessCategory(cleanTitle, categories);
   }
 
-  // ステータスの推測 (過去年度なら修得済、今年度なら履修中)
-  const status = guessStatus(termInfo.year);
+  // ステータスの推測 (非単位サイトは exempt、過去年度なら修得済、今年度なら履修中)
+  const status = nonCredit ? "exempt" : guessStatus(termInfo.year);
 
   return {
     id: siteId || `custom-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -43,6 +104,7 @@ export function parseCourseSite(rawSite, categories = [], customMappings = {}) {
     credits: credits,
     categoryId: categoryId,
     status: status, // "passed" | "enrolled" | "failed" | "exempt"
+    isNonCredit: nonCredit,
     isManual: false,
     updatedAt: Date.now()
   };
@@ -266,7 +328,8 @@ export function calculateCredits(courses = [], categories = []) {
     totalEnrolled: 0,
     totalPotential: 0, // passed + enrolled
     categoryProgress: {},
-    uncategorizedCourses: []
+    uncategorizedCourses: [],
+    nonCreditCourses: []
   };
 
   // カテゴリ初期化
@@ -299,6 +362,12 @@ export function calculateCredits(courses = [], categories = []) {
   });
 
   courses.forEach(course => {
+    // 単位対象外（事務・連絡・e-Learning・学生支援等）のサイトは単位計算から完全に除外
+    if (course.isNonCredit || course.categoryId === "non_credit") {
+      summary.nonCreditCourses.push(course);
+      return;
+    }
+
     const credits = Number(course.credits) || 0;
     const isPassed = course.status === "passed" || course.status === "exempt";
     const isEnrolled = course.status === "enrolled";
@@ -316,7 +385,7 @@ export function calculateCredits(courses = [], categories = []) {
         if (sectionSummary[cat.section]) sectionSummary[cat.section].enrolled += credits;
       }
     } else {
-      // 未分類
+      // 未分類科目（要確認）
       summary.uncategorizedCourses.push(course);
       if (isPassed) summary.totalPassed += credits;
       if (isEnrolled) summary.totalEnrolled += credits;

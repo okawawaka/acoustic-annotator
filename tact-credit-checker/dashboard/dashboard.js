@@ -1,5 +1,5 @@
 import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "../core/presets.js";
-import { parseCourseSite, calculateCredits, guessCategory } from "../core/parser.js";
+import { parseCourseSite, calculateCredits, guessCategory, estimateCredits, isNonCreditCourse } from "../core/parser.js";
 import {
   loadAppState,
   saveCourses,
@@ -403,6 +403,38 @@ function renderSummary() {
       });
     }
   }
+
+  // 単位対象外サイト（事務・連絡・e-Learning等）の通知行
+  if (summary.nonCreditCourses && summary.nonCreditCourses.length > 0) {
+    const nonCreditRow = document.createElement("tr");
+    nonCreditRow.style.backgroundColor = "#f8fafc";
+    nonCreditRow.style.borderTop = "1px dashed var(--tact-border)";
+    nonCreditRow.innerHTML = `
+      <td style="color: var(--tact-text-sub); font-size: 11.5px;">-</td>
+      <td>
+        <span style="font-weight: 600; color: #475569;">🚫 単位対象外・事務サイト（${summary.nonCreditCourses.length}件）</span>
+        <div style="font-size: 11px; color: var(--tact-text-sub);">お知らせ・e-Learning研修・学生支援等の非講義サイト（単位計算から除外済）</div>
+      </td>
+      <td style="font-size: 11.5px; color: var(--tact-text-sub);">単位換算なし（0単位）</td>
+      <td style="text-align: right; color: var(--tact-text-sub);">-</td>
+      <td style="text-align: right; color: var(--tact-text-sub); font-weight: 600;">0 単位</td>
+      <td style="text-align: right; color: var(--tact-text-sub);">-</td>
+      <td style="text-align: right; color: var(--tact-text-sub);">-</td>
+      <td style="text-align: center;">
+        <button class="tact-btn tact-btn-sm tact-btn-light" id="view-noncredit-table-btn" style="font-size: 11px; padding: 2px 7px;">一覧で確認</button>
+      </td>
+    `;
+    tbody.appendChild(nonCreditRow);
+
+    const viewNonCreditBtn = nonCreditRow.querySelector("#view-noncredit-table-btn");
+    if (viewNonCreditBtn) {
+      viewNonCreditBtn.addEventListener("click", () => {
+        state.categoryFilter = "non_credit";
+        const courseTabBtn = document.querySelector('[data-tab="tab-courses"]');
+        if (courseTabBtn) courseTabBtn.click();
+      });
+    }
+  }
 }
 
 /**
@@ -412,10 +444,17 @@ function renderCoursesTable() {
   const tbody = document.getElementById("course-management-tbody");
   tbody.innerHTML = "";
 
+  const nonCreditCount = state.courses.filter(c => c.isNonCredit || c.categoryId === "non_credit").length;
+
   // 区分フィルターセレクトの更新
   const catFilterSelect = document.getElementById("course-cat-filter");
   const currentCatFilter = state.categoryFilter;
-  catFilterSelect.innerHTML = `<option value="all">すべての区分</option><option value="uncategorized">⚠️ 未分類のみ</option>`;
+  catFilterSelect.innerHTML = `
+    <option value="all">すべての単位対象科目</option>
+    <option value="all_with_non_credit">全サイト（事務・非単位含む）</option>
+    <option value="non_credit">🚫 単位対象外・事務サイトのみ (${nonCreditCount}件)</option>
+    <option value="uncategorized">⚠️ 未分類のみ</option>
+  `;
   state.categories.forEach(c => {
     const opt = document.createElement("option");
     opt.value = c.id;
@@ -423,14 +462,30 @@ function renderCoursesTable() {
     if (c.id === currentCatFilter) opt.selected = true;
     catFilterSelect.appendChild(opt);
   });
+  if (currentCatFilter) catFilterSelect.value = currentCatFilter;
 
   // フィルタリング
   const filtered = state.courses.filter(c => {
     const matchesSearch = !state.searchQuery ||
       c.title.toLowerCase().includes(state.searchQuery) ||
       (c.term && c.term.toLowerCase().includes(state.searchQuery));
-    const matchesCat = state.categoryFilter === "all" ||
-      (state.categoryFilter === "uncategorized" ? (!c.categoryId || c.categoryId === "uncategorized") : c.categoryId === state.categoryFilter);
+
+    let matchesCat = true;
+    const isNonCredit = c.isNonCredit || c.categoryId === "non_credit";
+
+    if (state.categoryFilter === "all") {
+      // 通常表示: 単位対象科目のみ
+      matchesCat = !isNonCredit;
+    } else if (state.categoryFilter === "all_with_non_credit") {
+      matchesCat = true;
+    } else if (state.categoryFilter === "non_credit") {
+      matchesCat = isNonCredit;
+    } else if (state.categoryFilter === "uncategorized") {
+      matchesCat = (!c.categoryId || c.categoryId === "uncategorized") && !isNonCredit;
+    } else {
+      matchesCat = c.categoryId === state.categoryFilter;
+    }
+
     return matchesSearch && matchesCat;
   });
 
@@ -441,9 +496,16 @@ function renderCoursesTable() {
 
   filtered.forEach((course, index) => {
     const tr = document.createElement("tr");
+    const isNonCredit = course.isNonCredit || course.categoryId === "non_credit";
+
+    if (isNonCredit) {
+      tr.style.backgroundColor = "#f8fafc";
+      tr.style.opacity = "0.85";
+    }
 
     // 区分セレクトのHTML生成
     let catOptions = `<option value="uncategorized" ${(!course.categoryId || course.categoryId === 'uncategorized') ? 'selected' : ''}>⚠️ 未分類</option>`;
+    catOptions += `<option value="non_credit" ${isNonCredit ? 'selected' : ''}>🚫 単位対象外（事務・連絡・研修等）</option>`;
     state.categories.forEach(cat => {
       catOptions += `<option value="${cat.id}" ${course.categoryId === cat.id ? 'selected' : ''}>${cat.section ? `[${cat.section}] ` : ''}${cat.name}</option>`;
     });
@@ -451,7 +513,8 @@ function renderCoursesTable() {
     tr.innerHTML = `
       <td style="color: var(--tact-text-sub);">${index + 1}</td>
       <td>
-        <span style="font-weight: 600; color: var(--tact-navy);">${course.title}</span>
+        <span style="font-weight: 600; color: ${isNonCredit ? '#475569' : 'var(--tact-navy)'};">${course.title}</span>
+        ${isNonCredit ? `<span style="background: #e2e8f0; color: #475569; font-size: 11px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600;">単位対象外</span>` : ''}
         ${course.rawTitle && course.rawTitle !== course.title ? `<div style="font-size: 11px; color: var(--tact-text-sub);">${course.rawTitle}</div>` : ''}
       </td>
       <td style="font-size: 12px; color: var(--tact-text-muted);">${course.term || "-"}</td>
@@ -462,6 +525,7 @@ function renderCoursesTable() {
       </td>
       <td style="text-align: center;">
         <select class="tact-select tact-select-sm credit-select" data-id="${course.id}">
+          <option value="0" ${course.credits === 0 ? 'selected' : ''}>0 単位（非算入）</option>
           <option value="1" ${course.credits === 1 ? 'selected' : ''}>1 単位</option>
           <option value="2" ${course.credits === 2 ? 'selected' : ''}>2 単位</option>
           <option value="4" ${course.credits === 4 ? 'selected' : ''}>4 単位</option>
@@ -474,7 +538,7 @@ function renderCoursesTable() {
           <option value="enrolled" ${course.status === 'enrolled' ? 'selected' : ''}>履修中</option>
           <option value="passed" ${course.status === 'passed' ? 'selected' : ''}>修得済</option>
           <option value="failed" ${course.status === 'failed' ? 'selected' : ''}>不可</option>
-          <option value="exempt" ${course.status === 'exempt' ? 'selected' : ''}>免除</option>
+          <option value="exempt" ${course.status === 'exempt' ? 'selected' : ''}>免除・対象外</option>
         </select>
       </td>
       <td style="text-align: center;">
@@ -486,14 +550,28 @@ function renderCoursesTable() {
     tr.querySelector(".cat-select").addEventListener("change", async (e) => {
       const newCatId = e.target.value;
       course.categoryId = newCatId;
+      if (newCatId === "non_credit") {
+        course.isNonCredit = true;
+        course.credits = 0;
+        course.status = "exempt";
+      } else {
+        course.isNonCredit = false;
+        if (course.credits === 0) {
+          course.credits = estimateCredits(course.title, course.rawTitle);
+        }
+      }
       await saveMapping(course.title, newCatId);
       await saveCourses(state.courses);
       renderSummary();
+      renderCoursesTable();
     });
 
     // 単位数変更イベント
     tr.querySelector(".credit-select").addEventListener("change", async (e) => {
       course.credits = parseInt(e.target.value, 10);
+      if (course.credits > 0 && course.isNonCredit) {
+        course.isNonCredit = false;
+      }
       await saveCourses(state.courses);
       renderSummary();
     });
