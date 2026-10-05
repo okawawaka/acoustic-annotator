@@ -66,6 +66,7 @@ const parsed = mockSites.map(s => parseCourseSite(s, categories, {}));
 // 各区分への自動マッピング検証
 const intro = parsed.find(c => c.categoryId === "intro_study");
 assert(intro !== undefined, "「大学での学び」基礎論 correctly categorized into intro_study");
+assert(intro.credits === 1, `「大学での学び」基礎論は1単位 (got ${intro.credits})`);
 
 const seminar = parsed.find(c => c.categoryId === "seminar");
 assert(seminar !== undefined, "基礎セミナー correctly categorized into seminar");
@@ -250,6 +251,16 @@ assert(parsedFacultyPhilosophy.categoryId === "dept_elec_lecture", `文学部開
 // 文学部開講の「人文学入門Ⅰ」は専門基礎科目へマッピング
 const parsedFacultyIntro = parseCourseSite({ id: "2024_02_0009999", title: "専門基礎：人文学入門Ⅰ" }, litCats);
 assert(parsedFacultyIntro.categoryId === "major_basics", `人文学入門 maps to 'major_basics' (got ${parsedFacultyIntro.categoryId})`);
+
+// 卒業論文演習は2単位かつ専修演習区分
+const parsedThesisSem = parseCourseSite({ id: "2026_01_0009999", title: "卒業論文演習 (2026通年)" }, litCats);
+assert(parsedThesisSem.credits === 2, `卒業論文演習は2単位 (got ${parsedThesisSem.credits})`);
+assert(parsedThesisSem.categoryId === "dept_req_seminar", `卒業論文演習 maps to 'dept_req_seminar' (got ${parsedThesisSem.categoryId})`);
+
+// 卒業論文本体は10単位かつmajor_thesis区分
+const parsedThesis = parseCourseSite({ id: "thesis_manual", title: "卒業論文" }, litCats);
+assert(parsedThesis.credits === 10, `卒業論文は10単位 (got ${parsedThesis.credits})`);
+assert(parsedThesis.categoryId === "major_thesis", `卒業論文 maps to 'major_thesis' (got ${parsedThesis.categoryId})`);
 
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);

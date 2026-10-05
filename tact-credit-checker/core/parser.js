@@ -238,37 +238,47 @@ export function extractCourseCode(siteId, title) {
 }
 
 /**
- * 単位数の推測（デフォルト2単位、実験・実習・スポーツ・特定専門科目は1単位、卒論は4〜8単位）
+ * 単位数の推測（デフォルト2単位、実験・実習・スポーツ・特定専門科目は1単位、卒論は10単位、卒論演習は2単位）
  */
 export function estimateCredits(cleanTitle, rawTitle) {
   const combined = `${cleanTitle} ${rawTitle}`;
 
-  // 1. 卒論・研究科目
-  if (/卒業論文|卒業研究|特別研究|学士論文/i.test(combined)) {
-    return 6;
+  // 1. 「大学での学び」基礎論は 1 単位
+  if (/大学での学び/i.test(combined)) {
+    return 1;
   }
 
-  // 2. データ科学基礎科目は原則1単位
+  // 2. 卒業論文演習・卒論演習は 2 単位（※卒業論文単体より先に判定）
+  if (/卒業論文演習|卒論演習/i.test(combined)) {
+    return 2;
+  }
+
+  // 3. 卒業論文・学士論文は 10 単位
+  if (/卒業論文|卒業研究|特別研究|学士論文/i.test(combined)) {
+    return 10;
+  }
+
+  // 4. データ科学基礎科目は原則1単位
   if (/データ科学|データサイエンス/i.test(combined)) {
     return 1;
   }
 
-  // 3. 英語（上級リーディング）は1単位
+  // 5. 英語（上級リーディング）は1単位
   if (/上級リーディング|advanced reading/i.test(combined)) {
     return 1;
   }
 
-  // 4. スポーツ科学の講義は2単位（※実習より先に判定）
+  // 6. スポーツ科学の講義は2単位（※実習より先に判定）
   if (/健康.*講義|スポーツ.*講義|健康・スポーツ科学講義/i.test(combined)) {
     return 2;
   }
 
-  // 5. スポーツ科学の実習・演習、実験、実習、1単位指定科目
-  if (/日本文化事情|異文化理解|ジェンダー学概論|セクシュアリティ学概論|情報リテラシー|科学技術と人文学|デジタル人文学|コミュニケーションスキル|イノベーション創出|実験|実習|スポーツ|体育|身体運動|演習[I1]|チュートリアル/i.test(combined)) {
+  // 7. スポーツ科学の実習・演習、実験、実習、1単位指定科目
+  if (/日本文化事情|異文化理解|ジェンダー学概論|セクシュアリティ学概論|情報リテラシー|科学技術と人文学|デジタル人文学|コミュニケーションスキル|イノベーション創出|実験|実習|スポーツ|体育|身体運動|チュートリアル/i.test(combined)) {
     return 1;
   }
 
-  // 6. 通年・特論・総合演習
+  // 8. 通年・特論・総合演習
   if (/通年|特論|総合演習/i.test(combined)) {
     return 4;
   }
@@ -318,7 +328,13 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
 
-  // 4. 文学部 卒業論文
+  // 4. 卒業論文演習・卒論演習（専修必修演習区分へ、卒論本体と明確に区別）
+  if (/卒業論文演習|卒論演習/i.test(title)) {
+    const cat = targetPool.find(c => c.id === "dept_req_seminar" || c.id === "major_req");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+  }
+
+  // 5. 文学部 卒業論文（10単位・論文審査科目）
   if (/卒業論文|卒業研究|卒論|学士論文/i.test(title)) {
     const cat = targetPool.find(c => c.id === "major_thesis");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };

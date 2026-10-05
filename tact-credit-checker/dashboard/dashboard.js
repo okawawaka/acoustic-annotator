@@ -52,6 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (hadUnmapped) {
     await saveCourses(state.courses);
   }
+  await syncThesisCourse();
   initUI();
   render();
 });
@@ -157,6 +158,42 @@ function render() {
   renderSummary();
   renderCoursesTable();
   document.getElementById("tab-course-count").textContent = state.courses.length;
+}
+
+/**
+ * 卒業論文（10単位・TACT連携対象外）の手動修得トグルと科目同期
+ */
+async function syncThesisCourse() {
+  const thesisIndex = state.courses.findIndex(c => c.id === "manual_major_thesis_10");
+  const isPassed = !!(state.studentProfile && state.studentProfile.thesisPassed);
+
+  if (isPassed) {
+    if (thesisIndex === -1) {
+      state.courses.push({
+        id: "manual_major_thesis_10",
+        title: "卒業論文",
+        rawTitle: "卒業論文 (論文審査合格・10単位)",
+        courseCode: "THESIS-10",
+        term: "第4年次 通年",
+        year: new Date().getFullYear(),
+        season: "通年",
+        credits: 10,
+        categoryId: "major_thesis",
+        origin: "faculty",
+        isEstimated: false,
+        status: "passed",
+        isNonCredit: false,
+        isManual: true,
+        updatedAt: Date.now()
+      });
+      await saveCourses(state.courses);
+    }
+  } else {
+    if (thesisIndex !== -1) {
+      state.courses.splice(thesisIndex, 1);
+      await saveCourses(state.courses);
+    }
+  }
 }
 
 /**
@@ -327,13 +364,23 @@ function renderSummary() {
 
       const isFulfilled = data.passed >= data.required;
       const shortfall = Math.max(0, data.required - data.passed);
-      const isExpanded = state.expandedCategories.has(cat.id);
+      const isThesisCat = cat.id === "major_thesis";
+      const thesisHtml = isThesisCat ? `
+        <div style="margin-top: 5px;" class="thesis-toggle-wrap">
+          <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 5px; background: #eff6ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #bfdbfe; font-size: 11px;">
+            <input type="checkbox" class="thesis-complete-toggle" ${state.studentProfile && state.studentProfile.thesisPassed ? 'checked' : ''}>
+            <span style="font-weight: 700; color: #1d4ed8;">卒業論文（10単位）提出・合格済として算入</span>
+          </label>
+          <span style="font-size: 10.5px; color: var(--tact-text-sub); margin-left: 6px;">※TACT連携外のため手動で切替可能</span>
+        </div>
+      ` : '';
 
       row.innerHTML = `
         <td style="color: var(--tact-text-sub); font-size: 11.5px;">${cat.group || cat.section || ''}</td>
         <td>
           <span style="font-weight: 600; color: var(--tact-navy);">${isExpanded ? '▼' : '▶'} ${cat.name}</span>
           <span style="font-size: 11px; color: var(--tact-text-sub); margin-left: 6px;">(${data.courses.length}科目)</span>
+          ${thesisHtml}
         </td>
         <td style="font-size: 12px; color: var(--tact-text-sub);">${cat.note || '-'}</td>
         <td style="text-align: right; font-weight: 600;">${data.required}</td>
@@ -344,6 +391,22 @@ function renderSummary() {
           ${isFulfilled ? '<span class="badge-fulfilled">✓ 充足</span>' : `<span class="badge-unfulfilled">あと ${shortfall}</span>`}
         </td>
       `;
+
+      // 卒業論文トグルのイベント
+      if (isThesisCat) {
+        const toggleInput = row.querySelector(".thesis-complete-toggle");
+        if (toggleInput) {
+          toggleInput.addEventListener("click", (e) => e.stopPropagation());
+          toggleInput.addEventListener("change", async (e) => {
+            e.stopPropagation();
+            state.studentProfile = state.studentProfile || {};
+            state.studentProfile.thesisPassed = e.target.checked;
+            await syncThesisCourse();
+            await saveStudentProfile(state.studentProfile);
+            render();
+          });
+        }
+      }
 
       // クリックで科目展開
       row.addEventListener("click", () => {
@@ -909,6 +972,7 @@ async function handleTactSync() {
     });
 
     state.courses = parsed;
+    await syncThesisCourse();
     state.lastSync = Date.now();
     state.user = session.user;
 
@@ -932,10 +996,11 @@ async function handleLoadSample() {
   const mockSites = getMockCourseSites();
   const parsed = mockSites.map(s => parseCourseSite(s, state.categories, state.mappings));
   state.courses = parsed;
+  await syncThesisCourse();
   state.lastSync = Date.now();
   await saveCourses(state.courses);
   render();
-  alert("名大の模擬履修データ（16科目）を読み込みました！");
+  alert("名大の模擬履修データを読み込みました！");
 }
 
 /**
