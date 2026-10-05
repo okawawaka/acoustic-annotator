@@ -11,7 +11,8 @@ const STORAGE_KEYS = {
   COURSES: "tcc_courses",
   MAPPINGS: "tcc_custom_mappings",
   LAST_SYNC: "tcc_last_sync_time",
-  USER: "tcc_user_profile"
+  USER: "tcc_user_profile",
+  STUDENT_PROFILE: "tcc_student_profile"
 };
 
 const isExtensionEnv = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
@@ -61,6 +62,11 @@ export async function loadAppState() {
   const mappings = await getStorageData(STORAGE_KEYS.MAPPINGS, {});
   const lastSync = await getStorageData(STORAGE_KEYS.LAST_SYNC, null);
   const user = await getStorageData(STORAGE_KEYS.USER, null);
+  const studentProfile = await getStorageData(STORAGE_KEYS.STUDENT_PROFILE, {
+    entranceYear: new Date().getFullYear(),
+    faculty: "文学部",
+    department: "人文学科"
+  });
 
   // カテゴリ未初期化時は選択プリセットから初期化
   if (!categories || categories.length === 0) {
@@ -75,8 +81,16 @@ export async function loadAppState() {
     courses,
     mappings,
     lastSync,
-    user
+    user,
+    studentProfile
   };
+}
+
+/**
+ * 学生プロファイル（入学年度・学部・専攻）の保存
+ */
+export async function saveStudentProfile(profile) {
+  await setStorageData(STORAGE_KEYS.STUDENT_PROFILE, profile);
 }
 
 /**

@@ -98,55 +98,121 @@ export async function checkTactSession() {
 }
 
 /**
- * TACTからユーザーが所属する講義サイト一覧を取得
+ * TACTからユーザーが所属する講義サイト一覧を全件取得（ページネーション対応）
  * @param {string} baseUrl
  * @param {number} [tabId] 開いているTACTタブIDがあれば同一オリジン内で実行
  * @returns {Promise<Array>} 講義サイト配列
  */
 export async function fetchUserCourseSites(baseUrl = "https://tact.ac.thers.ac.jp", tabId = null) {
-  // タブID指定または開いているTACTタブがある場合は、タブ内で実行してCookieを確実に利用
   let targetTabId = tabId;
   if (!targetTabId) {
     const tab = await findOpenTactTab();
     if (tab) targetTabId = tab.id;
   }
 
+  // 1. タブ内実行（同一オリジン・セッション確実）
   if (targetTabId && typeof chrome !== "undefined" && chrome.scripting) {
     try {
       const results = await chrome.scripting.executeScript({
         target: { tabId: targetTabId },
         func: async () => {
-          const res = await fetch("/direct/site.json", {
-            credentials: "include",
-            headers: { "Accept": "application/json" }
-          });
-          if (!res.ok) throw new Error(`HTTP status: ${res.status}`);
-          return await res.json();
+          let allSites = [];
+          const pageSize = 100;
+          let start = 0;
+          let keepFetching = true;
+          let loopGuard = 25; // 最大2500件
+
+          while (keepFetching && loopGuard > 0) {
+            loopGuard--;
+            const res = await fetch(`/direct/site.json?_limit=${pageSize}&_start=${start}`, {
+              credentials: "include",
+              headers: { "Accept": "application/json" }
+            });
+            if (!res.ok) {
+              // パラメータ付きが失敗した場合は素のsite.jsonを試行
+              if (start === 0) {
+                const fallbackRes = await fetch("/direct/site.json", {
+                  credentials: "include",
+                  headers: { "Accept": "application/json" }
+                });
+                if (fallbackRes.ok) {
+                  const fallbackData = await fallbackRes.json();
+                  return fallbackData.site_collection || [];
+                }
+              }
+              break;
+            }
+
+            const data = await res.json();
+            const collection = data.site_collection || [];
+            if (collection.length === 0) break;
+
+            allSites = allSites.concat(collection);
+            if (collection.length < pageSize) {
+              keepFetching = false;
+            } else {
+              start += pageSize;
+            }
+          }
+          return allSites;
         }
       });
 
-      if (results && results[0] && results[0].result) {
-        const data = results[0].result;
-        return filterCourseSites(data.site_collection || []);
+      if (results && results[0] && Array.isArray(results[0].result)) {
+        return filterCourseSites(results[0].result);
       }
     } catch (e) {
-      console.warn("Tab execution failed, falling back to fetch:", e);
+      console.warn("Tab execution failed, falling back to direct fetch:", e);
     }
   }
 
-  // 直接fetchフォールバック
-  const url = `${baseUrl}/direct/site.json`;
-  const res = await fetch(url, {
-    credentials: "include",
-    headers: { "Accept": "application/json" }
-  });
+  // 2. 直接fetchフォールバック（ページネーション対応）
+  let allSites = [];
+  const pageSize = 100;
+  let start = 0;
+  let keepFetching = true;
+  let loopGuard = 25;
 
-  if (!res.ok) {
-    throw new Error(`TACTからの講義情報取得に失敗しました (Status: ${res.status})`);
+  while (keepFetching && loopGuard > 0) {
+    loopGuard--;
+    try {
+      const url = `${baseUrl}/direct/site.json?_limit=${pageSize}&_start=${start}`;
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: { "Accept": "application/json" }
+      });
+
+      if (!res.ok) {
+        if (start === 0) {
+          const fallbackRes = await fetch(`${baseUrl}/direct/site.json`, {
+            credentials: "include",
+            headers: { "Accept": "application/json" }
+          });
+          if (fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            return filterCourseSites(data.site_collection || []);
+          }
+        }
+        break;
+      }
+
+      const data = await res.json();
+      const collection = data.site_collection || [];
+      if (collection.length === 0) break;
+
+      allSites = allSites.concat(collection);
+      if (collection.length < pageSize) {
+        keepFetching = false;
+      } else {
+        start += pageSize;
+      }
+    } catch (err) {
+      console.warn("Direct fetch iteration failed:", err);
+      break;
+    }
   }
 
-  const data = await res.json();
-  return filterCourseSites(data.site_collection || []);
+  return filterCourseSites(allSites);
 }
 
 /**

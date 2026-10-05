@@ -1,27 +1,24 @@
-/* TACT Credit Checker - Full Dashboard Styles */
+/* TACT Credit Checker - TACT / Sakai CLE Design System */
 
 :root {
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
-  --success: #10b981;
-  --success-light: #ecfdf5;
-  --warning: #f59e0b;
-  --warning-light: #fffbeb;
-  --danger: #ef4444;
-  --danger-light: #fef2f2;
-  --slate-50: #f8fafc;
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-300: #cbd5e1;
-  --slate-400: #94a3b8;
-  --slate-500: #64748b;
-  --slate-600: #475569;
-  --slate-700: #334155;
-  --slate-800: #1e293b;
-  --slate-900: #0f172a;
-  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --elevated-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --tact-navy: #19365c;
+  --tact-navy-dark: #0f2440;
+  --tact-navy-light: #254875;
+  --tact-green: #184e37;
+  --tact-border: #d0d7de;
+  --tact-border-light: #e5e7eb;
+  --tact-bg: #f4f6f8;
+  --tact-card-bg: #ffffff;
+  --tact-text-main: #1f2937;
+  --tact-text-muted: #4b5563;
+  --tact-text-sub: #6b7280;
+  --tact-success: #15803d;
+  --tact-success-bg: #f0fdf4;
+  --tact-warning: #b45309;
+  --tact-warning-bg: #fffbeb;
+  --tact-danger: #b91c1c;
+  --tact-danger-bg: #fef2f2;
+  --tact-info-bg: #eff6ff;
 }
 
 * {
@@ -31,759 +28,595 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f1f5f9;
-  color: var(--slate-800);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Meiryo", "Hiragino Kaku Gothic ProN", sans-serif;
+  background-color: var(--tact-bg);
+  color: var(--tact-text-main);
+  font-size: 13px;
   line-height: 1.5;
-  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-.app-layout {
+.tact-app {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
 }
 
-/* ナビゲーションバー */
-.app-navbar {
+/* TACT公式風ヘッダー */
+.tact-header {
+  background-color: var(--tact-navy);
+  color: #ffffff;
+  padding: 10px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ffffff;
-  padding: 12px 28px;
-  border-bottom: 1px solid var(--slate-200);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  border-bottom: 2px solid var(--tact-navy-dark);
 }
 
-.nav-brand {
+.tact-header-brand {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.nav-logo {
-  font-size: 28px;
-  line-height: 1;
-}
-
-.nav-title-group h2 {
-  font-size: 18px;
+.tact-portal-name {
+  font-size: 20px;
   font-weight: 800;
-  color: var(--slate-900);
-  letter-spacing: -0.02em;
+  letter-spacing: 0.05em;
+  color: #ffffff;
 }
 
-.nav-subtitle {
-  font-size: 11.5px;
-  color: var(--slate-500);
+.tact-header-divider {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
 }
 
-.nav-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.tact-service-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
 }
 
-.preset-selector-wrap {
+.tact-header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--slate-600);
 }
 
-.form-select {
-  padding: 7px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--slate-300);
-  background-color: #ffffff;
-  font-size: 13px;
-  color: var(--slate-800);
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.form-select:focus {
-  border-color: var(--primary);
-}
-
-.nav-btn {
+/* ボタン群 */
+.tact-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-sync {
-  background: var(--primary);
-  color: #ffffff;
-}
-
-.btn-sync:hover {
-  background: var(--primary-hover);
-}
-
-.btn-secondary {
-  background: var(--slate-100);
-  color: var(--slate-700);
-  border: 1px solid var(--slate-300);
-}
-
-.btn-secondary:hover {
-  background: var(--slate-200);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--slate-600);
-  border: 1px solid var(--slate-200);
-}
-
-.btn-ghost:hover {
-  background: var(--slate-100);
-  color: var(--slate-900);
-}
-
-.btn-sample {
-  border-color: #fbcfe8;
-  color: #db2777;
-  background: #fdf2f8;
-}
-
-.btn-sample:hover {
-  background: #fce7f3;
-}
-
-/* メインコンテンツ */
-.app-main {
-  padding: 24px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 1600px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* KPIカードグリッド */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: 2fr 1.3fr 1fr;
-  gap: 16px;
-}
-
-.kpi-card {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--slate-200);
-  padding: 18px 20px;
-  box-shadow: var(--card-shadow);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.kpi-card .card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.kpi-card .card-header h3 {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--slate-700);
-}
-
-.badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 9999px;
-  background: var(--slate-100);
-  color: var(--slate-600);
-}
-
-.badge-success {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.badge-warning {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-/* 総単位カード */
-.credit-main-numbers {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 6px 0 16px 0;
-}
-
-.number-block {
-  display: flex;
-  flex-direction: column;
-}
-
-.number-block .label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--slate-500);
-  margin-bottom: 2px;
-}
-
-.number-block .num {
-  font-size: 30px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.text-passed { color: var(--success); }
-.text-enrolled { color: var(--primary); }
-.text-total { color: var(--slate-900); }
-
-.operator {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--slate-300);
-  margin-top: 14px;
-}
-
-.progress-bar-lg {
-  height: 14px;
-  width: 100%;
-  background-color: var(--slate-100);
-  border-radius: 7px;
-  display: flex;
-  overflow: hidden;
-  border: 1px solid var(--slate-200);
-}
-
-.progress-fill {
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.passed-fill { background-color: var(--success); }
-.enrolled-fill { background-color: #60a5fa; }
-
-.progress-meta {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--slate-600);
-}
-
-/* 区分ミニバー */
-.category-bars-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 120px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.mini-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11.5px;
-}
-
-.mini-bar-label {
-  width: 130px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--slate-700);
-  font-weight: 500;
-}
-
-.mini-bar-track {
-  flex: 1;
-  height: 6px;
-  background: var(--slate-100);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.mini-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-}
-
-.mini-bar-stat {
-  font-size: 11px;
-  color: var(--slate-500);
-  width: 50px;
-  text-align: right;
-  font-weight: 600;
-}
-
-/* 同期カード */
-.sync-info-body {
-  font-size: 12.5px;
-  color: var(--slate-600);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.privacy-note {
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--slate-400);
-}
-
-/* 未分類シェルフ */
-.uncategorized-shelf {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 12px;
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.shelf-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.shelf-header h4 {
-  font-size: 14px;
-  font-weight: 700;
-  color: #92400e;
-}
-
-.shelf-header p {
-  font-size: 12px;
-  color: #b45309;
-  margin-left: auto;
-}
-
-.shelf-cards-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-height: 48px;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 8px;
-  border: 1px dashed #fcd34d;
-}
-
-/* ツールバー */
-.view-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 4px;
-}
-
-.view-toggles {
-  display: flex;
-  background: #ffffff;
-  padding: 3px;
-  border-radius: 8px;
-  border: 1px solid var(--slate-200);
-}
-
-.toggle-btn {
   padding: 6px 14px;
   font-size: 12.5px;
   font-weight: 600;
-  border-radius: 6px;
-  border: none;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  line-height: 1.4;
+}
+
+.tact-btn-primary {
+  background-color: #0284c7;
+  color: #ffffff;
+  border-color: #0369a1;
+}
+
+.tact-btn-primary:hover {
+  background-color: #0369a1;
+}
+
+.tact-btn-light {
+  background-color: #ffffff;
+  color: var(--tact-text-main);
+  border-color: var(--tact-border);
+}
+
+.tact-btn-light:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.tact-btn-sample {
+  background-color: #fdf2f8;
+  color: #9d174d;
+  border-color: #fbcfe8;
+}
+
+.tact-btn-sample:hover {
+  background-color: #fce7f3;
+}
+
+.tact-btn-danger {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.tact-btn-danger:hover {
+  background-color: #dc2626;
+}
+
+.tact-btn-sm {
+  padding: 4px 10px;
+  font-size: 11.5px;
+}
+
+.tact-btn-link {
   background: transparent;
-  color: var(--slate-600);
+  border: none;
+  color: #0284c7;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 4px;
+}
+
+.tact-btn-link:hover {
+  color: #0369a1;
+}
+
+/* プロファイルバー */
+.tact-profile-bar {
+  background-color: #e5e9f0;
+  border-bottom: 1px solid var(--tact-border);
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.profile-info-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-badge {
+  background-color: var(--tact-navy);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.profile-total-req {
+  color: var(--tact-text-muted);
+  margin-left: 8px;
+}
+
+/* Sakai風タブナビゲーション */
+.tact-tabs {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--tact-border);
+  padding: 0 24px;
+  display: flex;
+  gap: 4px;
+}
+
+.tact-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 11px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tact-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.toggle-btn.active {
-  background: var(--primary);
-  color: #ffffff;
+.tact-tab:hover {
+  color: var(--tact-navy);
+  background-color: #f8fafc;
 }
 
-.search-filter-bar {
-  display: flex;
-  gap: 10px;
+.tact-tab.active {
+  color: var(--tact-navy);
+  border-bottom-color: var(--tact-navy);
+  font-weight: 700;
 }
 
-.search-input {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--slate-300);
-  font-size: 12.5px;
-  width: 220px;
-  outline: none;
+/* メイン領域 */
+.tact-main-content {
+  padding: 20px 24px;
+  flex: 1;
+  max-width: 1480px;
+  width: 100%;
+  margin: 0 auto;
 }
 
-.form-select-sm {
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--slate-300);
-  font-size: 12.5px;
-  outline: none;
-  cursor: pointer;
-}
-
-/* かんばんビュー */
-.kanban-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: 16px;
-  align-items: start;
-}
-
-.kanban-column {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--slate-200);
-  box-shadow: var(--card-shadow);
-  display: flex;
+.tab-pane {
+  display: none;
   flex-direction: column;
-  max-height: 720px;
-  transition: border-color 0.2s ease;
+  gap: 18px;
 }
 
-.kanban-column.drag-over {
-  border-color: var(--primary);
-  background-color: var(--primary-light);
-}
-
-.column-header {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--slate-100);
+.tab-pane.active {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
-.column-title-row {
+/* カード */
+.tact-card {
+  background-color: var(--tact-card-bg);
+  border: 1px solid var(--tact-border);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.tact-card-header {
+  padding: 12px 18px;
+  background-color: #fafbfc;
+  border-bottom: 1px solid var(--tact-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.column-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.column-color-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.column-name {
-  font-size: 13.5px;
+.tact-card-header h3 {
+  font-size: 14px;
   font-weight: 700;
-  color: var(--slate-800);
+  color: var(--tact-text-main);
 }
 
-.column-stat-badge {
+.tact-card-subtext {
+  font-size: 11.5px;
+  color: var(--tact-text-sub);
+}
+
+.tact-card-body {
+  padding: 16px 18px;
+}
+
+.p-0 { padding: 0 !important; }
+
+/* 判定タグ */
+.tact-status-tag {
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--slate-600);
+  padding: 3px 8px;
+  border-radius: 3px;
+  background-color: #e5e7eb;
+  color: #374151;
 }
 
-.column-progress-bar {
-  height: 5px;
-  background: var(--slate-100);
-  border-radius: 3px;
+.tag-success {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.tag-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+/* サマリーメトリック */
+.summary-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--tact-border-light);
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--tact-text-sub);
+  margin-bottom: 2px;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.metric-value-lg {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.text-success { color: var(--tact-success); }
+.text-primary { color: #0284c7; }
+.text-danger { color: var(--tact-danger); }
+.text-dark { color: var(--tact-text-main); }
+
+.metric-separator {
+  font-size: 18px;
+  color: #cbd5e1;
+  margin-top: 14px;
+}
+
+.metric-remaining {
+  margin-left: auto;
+  border-left: 1px solid var(--tact-border-light);
+  padding-left: 20px;
+}
+
+/* プログレスバー */
+.tact-progress-container {
+  margin-top: 12px;
+}
+
+.tact-progress-bar {
+  height: 12px;
+  background-color: #e5e7eb;
+  border-radius: 2px;
+  display: flex;
   overflow: hidden;
+  border: 1px solid #d1d5db;
 }
 
-.column-progress-fill {
+.progress-segment {
   height: 100%;
-  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
-.column-cards {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
-  min-height: 120px;
-}
+.passed-segment { background-color: var(--tact-success); }
+.enrolled-segment { background-color: #38bdf8; }
 
-/* 科目カード */
-.course-card {
-  background: #ffffff;
-  border: 1px solid var(--slate-200);
-  border-radius: 8px;
-  padding: 10px 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  cursor: grab;
-  user-select: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.course-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--elevated-shadow);
-  border-color: var(--slate-300);
-}
-
-.course-card.dragging {
-  opacity: 0.4;
-  cursor: grabbing;
-}
-
-.card-title-row {
+.tact-progress-legend {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--tact-text-muted);
 }
 
-.course-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--slate-800);
-  line-height: 1.35;
+.legend-color {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
 }
 
-.course-meta-row {
+.legend-passed { background-color: var(--tact-success); }
+.legend-enrolled { background-color: #38bdf8; }
+
+/* アラートバナー */
+.tact-alert {
+  padding: 10px 14px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--slate-500);
+  gap: 12px;
+  border: 1px solid transparent;
 }
 
-.course-term {
-  font-weight: 500;
+.tact-alert-warning {
+  background-color: var(--tact-warning-bg);
+  border-color: #fde68a;
+  color: #78350f;
 }
 
-.credit-tag {
-  background: var(--slate-100);
-  color: var(--slate-700);
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 1px solid var(--slate-200);
-}
+.alert-icon { font-size: 18px; }
+.alert-content { flex: 1; font-size: 12px; }
+.alert-content strong { display: block; margin-bottom: 2px; }
 
-.credit-tag:hover {
-  background: var(--slate-200);
-}
-
-.status-pill {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  cursor: pointer;
-}
-
-.status-passed { background: #dcfce7; color: #166534; }
-.status-enrolled { background: #dbeafe; color: #1e40af; }
-.status-failed { background: #fee2e2; color: #991b1b; }
-.status-exempt { background: #f3e8ff; color: #6b21a8; }
-
-.card-del-btn {
-  background: transparent;
-  border: none;
-  color: var(--slate-400);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 4px;
-}
-
-.card-del-btn:hover {
-  color: var(--danger);
-  background: var(--danger-light);
-}
-
-/* テーブルビュー */
-.table-card {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--slate-200);
-  box-shadow: var(--card-shadow);
-  overflow: hidden;
-}
-
-.course-table {
+/* TACTテーブル共通 */
+.tact-table {
   width: 100%;
   border-collapse: collapse;
-  text-align: left;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-.course-table th {
-  background: var(--slate-50);
-  padding: 10px 14px;
-  font-size: 11.5px;
+.tact-table th {
+  background-color: #f1f3f5;
+  border-bottom: 1px solid var(--tact-border);
+  padding: 8px 12px;
   font-weight: 700;
-  color: var(--slate-600);
-  border-bottom: 1px solid var(--slate-200);
+  color: var(--tact-text-muted);
+  text-align: left;
 }
 
-.course-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--slate-100);
+.tact-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--tact-border-light);
   vertical-align: middle;
 }
 
-.course-table tr:hover td {
-  background: var(--slate-50);
+.tact-table tr:hover td {
+  background-color: #f8fafc;
 }
 
-/* モーダル */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.modal-content {
-  background: #ffffff;
-  border-radius: 14px;
-  width: 480px;
-  max-width: 90vw;
-  box-shadow: var(--elevated-shadow);
-  border: 1px solid var(--slate-200);
-  overflow: hidden;
-}
-
-.modal-lg {
-  width: 720px;
-}
-
-.modal-header {
-  padding: 16px 20px;
-  background: var(--slate-50);
-  border-bottom: 1px solid var(--slate-200);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.modal-header h3 {
-  font-size: 15px;
+/* 単位配当表専用 */
+.requirement-table .section-header-row td {
+  background-color: #e5e9f0;
   font-weight: 700;
+  color: var(--tact-navy);
+  padding: 6px 12px;
+  border-top: 2px solid var(--tact-border);
+  border-bottom: 1px solid var(--tact-border);
 }
 
-.modal-close {
-  background: transparent;
-  border: none;
-  font-size: 16px;
-  color: var(--slate-400);
-  cursor: pointer;
+.badge-fulfilled {
+  background-color: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
 }
 
-.modal-body, .modal-form {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.badge-unfulfilled {
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 11.5px;
 }
 
-.modal-desc {
+/* 入力・セレクト */
+.tact-input, .tact-select {
+  padding: 6px 10px;
+  border: 1px solid var(--tact-border);
+  border-radius: 3px;
   font-size: 12.5px;
-  color: var(--slate-500);
+  background-color: #ffffff;
+  color: var(--tact-text-main);
+  outline: none;
 }
 
-.form-group {
+.tact-input:focus, .tact-select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 1px #0284c7;
+}
+
+.tact-input-sm, .tact-select-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* コールアウト */
+.tact-callout {
+  background-color: #f0fdf4;
+  border-left: 4px solid var(--tact-green);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #14532d;
+}
+
+.tact-callout strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* 設定グリッド */
+.profile-config-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 18px;
+  background-color: #f8fafc;
+  padding: 12px 14px;
+  border: 1px solid var(--tact-border-light);
+  border-radius: 3px;
+}
+
+.config-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.form-group label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--slate-700);
+.config-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tact-text-muted);
 }
 
-.form-input {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--slate-300);
-  font-size: 13px;
-  outline: none;
+.rule-table-footer {
+  padding: 10px 12px;
+  background-color: #fafbfc;
+  border-top: 1px solid var(--tact-border-light);
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* モーダル */
+.tact-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.tact-modal {
+  background-color: #ffffff;
+  width: 500px;
+  max-width: 90vw;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--tact-border);
+  overflow: hidden;
+}
+
+.tact-modal-header {
+  padding: 10px 16px;
+  background-color: var(--tact-navy);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tact-modal-header h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.tact-modal-close {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.tact-modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.modal-footer {
-  padding: 14px 20px;
-  background: var(--slate-50);
-  border-top: 1px solid var(--slate-200);
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-/* ルールリスト */
-.rule-list {
+.tact-form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 380px;
-  overflow-y: auto;
-  padding-right: 4px;
+  gap: 4px;
 }
 
-.rule-row {
+.tact-form-group label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tact-text-muted);
+}
+
+.tact-form-row {
   display: grid;
-  grid-template-columns: 32px 1fr 90px 40px;
-  align-items: center;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  padding: 6px 10px;
-  background: var(--slate-50);
-  border: 1px solid var(--slate-200);
-  border-radius: 8px;
 }
 
-.rule-color-input {
-  width: 28px;
-  height: 28px;
+.tact-modal-footer {
+  padding: 10px 16px;
+  background-color: #f8fafc;
+  border-top: 1px solid var(--tact-border-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tact-divider {
   border: none;
-  cursor: pointer;
-  background: transparent;
+  border-top: 1px solid var(--tact-border-light);
+  margin: 10px 0;
+}
+
+.backup-block h4 {
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+
+.backup-block p {
+  font-size: 11.5px;
+  color: var(--tact-text-sub);
+  margin-bottom: 8px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
 }

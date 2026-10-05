@@ -2,7 +2,7 @@
  * TACT Credit Checker - Automated Logic & Parser Tests
  */
 
-import { DEFAULT_PRESETS } from "./core/presets.js";
+import { DEFAULT_PRESETS, NU_FACULTIES } from "./core/presets.js";
 import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear } from "./core/parser.js";
 import { getMockCourseSites } from "./core/api.js";
 
@@ -20,9 +20,10 @@ function assert(condition, message) {
 }
 
 console.log("=== 1. Presets Integrity Tests ===");
-assert(DEFAULT_PRESETS.length >= 4, "At least 4 presets defined");
+assert(NU_FACULTIES.length >= 9, "All 9 faculties of Nagoya University defined");
+assert(DEFAULT_PRESETS.length >= 8, "Presets defined for major faculties");
 DEFAULT_PRESETS.forEach(p => {
-  assert(p.totalRequired > 100, `Preset ${p.name} has reasonable totalRequired (${p.totalRequired})`);
+  assert(p.totalRequired >= 120, `Preset ${p.name} has reasonable totalRequired (${p.totalRequired})`);
   assert(p.categories.length > 0, `Preset ${p.name} has categories (${p.categories.length})`);
 });
 
@@ -46,9 +47,11 @@ assert(mockSites.length === 16, "Mock data has 16 courses");
 
 const parsed = mockSites.map(s => parseCourseSite(s, categories, {}));
 
-// 言語文化のチェック (Academic English, ドイツ語)
-const langCourses = parsed.filter(c => c.categoryId === "language");
-assert(langCourses.length >= 4, `Language courses correctly auto-categorized: found ${langCourses.length}`);
+// 言語文化のチェック (英語: lang_en, 初修外国語: lang_second)
+const englishCourses = parsed.filter(c => c.categoryId === "lang_en");
+const secondLangCourses = parsed.filter(c => c.categoryId === "lang_second");
+assert(englishCourses.length >= 2, `English courses correctly categorized: found ${englishCourses.length}`);
+assert(secondLangCourses.length >= 2, `Second language courses correctly categorized: found ${secondLangCourses.length}`);
 
 // 基礎セミナーのチェック
 const seminar = parsed.find(c => c.title === "基礎セミナー");
@@ -62,12 +65,14 @@ assert(thesis && thesis.credits === 6, `Thesis assigned 6 credits (got ${thesis 
 const sports = parsed.find(c => c.title.includes("スポーツ実技"));
 assert(sports && sports.credits === 1, `Sports assigned 1 credit (got ${sports ? sports.credits : 0})`);
 
-console.log("\n=== 4. Credit Calculation & Progress Summary Tests ===");
+console.log("\n=== 4. Credit Calculation & Section Summary Tests ===");
 const summary = calculateCredits(parsed, categories);
 assert(summary.totalRequired === 124, `Total required matches preset: ${summary.totalRequired} === 124`);
 assert(summary.totalPassed > 0, `Total passed credits > 0 (got ${summary.totalPassed})`);
 assert(summary.totalEnrolled > 0, `Total enrolled credits > 0 (got ${summary.totalEnrolled})`);
 assert(summary.categoryProgress["seminar"].passed === 2, "Seminar credits completed");
+assert(summary.sectionSummary["全学教育科目"] !== undefined, "Section summary for 全学教育科目 calculated");
+assert(summary.sectionSummary["専門教育科目"] !== undefined, "Section summary for 専門教育科目 calculated");
 
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);

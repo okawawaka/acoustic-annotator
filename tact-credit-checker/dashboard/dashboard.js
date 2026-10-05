@@ -1,16 +1,18 @@
 /**
- * TACT Credit Checker - Full Dashboard Controller
+ * TACT Credit Checker - Dashboard Controller (TACT / Sakai CLE Edition)
  */
 
-import { DEFAULT_PRESETS } from "../core/presets.js";
+import { DEFAULT_PRESETS, NU_FACULTIES } from "../core/presets.js";
 import { parseCourseSite, calculateCredits } from "../core/parser.js";
 import {
   loadAppState,
   saveCourses,
   saveCategories,
+  saveStudentProfile,
   switchPreset,
   saveMapping,
-  updateLastSync
+  updateLastSync,
+  resetAllData
 } from "../core/storage.js";
 import {
   getMockCourseSites,
@@ -18,7 +20,6 @@ import {
   fetchUserCourseSites
 } from "../core/api.js";
 
-// アプリケーション状態
 let state = {
   presetId: "",
   categories: [],
@@ -26,23 +27,366 @@ let state = {
   mappings: {},
   lastSync: null,
   user: null,
-  currentView: "kanban", // "kanban" | "table"
+  studentProfile: {
+    entranceYear: new Date().getFullYear(),
+    faculty: "文学部",
+    department: "人文学科"
+  },
+  currentTab: "tab-summary",
   searchQuery: "",
-  statusFilter: "all"
+  categoryFilter: "all",
+  expandedCategories: new Set()
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
-  state = { ...state, ...(await loadAppState()) };
+  const loaded = await loadAppState();
+  state = { ...state, ...loaded };
   initUI();
   render();
 });
 
 /**
- * UIイベント・要素の初期化
+ * UIの初期化
  */
 function initUI() {
-  // プリセットセレクタ
-  const presetSelect = document.getElementById("preset-select");
+  // タブ切り替え
+  const tabs = document.querySelectorAll(".tact-tab");
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      const targetId = tab.dataset.tab;
+      document.getElementById(targetId).classList.add("active");
+      state.currentTab = targetId;
+      render();
+    });
+  });
+
+  // プロファイル変更リンク
+  document.getElementById("switch-preset-btn").addEventListener("click", () => {
+    // タブ3（学修要覧・要件設定シート）へ切り替え
+    const ruleTabBtn = document.querySelector('[data-tab="tab-rules"]');
+    if (ruleTabBtn) ruleTabBtn.click();
+  });
+
+  document.getElementById("jump-to-courses-btn").addEventListener("click", () => {
+    const courseTabBtn = document.querySelector('[data-tab="tab-courses"]');
+    if (courseTabBtn) courseTabBtn.click();
+  });
+
+  // 検索・フィルタ
+  const filterInput = document.getElementById("course-filter-input");
+  filterInput.addEventListener("input", (e) => {
+    state.searchQuery = e.target.value.toLowerCase().trim();
+    renderCoursesTable();
+  });
+
+  const catFilter = document.getElementById("course-cat-filter");
+  catFilter.addEventListener("change", (e) => {
+    state.categoryFilter = e.target.value;
+    renderCoursesTable();
+  });
+
+  // TACT同期
+  document.getElementById("sync-tact-btn").addEventListener("click", handleTactSync);
+
+  // サンプルデータ
+  document.getElementById("load-sample-btn").addEventListener("click", handleLoadSample);
+
+  // モーダル初期化
+  setupModals();
+
+  // ルール編集タブの初期化
+  initRuleEditor();
+}
+
+/**
+ * 画面全体の再描画
+ */
+function render() {
+  renderProfileBar();
+  renderSummary();
+  renderCoursesTable();
+  document.getElementById("tab-course-count").textContent = state.courses.length;
+}
+
+/**
+ * プロファイルバーの描画
+ */
+function renderProfileBar() {
+  const summary = calculateCredits(state.courses, state.categories);
+  const totalReq = summary.totalRequired || 124;
+  const p = state.studentProfile || {};
+  const yearText = p.entranceYear ? `${p.entranceYear}年度入学生` : "";
+  const facultyText = p.faculty || "名古屋大学";
+  const deptText = p.department ? `（${p.department}）` : "";
+
+  document.getElementById("profile-display-text").textContent = `${yearText} ｜ ${facultyText} ${deptText}`;
+  document.getElementById("profile-total-credits").textContent = totalReq;
+}
+
+/**
+ * タブ1: 卒業要件・単位配当表の描画
+ */
+function renderSummary() {
+  const summary = calculateCredits(state.courses, state.categories);
+  const totalReq = summary.totalRequired || 124;
+
+  // 上部メトリック
+  document.getElementById("sum-passed-credits").textContent = summary.totalPassed;
+  document.getElementById("sum-enrolled-credits").textContent = summary.totalEnrolled;
+  document.getElementById("sum-potential-credits").textContent = summary.totalPotential;
+  document.getElementById("sum-required-credits").textContent = totalReq;
+
+  const remaining = Math.max(0, totalReq - summary.totalPassed);
+  document.getElementById("sum-remaining-credits").textContent = remaining;
+
+  const passedPct = Math.min(100, Math.round((summary.totalPassed / totalReq) * 100));
+  const enrolledPct = Math.min(100 - passedPct, Math.round((summary.totalEnrolled / totalReq) * 100));
+
+  document.getElementById("sum-passed-bar").style.width = `${passedPct}%`;
+  document.getElementById("sum-enrolled-bar").style.width = `${enrolledPct}%`;
+  document.getElementById("legend-passed-txt").textContent = summary.totalPassed;
+  document.getElementById("legend-enrolled-txt").textContent = summary.totalEnrolled;
+  document.getElementById("sum-progress-pct").textContent = `${passedPct}%`;
+
+  const statusTag = document.getElementById("overall-status-tag");
+  if (summary.isAllFulfilled) {
+    statusTag.textContent = "✓ 卒業要件達成";
+    statusTag.className = "tact-status-tag tag-success";
+  } else {
+    statusTag.textContent = `要件未充足（あと${remaining}単位）`;
+    statusTag.className = "tact-status-tag tag-warning";
+  }
+
+  // 未分類アラート
+  const uncatCount = summary.uncategorizedCourses.length;
+  const warnEl = document.getElementById("uncategorized-warning");
+  if (uncatCount > 0) {
+    warnEl.style.display = "flex";
+    document.getElementById("warn-uncat-count").textContent = uncatCount;
+  } else {
+    warnEl.style.display = "none";
+  }
+
+  // 単位配当表の描画（大区分グループ別）
+  const tbody = document.getElementById("requirement-table-body");
+  tbody.innerHTML = "";
+
+  const sections = ["全学教育科目", "専門教育科目", "その他・自由選択"];
+  const categoriesBySec = {};
+  sections.forEach(s => categoriesBySec[s] = []);
+
+  state.categories.forEach(cat => {
+    const sec = cat.section || "全学教育科目";
+    if (!categoriesBySec[sec]) categoriesBySec[sec] = [];
+    categoriesBySec[sec].push(cat);
+  });
+
+  sections.forEach(secName => {
+    const cats = categoriesBySec[secName];
+    if (!cats || cats.length === 0) return;
+
+    // 大区分ヘッダー
+    const secData = summary.sectionSummary[secName] || { required: 0, passed: 0, enrolled: 0 };
+    const secRemaining = Math.max(0, secData.required - secData.passed);
+    const secRow = document.createElement("tr");
+    secRow.className = "section-header-row";
+    secRow.innerHTML = `
+      <td colspan="3">【${secName}】</td>
+      <td style="text-align: right;">${secData.required}</td>
+      <td style="text-align: right; color: var(--tact-success);">${secData.passed}</td>
+      <td style="text-align: right; color: #0284c7;">+${secData.enrolled}</td>
+      <td style="text-align: right; font-weight: 700; ${secRemaining > 0 ? 'color: var(--tact-danger);' : ''}">${secRemaining === 0 ? '-' : secRemaining}</td>
+      <td style="text-align: center;">${secData.passed >= secData.required ? '<span class="badge-fulfilled">充足</span>' : '<span class="badge-unfulfilled">未充足</span>'}</td>
+    `;
+    tbody.appendChild(secRow);
+
+    // 各小区分
+    cats.forEach(cat => {
+      const data = summary.categoryProgress[cat.id] || { passed: 0, enrolled: 0, required: cat.requiredCredits || 0, courses: [] };
+      const row = document.createElement("tr");
+      row.style.cursor = "pointer";
+      row.title = "クリックでこの区分の算入科目を確認";
+
+      const isFulfilled = data.passed >= data.required;
+      const shortfall = Math.max(0, data.required - data.passed);
+      const isExpanded = state.expandedCategories.has(cat.id);
+
+      row.innerHTML = `
+        <td style="color: var(--tact-text-sub); font-size: 11.5px;">${cat.section || ''}</td>
+        <td>
+          <span style="font-weight: 600; color: var(--tact-navy);">${isExpanded ? '▼' : '▶'} ${cat.name}</span>
+          <span style="font-size: 11px; color: var(--tact-text-sub); margin-left: 6px;">(${data.courses.length}科目)</span>
+        </td>
+        <td style="font-size: 12px; color: var(--tact-text-sub);">${cat.note || '-'}</td>
+        <td style="text-align: right; font-weight: 600;">${data.required}</td>
+        <td style="text-align: right; font-weight: 700; color: var(--tact-success);">${data.passed}</td>
+        <td style="text-align: right; color: #0284c7;">${data.enrolled > 0 ? `+${data.enrolled}` : '-'}</td>
+        <td style="text-align: right; font-weight: 700;">${shortfall > 0 ? `<span class="badge-unfulfilled">残 ${shortfall}</span>` : '-'}</td>
+        <td style="text-align: center;">
+          ${isFulfilled ? '<span class="badge-fulfilled">✓ 充足</span>' : `<span class="badge-unfulfilled">あと ${shortfall}</span>`}
+        </td>
+      `;
+
+      // クリックで科目展開
+      row.addEventListener("click", () => {
+        if (state.expandedCategories.has(cat.id)) {
+          state.expandedCategories.delete(cat.id);
+        } else {
+          state.expandedCategories.add(cat.id);
+        }
+        renderSummary();
+      });
+
+      tbody.appendChild(row);
+
+      // アコーディオン展開行
+      if (isExpanded) {
+        const detailRow = document.createElement("tr");
+        detailRow.style.backgroundColor = "#fafbfc";
+        const courseListHtml = data.courses.length === 0
+          ? `<span style="color: var(--tact-text-sub); font-size: 11.5px;">この区分に登録されている科目はありません。</span>`
+          : `<div style="display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0;">
+              ${data.courses.map(c => `
+                <span style="background: #ffffff; border: 1px solid var(--tact-border); padding: 3px 8px; border-radius: 3px; font-size: 11.5px;">
+                  <strong>${c.title}</strong> (${c.credits}単位 / ${c.status === 'passed' ? '修得済' : '履修中'})
+                </span>
+              `).join('')}
+             </div>`;
+
+        detailRow.innerHTML = `
+          <td></td>
+          <td colspan="7" style="padding: 6px 12px 10px 12px; border-bottom: 1px dashed var(--tact-border);">
+            <div style="font-size: 11px; font-weight: 700; color: var(--tact-text-sub); margin-bottom: 4px;">算入科目一覧:</div>
+            ${courseListHtml}
+          </td>
+        `;
+        tbody.appendChild(detailRow);
+      }
+    });
+  });
+}
+
+/**
+ * タブ2: 履修科目一覧・個別精査テーブルの描画
+ */
+function renderCoursesTable() {
+  const tbody = document.getElementById("course-management-tbody");
+  tbody.innerHTML = "";
+
+  // 区分フィルターセレクトの更新
+  const catFilterSelect = document.getElementById("course-cat-filter");
+  const currentCatFilter = state.categoryFilter;
+  catFilterSelect.innerHTML = `<option value="all">すべての区分</option><option value="uncategorized">⚠️ 未分類のみ</option>`;
+  state.categories.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = `${c.section ? `[${c.section}] ` : ''}${c.name}`;
+    if (c.id === currentCatFilter) opt.selected = true;
+    catFilterSelect.appendChild(opt);
+  });
+
+  // フィルタリング
+  const filtered = state.courses.filter(c => {
+    const matchesSearch = !state.searchQuery ||
+      c.title.toLowerCase().includes(state.searchQuery) ||
+      (c.term && c.term.toLowerCase().includes(state.searchQuery));
+    const matchesCat = state.categoryFilter === "all" ||
+      (state.categoryFilter === "uncategorized" ? (!c.categoryId || c.categoryId === "uncategorized") : c.categoryId === state.categoryFilter);
+    return matchesSearch && matchesCat;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--tact-text-sub); padding: 24px;">該当する科目がありません</td></tr>`;
+    return;
+  }
+
+  filtered.forEach((course, index) => {
+    const tr = document.createElement("tr");
+
+    // 区分セレクトのHTML生成
+    let catOptions = `<option value="uncategorized" ${(!course.categoryId || course.categoryId === 'uncategorized') ? 'selected' : ''}>⚠️ 未分類</option>`;
+    state.categories.forEach(cat => {
+      catOptions += `<option value="${cat.id}" ${course.categoryId === cat.id ? 'selected' : ''}>${cat.section ? `[${cat.section}] ` : ''}${cat.name}</option>`;
+    });
+
+    tr.innerHTML = `
+      <td style="color: var(--tact-text-sub);">${index + 1}</td>
+      <td>
+        <span style="font-weight: 600; color: var(--tact-navy);">${course.title}</span>
+        ${course.rawTitle && course.rawTitle !== course.title ? `<div style="font-size: 11px; color: var(--tact-text-sub);">${course.rawTitle}</div>` : ''}
+      </td>
+      <td style="font-size: 12px; color: var(--tact-text-muted);">${course.term || "-"}</td>
+      <td>
+        <select class="tact-select tact-select-sm cat-select" data-id="${course.id}" style="width: 100%;">
+          ${catOptions}
+        </select>
+      </td>
+      <td style="text-align: center;">
+        <select class="tact-select tact-select-sm credit-select" data-id="${course.id}">
+          <option value="1" ${course.credits === 1 ? 'selected' : ''}>1 単位</option>
+          <option value="2" ${course.credits === 2 ? 'selected' : ''}>2 単位</option>
+          <option value="4" ${course.credits === 4 ? 'selected' : ''}>4 単位</option>
+          <option value="6" ${course.credits === 6 ? 'selected' : ''}>6 単位</option>
+          <option value="8" ${course.credits === 8 ? 'selected' : ''}>8 単位</option>
+        </select>
+      </td>
+      <td style="text-align: center;">
+        <select class="tact-select tact-select-sm status-select" data-id="${course.id}">
+          <option value="enrolled" ${course.status === 'enrolled' ? 'selected' : ''}>履修中</option>
+          <option value="passed" ${course.status === 'passed' ? 'selected' : ''}>修得済</option>
+          <option value="failed" ${course.status === 'failed' ? 'selected' : ''}>不可</option>
+          <option value="exempt" ${course.status === 'exempt' ? 'selected' : ''}>免除</option>
+        </select>
+      </td>
+      <td style="text-align: center;">
+        <button class="tact-btn-link del-course-btn" data-id="${course.id}" style="color: var(--tact-danger);">削除</button>
+      </td>
+    `;
+
+    // 区分変更イベント
+    tr.querySelector(".cat-select").addEventListener("change", async (e) => {
+      const newCatId = e.target.value;
+      course.categoryId = newCatId;
+      await saveMapping(course.title, newCatId);
+      await saveCourses(state.courses);
+      renderSummary();
+    });
+
+    // 単位数変更イベント
+    tr.querySelector(".credit-select").addEventListener("change", async (e) => {
+      course.credits = parseInt(e.target.value, 10);
+      await saveCourses(state.courses);
+      renderSummary();
+    });
+
+    // 状況変更イベント
+    tr.querySelector(".status-select").addEventListener("change", async (e) => {
+      course.status = e.target.value;
+      await saveCourses(state.courses);
+      renderSummary();
+    });
+
+    // 削除イベント
+    tr.querySelector(".del-course-btn").addEventListener("click", async () => {
+      if (confirm(`講義「${course.title}」を削除しますか？`)) {
+        state.courses = state.courses.filter(c => c.id !== course.id);
+        await saveCourses(state.courses);
+        render();
+      }
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * タブ3: 学修要覧・要件設定シートの初期化 & イベント
+ */
+function initRuleEditor() {
+  const presetSelect = document.getElementById("cfg-preset-select");
   presetSelect.innerHTML = "";
   DEFAULT_PRESETS.forEach(p => {
     const opt = document.createElement("option");
@@ -52,420 +396,107 @@ function initUI() {
     presetSelect.appendChild(opt);
   });
 
-  presetSelect.addEventListener("change", async (e) => {
-    const newPresetId = e.target.value;
-    if (confirm("モデルを切り替えると区分設定がリセットされます。よろしいですか？")) {
-      const newCategories = await switchPreset(newPresetId);
-      if (newCategories) {
-        state.presetId = newPresetId;
-        state.categories = newCategories;
-        // 科目のカテゴリ再判定
-        state.courses.forEach(c => {
-          if (!c.isManual && (!state.mappings[c.title])) {
-            const matched = state.categories.find(cat =>
-              cat.keywords && cat.keywords.some(kw => c.title.includes(kw))
-            );
-            if (matched) c.categoryId = matched.id;
-          }
-        });
-        await saveCourses(state.courses);
-        render();
+  const p = state.studentProfile || {};
+  document.getElementById("cfg-entrance-year").value = p.entranceYear || 2024;
+  document.getElementById("cfg-department-name").value = p.department || "";
+
+  presetSelect.addEventListener("change", (e) => {
+    const selectedPreset = DEFAULT_PRESETS.find(p => p.id === e.target.value);
+    if (selectedPreset) {
+      if (confirm("選択した学部の標準枠組みを読み込みますか？\n（現在の区分・単位数設定は上書きされます）")) {
+        state.presetId = selectedPreset.id;
+        state.categories = JSON.parse(JSON.stringify(selectedPreset.categories));
+        state.studentProfile.faculty = selectedPreset.faculty;
+        renderRuleEditorTable();
+      } else {
+        presetSelect.value = state.presetId;
       }
-    } else {
-      presetSelect.value = state.presetId;
     }
   });
 
-  // ビュー切り替え
-  const kanbanBtn = document.getElementById("view-kanban-btn");
-  const tableBtn = document.getElementById("view-table-btn");
-  const kanbanView = document.getElementById("kanban-view");
-  const tableView = document.getElementById("table-view");
+  renderRuleEditorTable();
 
-  kanbanBtn.addEventListener("click", () => {
-    state.currentView = "kanban";
-    kanbanBtn.classList.add("active");
-    tableBtn.classList.remove("active");
-    kanbanView.style.display = "block";
-    tableView.style.display = "none";
-    render();
-  });
-
-  tableBtn.addEventListener("click", () => {
-    state.currentView = "table";
-    tableBtn.classList.add("active");
-    kanbanBtn.classList.remove("active");
-    kanbanView.style.display = "none";
-    tableView.style.display = "block";
-    render();
-  });
-
-  // 検索・フィルタ
-  const searchInput = document.getElementById("course-search-input");
-  const filterSelect = document.getElementById("status-filter-select");
-
-  searchInput.addEventListener("input", (e) => {
-    state.searchQuery = e.target.value.toLowerCase().trim();
-    renderContentOnly();
-  });
-
-  filterSelect.addEventListener("change", (e) => {
-    state.statusFilter = e.target.value;
-    renderContentOnly();
-  });
-
-  // TACTと同期
-  const syncBtn = document.getElementById("sync-tact-btn");
-  syncBtn.addEventListener("click", handleTactSync);
-
-  // サンプルデータ読み込み
-  const sampleBtn = document.getElementById("load-sample-btn");
-  sampleBtn.addEventListener("click", handleLoadSample);
-
-  // モーダルイベント
-  setupModals();
-}
-
-/**
- * 画面全体の再描画
- */
-function render() {
-  renderKpi();
-  renderContentOnly();
-}
-
-/**
- * KPI・ヘッダー情報の更新
- */
-function renderKpi() {
-  const summary = calculateCredits(state.courses, state.categories);
-  const totalReq = summary.totalRequired || 124;
-
-  const passedCreditsEl = document.getElementById("kpi-passed-credits");
-  const enrolledCreditsEl = document.getElementById("kpi-enrolled-credits");
-  const requiredCreditsEl = document.getElementById("kpi-required-credits");
-  const passedBar = document.getElementById("kpi-passed-bar");
-  const enrolledBar = document.getElementById("kpi-enrolled-bar");
-  const progressText = document.getElementById("kpi-progress-text");
-  const remainingText = document.getElementById("kpi-remaining-text");
-  const statusBadge = document.getElementById("overall-status-badge");
-
-  passedCreditsEl.textContent = summary.totalPassed;
-  enrolledCreditsEl.textContent = summary.totalEnrolled;
-  requiredCreditsEl.textContent = totalReq;
-
-  const passedPct = Math.min(100, Math.round((summary.totalPassed / totalReq) * 100));
-  const enrolledPct = Math.min(100 - passedPct, Math.round((summary.totalEnrolled / totalReq) * 100));
-
-  passedBar.style.width = `${passedPct}%`;
-  enrolledBar.style.width = `${enrolledPct}%`;
-
-  progressText.textContent = `達成率: ${passedPct}% (修得済 ${summary.totalPassed} 単位 / 見込計 ${summary.totalPotential} 単位)`;
-  const remaining = Math.max(0, totalReq - summary.totalPassed);
-  remainingText.textContent = remaining === 0 ? "🎉 総必要単位を達成!" : `あと ${remaining} 単位必要`;
-
-  if (summary.isAllFulfilled) {
-    statusBadge.textContent = "✓ 卒業要件充足";
-    statusBadge.className = "badge badge-success";
-  } else {
-    statusBadge.textContent = "要件未充足";
-    statusBadge.className = "badge badge-warning";
-  }
-
-  // 区分ミニバー
-  const miniBarsContainer = document.getElementById("mini-category-bars");
-  miniBarsContainer.innerHTML = "";
-  let fulfilledCount = 0;
-  const categoriesList = Object.values(summary.categoryProgress);
-
-  categoriesList.forEach(cat => {
-    if (cat.isFulfilled) fulfilledCount++;
-    const catPct = cat.required > 0 ? Math.min(100, Math.round((cat.passed / cat.required) * 100)) : 100;
-    const row = document.createElement("div");
-    row.className = "mini-bar-row";
-    row.innerHTML = `
-      <span class="mini-bar-label" title="${cat.name}">${cat.name}</span>
-      <div class="mini-bar-track">
-        <div class="mini-bar-fill" style="width: ${catPct}%; background-color: ${cat.color};"></div>
-      </div>
-      <span class="mini-bar-stat">${cat.passed}/${cat.required}</span>
-    `;
-    miniBarsContainer.appendChild(row);
-  });
-
-  document.getElementById("fulfilled-category-count").textContent = `${fulfilledCount} / ${categoriesList.length} 区分達成`;
-
-  // 同期状況
-  document.getElementById("sync-total-courses").textContent = state.courses.length;
-  if (state.lastSync) {
-    const d = new Date(state.lastSync);
-    document.getElementById("sync-last-time").textContent = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-    document.getElementById("sync-tact-status").textContent = "同期済 (最新)";
-  } else {
-    document.getElementById("sync-last-time").textContent = "未同期";
-    document.getElementById("sync-tact-status").textContent = "未連携";
-  }
-}
-
-/**
- * かんばん / テーブル コンテンツの描画
- */
-function renderContentOnly() {
-  const summary = calculateCredits(state.courses, state.categories);
-
-  // フィルタリング
-  const filteredCourses = state.courses.filter(course => {
-    const matchesSearch = !state.searchQuery || course.title.toLowerCase().includes(state.searchQuery);
-    const matchesStatus = state.statusFilter === "all" || course.status === state.statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  // 未分類シェルフ
-  const uncategorizedCourses = filteredCourses.filter(c => !c.categoryId || c.categoryId === "uncategorized");
-  const shelf = document.getElementById("uncategorized-shelf");
-  const shelfContainer = document.getElementById("uncategorized-cards-container");
-  const shelfCount = document.getElementById("uncategorized-count");
-
-  if (uncategorizedCourses.length > 0) {
-    shelf.style.display = "flex";
-    shelfCount.textContent = uncategorizedCourses.length;
-    shelfContainer.innerHTML = "";
-    uncategorizedCourses.forEach(c => {
-      shelfContainer.appendChild(createCourseCard(c));
+  // 新規区分追加ボタン
+  document.getElementById("add-rule-row-btn").addEventListener("click", () => {
+    state.categories.push({
+      id: `custom-cat-${Date.now()}`,
+      section: "専門教育科目",
+      name: "新規科目区分",
+      requiredCredits: 4,
+      note: "学生便覧記載の条件",
+      keywords: []
     });
-  } else {
-    shelf.style.display = "none";
-  }
+    renderRuleEditorTable();
+  });
 
-  // かんばんボード描画
-  if (state.currentView === "kanban") {
-    renderKanbanBoard(summary, filteredCourses);
-  } else {
-    renderTableView(filteredCourses);
-  }
-}
+  // 保存ボタン
+  document.getElementById("save-custom-rules-btn").addEventListener("click", async () => {
+    const rows = document.querySelectorAll("#rule-edit-tbody tr");
+    const updatedCategories = [];
 
-/**
- * かんばんボードの描画
- */
-function renderKanbanBoard(summary, filteredCourses) {
-  const board = document.getElementById("kanban-board");
-  board.innerHTML = "";
+    rows.forEach((row, idx) => {
+      const section = row.querySelector('[data-field="section"]').value.trim();
+      const name = row.querySelector('[data-field="name"]').value.trim();
+      const credits = parseInt(row.querySelector('[data-field="credits"]').value, 10) || 0;
+      const note = row.querySelector('[data-field="note"]').value.trim();
+      const origCat = state.categories[idx] || {};
 
-  state.categories.forEach(cat => {
-    const catData = summary.categoryProgress[cat.id] || { passed: 0, required: cat.requiredCredits || 0 };
-    const column = document.createElement("div");
-    column.className = "kanban-column";
-    column.dataset.categoryId = cat.id;
-
-    const catPct = catData.required > 0 ? Math.min(100, Math.round((catData.passed / catData.required) * 100)) : 100;
-
-    column.innerHTML = `
-      <div class="column-header">
-        <div class="column-title-row">
-          <div class="column-title-wrap">
-            <span class="column-color-indicator" style="background-color: ${cat.color};"></span>
-            <span class="column-name">${cat.name}</span>
-          </div>
-          <span class="column-stat-badge">
-            ${catData.passed} / ${catData.required} 単位
-          </span>
-        </div>
-        <div class="column-progress-bar">
-          <div class="column-progress-fill" style="width: ${catPct}%; background-color: ${cat.color};"></div>
-        </div>
-      </div>
-      <div class="column-cards" data-dropzone-cat="${cat.id}"></div>
-    `;
-
-    // ドラッグ＆ドロップ設定
-    setupDropzone(column, cat.id);
-
-    const cardsContainer = column.querySelector(".column-cards");
-    const coursesInCat = filteredCourses.filter(c => c.categoryId === cat.id);
-
-    coursesInCat.forEach(course => {
-      cardsContainer.appendChild(createCourseCard(course));
+      updatedCategories.push({
+        ...origCat,
+        section,
+        name,
+        requiredCredits: credits,
+        note
+      });
     });
 
-    board.appendChild(column);
+    state.categories = updatedCategories;
+    state.studentProfile.entranceYear = parseInt(document.getElementById("cfg-entrance-year").value, 10) || 2024;
+    state.studentProfile.department = document.getElementById("cfg-department-name").value.trim();
+
+    await saveCategories(state.categories);
+    await saveStudentProfile(state.studentProfile);
+
+    alert("学修要覧・卒業要件設定を保存しました！");
+    render();
   });
 }
 
-/**
- * テーブルビューの描画
- */
-function renderTableView(filteredCourses) {
-  const tbody = document.getElementById("course-table-body");
+function renderRuleEditorTable() {
+  const tbody = document.getElementById("rule-edit-tbody");
   tbody.innerHTML = "";
 
-  if (filteredCourses.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 24px;">該当する科目がありません</td></tr>`;
-    return;
-  }
-
-  filteredCourses.forEach(course => {
+  state.categories.forEach((cat, idx) => {
     const tr = document.createElement("tr");
-
-    const category = state.categories.find(c => c.id === course.categoryId);
-    const catName = category ? category.name : "未分類";
-
-    const statusPill = getStatusPill(course.status);
-
     tr.innerHTML = `
-      <td><strong>${course.title}</strong></td>
-      <td>${course.term || "-"}</td>
       <td>
-        <span style="display: inline-flex; align-items: center; gap: 6px;">
-          <span style="width: 8px; height: 8px; border-radius: 50%; background: ${category ? category.color : '#cbd5e1'};"></span>
-          ${catName}
-        </span>
+        <select class="tact-select tact-select-sm" data-field="section" style="width: 100%;">
+          <option value="全学教育科目" ${cat.section === '全学教育科目' ? 'selected' : ''}>全学教育科目</option>
+          <option value="専門教育科目" ${cat.section === '専門教育科目' ? 'selected' : ''}>専門教育科目</option>
+          <option value="その他・自由選択" ${cat.section === 'その他・自由選択' ? 'selected' : ''}>その他・自由選択</option>
+        </select>
       </td>
       <td>
-        <span class="credit-tag" data-action="cycle-credit" data-id="${course.id}">${course.credits} 単位</span>
+        <input type="text" class="tact-input tact-input-sm" data-field="name" value="${cat.name}" style="width: 100%;">
       </td>
       <td>
-        <span class="status-pill ${statusPill.className}" data-action="cycle-status" data-id="${course.id}">
-          ${statusPill.label}
-        </span>
+        <input type="number" class="tact-input tact-input-sm" data-field="credits" value="${cat.requiredCredits}" min="0" max="150" style="width: 100%;">
       </td>
       <td>
-        <button class="card-del-btn" data-action="delete-course" data-id="${course.id}" title="削除">🗑️</button>
+        <input type="text" class="tact-input tact-input-sm" data-field="note" value="${cat.note || ''}" placeholder="例: 英語4単位＋初修外国語4単位必修等" style="width: 100%;">
+      </td>
+      <td style="text-align: center;">
+        <button class="tact-btn-link del-rule-btn" data-idx="${idx}" style="color: var(--tact-danger);">✕</button>
       </td>
     `;
 
-    // イベントバインド
-    tr.querySelector('[data-action="cycle-credit"]').addEventListener("click", () => cycleCredit(course.id));
-    tr.querySelector('[data-action="cycle-status"]').addEventListener("click", () => cycleStatus(course.id));
-    tr.querySelector('[data-action="delete-course"]').addEventListener("click", () => deleteCourse(course.id));
+    tr.querySelector(".del-rule-btn").addEventListener("click", () => {
+      state.categories.splice(idx, 1);
+      renderRuleEditorTable();
+    });
 
     tbody.appendChild(tr);
   });
-}
-
-/**
- * 科目カード要素の生成
- */
-function createCourseCard(course) {
-  const card = document.createElement("div");
-  card.className = "course-card";
-  card.draggable = true;
-  card.dataset.id = course.id;
-
-  const statusPill = getStatusPill(course.status);
-
-  card.innerHTML = `
-    <div class="card-title-row">
-      <span class="course-title" title="${course.rawTitle || course.title}">${course.title}</span>
-      <button class="card-del-btn" title="科目を削除">✕</button>
-    </div>
-    <div class="course-meta-row">
-      <span class="course-term">${course.term || "2024年度"}</span>
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <span class="credit-tag" title="クリックで単位数を変更">${course.credits}単位</span>
-        <span class="status-pill ${statusPill.className}" title="クリックで状態を切り替え">${statusPill.label}</span>
-      </div>
-    </div>
-  `;
-
-  // ドラッグイベント
-  card.addEventListener("dragstart", (e) => {
-    card.classList.add("dragging");
-    e.dataTransfer.setData("text/plain", course.id);
-  });
-
-  card.addEventListener("dragend", () => {
-    card.classList.remove("dragging");
-  });
-
-  // 単位数切り替え (1 -> 2 -> 4 -> 6 -> 1)
-  const creditTag = card.querySelector(".credit-tag");
-  creditTag.addEventListener("click", (e) => {
-    e.stopPropagation();
-    cycleCredit(course.id);
-  });
-
-  // ステータス切り替え (passed -> enrolled -> failed -> exempt)
-  const statusEl = card.querySelector(".status-pill");
-  statusEl.addEventListener("click", (e) => {
-    e.stopPropagation();
-    cycleStatus(course.id);
-  });
-
-  // 削除
-  const delBtn = card.querySelector(".card-del-btn");
-  delBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    deleteCourse(course.id);
-  });
-
-  return card;
-}
-
-/**
- * ドロップゾーン（カラム）のイベント設定
- */
-function setupDropzone(columnEl, categoryId) {
-  columnEl.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    columnEl.classList.add("drag-over");
-  });
-
-  columnEl.addEventListener("dragleave", () => {
-    columnEl.classList.remove("drag-over");
-  });
-
-  columnEl.addEventListener("drop", async (e) => {
-    e.preventDefault();
-    columnEl.classList.remove("drag-over");
-    const courseId = e.dataTransfer.getData("text/plain");
-    const course = state.courses.find(c => c.id === courseId);
-    if (course && course.categoryId !== categoryId) {
-      course.categoryId = categoryId;
-      // ユーザーの手動振分を学習マッピングに保存
-      await saveMapping(course.title, categoryId);
-      await saveCourses(state.courses);
-      render();
-    }
-  });
-}
-
-function getStatusPill(status) {
-  switch (status) {
-    case "passed": return { label: "修得済", className: "status-passed" };
-    case "enrolled": return { label: "履修中", className: "status-enrolled" };
-    case "failed": return { label: "不可", className: "status-failed" };
-    case "exempt": return { label: "免除", className: "status-exempt" };
-    default: return { label: "履修中", className: "status-enrolled" };
-  }
-}
-
-async function cycleCredit(courseId) {
-  const course = state.courses.find(c => c.id === courseId);
-  if (!course) return;
-  const credits = Number(course.credits) || 2;
-  const nextCredits = credits === 1 ? 2 : credits === 2 ? 4 : credits === 4 ? 6 : 1;
-  course.credits = nextCredits;
-  await saveCourses(state.courses);
-  render();
-}
-
-async function cycleStatus(courseId) {
-  const course = state.courses.find(c => c.id === courseId);
-  if (!course) return;
-  const order = ["enrolled", "passed", "failed", "exempt"];
-  const currentIdx = order.indexOf(course.status);
-  course.status = order[(currentIdx + 1) % order.length];
-  await saveCourses(state.courses);
-  render();
-}
-
-async function deleteCourse(courseId) {
-  if (confirm("この科目を削除しますか？")) {
-    state.courses = state.courses.filter(c => c.id !== courseId);
-    await saveCourses(state.courses);
-    render();
-  }
 }
 
 /**
@@ -474,7 +505,7 @@ async function deleteCourse(courseId) {
 async function handleTactSync() {
   const syncBtn = document.getElementById("sync-tact-btn");
   syncBtn.disabled = true;
-  syncBtn.innerHTML = `<span>⏳</span> 同期中...`;
+  syncBtn.innerHTML = `<span>⏳</span> 講義取得中...`;
 
   try {
     const session = await checkTactSession();
@@ -483,8 +514,7 @@ async function handleTactSync() {
         "TACT（https://tact.ac.thers.ac.jp）へのログインが確認できませんでした。\n\n" +
         "【確認事項】\n" +
         "1. ブラウザで TACT にログインしたタブが開いているかご確認ください。\n" +
-        "2. まだ開いていない場合、「OK」を押すと TACT のページを新しいタブで開きます。\n" +
-        "（TACTでログイン後、再度このボタンを押してください）\n\n" +
+        "2. まだ開いていない場合、「OK」を押すと TACT のページを新しいタブで開きます。\n\n" +
         "TACTを開きますか？"
       );
       if (openTab) {
@@ -495,7 +525,7 @@ async function handleTactSync() {
         }
       }
       syncBtn.disabled = false;
-      syncBtn.innerHTML = `<span class="btn-icon">🔄</span> TACTと同期`;
+      syncBtn.innerHTML = `<span>🔄</span> TACTと同期`;
       return;
     }
 
@@ -504,7 +534,7 @@ async function handleTactSync() {
 
     const parsed = sites.map(site => {
       if (existingMap.has(site.id)) {
-        return existingMap.get(site.id); // 既存編集を保護
+        return existingMap.get(site.id);
       }
       return parseCourseSite(site, state.categories, state.mappings);
     });
@@ -517,12 +547,12 @@ async function handleTactSync() {
     await updateLastSync(session.user);
 
     render();
-    alert(`TACTから ${sites.length} 件の講義情報を同期しました！`);
+    alert(`TACTから ${sites.length} 件の講義を全件同期しました！\n「履修科目一覧・個別精査」タブで手引きの区分をご確認ください。`);
   } catch (err) {
     alert("同期エラー: " + err.message);
   } finally {
     syncBtn.disabled = false;
-    syncBtn.innerHTML = `<span class="btn-icon">🔄</span> TACTと同期`;
+    syncBtn.innerHTML = `<span>🔄</span> TACTと同期`;
   }
 }
 
@@ -543,7 +573,6 @@ async function handleLoadSample() {
  * モーダル操作のセットアップ
  */
 function setupModals() {
-  // 閉じるボタン共通
   document.querySelectorAll("[data-close]").forEach(btn => {
     btn.addEventListener("click", () => {
       const modalId = btn.getAttribute("data-close");
@@ -551,18 +580,18 @@ function setupModals() {
     });
   });
 
-  // 科目追加モーダル
+  // 科目手動追加
   const addCourseBtn = document.getElementById("add-course-btn");
   const addCourseModal = document.getElementById("add-course-modal");
-  const addCategorySelect = document.getElementById("add-category");
+  const addCategorySelect = document.getElementById("manual-course-category");
   const addCourseForm = document.getElementById("add-course-form");
 
   addCourseBtn.addEventListener("click", () => {
-    addCategorySelect.innerHTML = `<option value="uncategorized">未分類</option>`;
+    addCategorySelect.innerHTML = `<option value="uncategorized">⚠️ 未分類</option>`;
     state.categories.forEach(cat => {
       const opt = document.createElement("option");
       opt.value = cat.id;
-      opt.textContent = cat.name;
+      opt.textContent = `${cat.section ? `[${cat.section}] ` : ''}${cat.name}`;
       addCategorySelect.appendChild(opt);
     });
     addCourseModal.style.display = "flex";
@@ -570,11 +599,11 @@ function setupModals() {
 
   addCourseForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const title = document.getElementById("add-title").value.trim();
-    const credits = parseInt(document.getElementById("add-credits").value, 10);
-    const term = document.getElementById("add-term").value.trim();
-    const categoryId = document.getElementById("add-category").value;
-    const courseStatus = document.getElementById("add-status").value;
+    const title = document.getElementById("manual-course-title").value.trim();
+    const credits = parseInt(document.getElementById("manual-course-credits").value, 10);
+    const term = document.getElementById("manual-course-term").value.trim();
+    const categoryId = document.getElementById("manual-course-category").value;
+    const courseStatus = document.getElementById("manual-course-status").value;
 
     const newCourse = {
       id: `manual-${Date.now()}`,
@@ -582,7 +611,7 @@ function setupModals() {
       rawTitle: title,
       credits: credits,
       term: term,
-      year: 2025,
+      year: new Date().getFullYear(),
       categoryId: categoryId,
       status: courseStatus,
       isManual: true,
@@ -596,86 +625,17 @@ function setupModals() {
     render();
   });
 
-  // 要件ルールエディタ
-  const editRulesBtn = document.getElementById("edit-rules-btn");
-  const ruleEditorModal = document.getElementById("rule-editor-modal");
-  const ruleList = document.getElementById("rule-category-list");
-  const saveRulesBtn = document.getElementById("save-rules-btn");
-  const addNewCategoryBtn = document.getElementById("add-new-category-btn");
-
-  editRulesBtn.addEventListener("click", () => {
-    renderRuleEditorList();
-    ruleEditorModal.style.display = "flex";
-  });
-
-  function renderRuleEditorList() {
-    ruleList.innerHTML = "";
-    state.categories.forEach((cat, idx) => {
-      const row = document.createElement("div");
-      row.className = "rule-row";
-      row.innerHTML = `
-        <input type="color" class="rule-color-input" value="${cat.color || '#3b82f6'}" data-idx="${idx}" data-field="color">
-        <input type="text" class="form-input" value="${cat.name}" data-idx="${idx}" data-field="name" placeholder="区分名">
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <input type="number" class="form-input" value="${cat.requiredCredits}" min="0" max="150" data-idx="${idx}" data-field="credits">
-          <span style="font-size: 11px;">単位</span>
-        </div>
-        <button class="card-del-btn" data-del-cat="${idx}">✕</button>
-      `;
-      row.querySelector("[data-del-cat]").addEventListener("click", () => {
-        if (confirm(`区分「${cat.name}」を削除しますか？`)) {
-          state.categories.splice(idx, 1);
-          renderRuleEditorList();
-        }
-      });
-      ruleList.appendChild(row);
-    });
-  }
-
-  addNewCategoryBtn.addEventListener("click", () => {
-    state.categories.push({
-      id: `custom-cat-${Date.now()}`,
-      name: "新規区分",
-      requiredCredits: 4,
-      color: "#6366f1",
-      keywords: []
-    });
-    renderRuleEditorList();
-  });
-
-  saveRulesBtn.addEventListener("click", async () => {
-    // 編集内容を反映
-    const rows = ruleList.querySelectorAll(".rule-row");
-    rows.forEach((row, idx) => {
-      const color = row.querySelector('[data-field="color"]').value;
-      const name = row.querySelector('[data-field="name"]').value.trim();
-      const credits = parseInt(row.querySelector('[data-field="credits"]').value, 10) || 0;
-      if (state.categories[idx]) {
-        state.categories[idx].color = color;
-        state.categories[idx].name = name;
-        state.categories[idx].requiredCredits = credits;
-      }
-    });
-
-    await saveCategories(state.categories);
-    ruleEditorModal.style.display = "none";
-    render();
-  });
-
-  // バックアップ・エクスポート・インポート
-  const backupBtn = document.getElementById("export-import-btn");
+  // バックアップモーダル
+  const backupBtn = document.getElementById("backup-btn");
   const backupModal = document.getElementById("backup-modal");
-  const exportJsonBtn = document.getElementById("export-json-btn");
-  const exportCsvBtn = document.getElementById("export-csv-btn");
-  const importFileInput = document.getElementById("import-file-input");
-
   backupBtn.addEventListener("click", () => {
     backupModal.style.display = "flex";
   });
 
-  exportJsonBtn.addEventListener("click", () => {
+  document.getElementById("export-json-btn").addEventListener("click", () => {
     const data = {
       presetId: state.presetId,
+      studentProfile: state.studentProfile,
       categories: state.categories,
       courses: state.courses,
       mappings: state.mappings,
@@ -684,18 +644,19 @@ function setupModals() {
     downloadFile(JSON.stringify(data, null, 2), "tact-credit-checker-backup.json", "application/json");
   });
 
-  exportCsvBtn.addEventListener("click", () => {
-    let csv = "科目名,開講期,区分,単位数,ステータス\n";
+  document.getElementById("export-csv-btn").addEventListener("click", () => {
+    let csv = "大区分,科目区分,講義名,開講期,単位数,状況\n";
     state.courses.forEach(c => {
       const cat = state.categories.find(k => k.id === c.categoryId);
+      const secName = cat ? cat.section : "未分類";
       const catName = cat ? cat.name : "未分類";
-      const statusLabel = getStatusPill(c.status).label;
-      csv += `"${c.title}","${c.term || ''}","${catName}",${c.credits},"${statusLabel}"\n`;
+      const statusLabel = c.status === "passed" ? "修得済" : c.status === "enrolled" ? "履修中" : c.status === "failed" ? "不可" : "免除";
+      csv += `"${secName}","${catName}","${c.title}","${c.term || ''}",${c.credits},"${statusLabel}"\n`;
     });
-    downloadFile("\uFEFF" + csv, "履修科目単位一覧.csv", "text/csv;charset=utf-8;");
+    downloadFile("\uFEFF" + csv, "名大履修科目一覧.csv", "text/csv;charset=utf-8;");
   });
 
-  importFileInput.addEventListener("change", (e) => {
+  document.getElementById("import-json-file").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -706,20 +667,29 @@ function setupModals() {
           state.courses = imported.courses;
           state.categories = imported.categories;
           if (imported.presetId) state.presetId = imported.presetId;
+          if (imported.studentProfile) state.studentProfile = imported.studentProfile;
           if (imported.mappings) state.mappings = imported.mappings;
           await saveCourses(state.courses);
           await saveCategories(state.categories);
+          if (state.studentProfile) await saveStudentProfile(state.studentProfile);
           backupModal.style.display = "none";
           render();
           alert("データを復元しました！");
         } else {
-          alert("無効なJSONフォーマットです。");
+          alert("無効なJSONファイルです。");
         }
       } catch (err) {
         alert("インポート失敗: " + err.message);
       }
     };
     reader.readAsText(file);
+  });
+
+  document.getElementById("reset-data-btn").addEventListener("click", async () => {
+    if (confirm("本当に保存データを全消去しますか？\n（復元できなくなります）")) {
+      await resetAllData();
+      location.reload();
+    }
   });
 }
 

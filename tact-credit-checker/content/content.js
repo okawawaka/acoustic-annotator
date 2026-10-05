@@ -108,14 +108,46 @@
     syncBtn.textContent = "同期中...";
 
     try {
-      const res = await fetch("/direct/site.json", {
-        credentials: "include",
-        headers: { "Accept": "application/json" }
-      });
+      let allSites = [];
+      const pageSize = 100;
+      let start = 0;
+      let keepFetching = true;
+      let loopGuard = 25;
 
-      if (!res.ok) throw new Error("TACTとの通信に失敗しました");
-      const data = await res.json();
-      const sites = (data.site_collection || []).filter(s => s.id && !s.id.startsWith("~") && s.title && !s.title.includes("マイワークスペース"));
+      while (keepFetching && loopGuard > 0) {
+        loopGuard--;
+        const res = await fetch(`/direct/site.json?_limit=${pageSize}&_start=${start}`, {
+          credentials: "include",
+          headers: { "Accept": "application/json" }
+        });
+
+        if (!res.ok) {
+          if (start === 0) {
+            const fallbackRes = await fetch("/direct/site.json", {
+              credentials: "include",
+              headers: { "Accept": "application/json" }
+            });
+            if (fallbackRes.ok) {
+              const fallbackData = await fallbackRes.json();
+              allSites = fallbackData.site_collection || [];
+            }
+          }
+          break;
+        }
+
+        const data = await res.json();
+        const collection = data.site_collection || [];
+        if (collection.length === 0) break;
+
+        allSites = allSites.concat(collection);
+        if (collection.length < pageSize) {
+          keepFetching = false;
+        } else {
+          start += pageSize;
+        }
+      }
+
+      const sites = allSites.filter(s => s.id && !s.id.startsWith("~") && s.title && !s.title.includes("マイワークスペース"));
 
       chrome.storage.local.get(["tcc_categories", "tcc_courses", "tcc_custom_mappings"], (storage) => {
         const categories = storage.tcc_categories || [];

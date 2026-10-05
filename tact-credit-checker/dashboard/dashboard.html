@@ -3,265 +3,325 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TACT 単位要件チェッカー - ダッシュボード</title>
+  <title>TACT 履修単位チェッカー - 東海国立大学機構 TACT</title>
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
-  <div class="app-layout">
-    <!-- ナビゲーションバー -->
-    <header class="app-navbar">
-      <div class="nav-brand">
-        <span class="nav-logo">🎓</span>
-        <div class="nav-title-group">
-          <h2>TACT Credit Checker</h2>
-          <span class="nav-subtitle">履修状況 & 卒業要件自動判定ダッシュボード</span>
-        </div>
+  <div class="tact-app">
+    <!-- TACT公式風トップバー -->
+    <header class="tact-header">
+      <div class="tact-header-brand">
+        <span class="tact-portal-name">TACT</span>
+        <span class="tact-header-divider">|</span>
+        <span class="tact-service-title">学修要覧・卒業要件 単位チェッカー</span>
       </div>
-
-      <div class="nav-controls">
-        <div class="preset-selector-wrap">
-          <label for="preset-select">学修要覧モデル:</label>
-          <select id="preset-select" class="form-select">
-            <!-- JSで動的生成 -->
-          </select>
-        </div>
-
-        <button class="nav-btn btn-sync" id="sync-tact-btn" title="TACTから最新の講義を同期">
-          <span class="btn-icon">🔄</span> TACTと同期
+      <div class="tact-header-actions">
+        <button class="tact-btn tact-btn-primary" id="sync-tact-btn" title="開いているTACTタブから講義を全件取得します">
+          <span>🔄</span> TACTと同期
         </button>
-        <button class="nav-btn btn-secondary" id="add-course-btn" title="科目を手動追加">
-          <span class="btn-icon">➕</span> 科目追加
+        <button class="tact-btn tact-btn-light" id="add-course-btn" title="他大学互換や認定科目を手動追加">
+          <span>➕</span> 科目追加
         </button>
-        <button class="nav-btn btn-secondary" id="edit-rules-btn" title="区分・必要単位のカスタマイズ">
-          <span class="btn-icon">⚙️</span> 要件設定
+        <button class="tact-btn tact-btn-light" id="backup-btn" title="JSON/CSVデータ保存・復元">
+          <span>💾</span> データ入出力
         </button>
-        <button class="nav-btn btn-ghost" id="export-import-btn" title="データの保存・読み込み">
-          <span class="btn-icon">💾</span> バックアップ
-        </button>
-        <button class="nav-btn btn-ghost btn-sample" id="load-sample-btn" title="名大の模擬履修データを読み込む">
-          <span class="btn-icon">✨</span> サンプル読込
+        <button class="tact-btn tact-btn-sample" id="load-sample-btn" title="名大の模擬履修データ（16科目）で体験">
+          <span>✨</span> サンプル読込
         </button>
       </div>
     </header>
 
-    <!-- メインコンテンツ -->
-    <main class="app-main">
-      <!-- サマリー・KPI セクション -->
-      <section class="kpi-grid">
-        <!-- 総単位達成率カード -->
-        <div class="kpi-card total-credit-card">
-          <div class="card-header">
-            <h3>卒業要件 単位達成状況</h3>
-            <span class="badge" id="overall-status-badge">判定中</span>
-          </div>
-          <div class="credit-main-numbers">
-            <div class="number-block">
-              <span class="label">修得済単位</span>
-              <span class="num text-passed" id="kpi-passed-credits">0</span>
-            </div>
-            <div class="operator">+</div>
-            <div class="number-block">
-              <span class="label">履修中 (見込)</span>
-              <span class="num text-enrolled" id="kpi-enrolled-credits">0</span>
-            </div>
-            <div class="operator">/</div>
-            <div class="number-block">
-              <span class="label">卒業必要単位</span>
-              <span class="num text-total" id="kpi-required-credits">124</span>
-            </div>
-          </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar-lg">
-              <div class="progress-fill passed-fill" id="kpi-passed-bar" style="width: 0%"></div>
-              <div class="progress-fill enrolled-fill" id="kpi-enrolled-bar" style="width: 0%"></div>
-            </div>
-            <div class="progress-meta">
-              <span id="kpi-progress-text">達成率: 0% (修得済 0 単位)</span>
-              <span id="kpi-remaining-text">あと 124 単位必要</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 区分達成サマリー -->
-        <div class="kpi-card category-summary-card">
-          <div class="card-header">
-            <h3>区分充足率</h3>
-            <span class="stat-small" id="fulfilled-category-count">0 / 0 区分達成</span>
-          </div>
-          <div class="category-bars-container" id="mini-category-bars">
-            <!-- ミニプログレスバーを動的生成 -->
-          </div>
-        </div>
-
-        <!-- 同期ステータス・情報カード -->
-        <div class="kpi-card sync-info-card">
-          <div class="card-header">
-            <h3>データ連携状況</h3>
-            <span class="pulse-indicator"></span>
-          </div>
-          <div class="sync-info-body">
-            <p><strong>登録科目総数:</strong> <span id="sync-total-courses">0</span> 科目</p>
-            <p><strong>TACT連携状態:</strong> <span id="sync-tact-status">未同期</span></p>
-            <p><strong>最終同期日時:</strong> <span id="sync-last-time">なし</span></p>
-            <p class="privacy-note">🔒 データはブラウザ内にのみ保存されます</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- 未分類アラートシェルフ (未分類科目がある場合のみ目立つように表示) -->
-      <section class="uncategorized-shelf" id="uncategorized-shelf" style="display: none;">
-        <div class="shelf-header">
-          <span class="shelf-alert-icon">⚠️</span>
-          <h4>未分類の科目が <span id="uncategorized-count">0</span> 件あります</h4>
-          <p>下のカードをドラッグ＆ドロップして、該当する区分に振り分けてください。</p>
-        </div>
-        <div class="shelf-cards-container" id="uncategorized-cards-container">
-          <!-- 未分類カード群 -->
-        </div>
-      </section>
-
-      <!-- 表示切り替えツールバー -->
-      <div class="view-toolbar">
-        <div class="view-toggles">
-          <button class="toggle-btn active" id="view-kanban-btn">📋 かんばん振分ボード</button>
-          <button class="toggle-btn" id="view-table-btn">📑 科目一覧テーブル</button>
-        </div>
-
-        <div class="search-filter-bar">
-          <input type="text" id="course-search-input" placeholder="科目名を検索..." class="search-input">
-          <select id="status-filter-select" class="form-select-sm">
-            <option value="all">すべてのステータス</option>
-            <option value="passed">修得済 (Passed)</option>
-            <option value="enrolled">履修中 (Enrolled)</option>
-            <option value="failed">不可 (Failed)</option>
-          </select>
-        </div>
+    <!-- 学生所属・学修要覧プロファイルバー -->
+    <div class="tact-profile-bar">
+      <div class="profile-info-block">
+        <span class="profile-badge">対象要覧</span>
+        <strong id="profile-display-text">2024年度入学生 ｜ 名古屋大学 文学部</strong>
+        <span class="profile-total-req">卒業要件総計: <strong id="profile-total-credits">124</strong> 単位</span>
       </div>
+      <div class="profile-actions">
+        <button class="tact-btn-link" id="switch-preset-btn">学部・専攻・入学年度の変更</button>
+      </div>
+    </div>
 
-      <!-- かんばんビュー -->
-      <section class="kanban-view" id="kanban-view">
-        <div class="kanban-board" id="kanban-board">
-          <!-- カテゴリごとのカラムを動的生成 -->
+    <!-- Sakai CLE風 ツールタブ -->
+    <nav class="tact-tabs">
+      <button class="tact-tab active" data-tab="tab-summary">
+        📊 卒業要件・単位配当表
+      </button>
+      <button class="tact-tab" data-tab="tab-courses">
+        📑 履修科目一覧・個別精査 (<span id="tab-course-count">0</span>)
+      </button>
+      <button class="tact-tab" data-tab="tab-rules">
+        ⚙️ 学修要覧・要件設定シート
+      </button>
+    </nav>
+
+    <!-- メイン表示領域 -->
+    <main class="tact-main-content">
+
+      <!-- タブ1: 卒業要件・単位配当表 -->
+      <section id="tab-summary" class="tab-pane active">
+        <!-- 総単位サマリーカード（端正な表形式） -->
+        <div class="tact-card">
+          <div class="tact-card-header">
+            <h3>卒業要件 単位達成サマリー</h3>
+            <span class="tact-status-tag" id="overall-status-tag">判定中</span>
+          </div>
+          <div class="tact-card-body">
+            <div class="summary-metric-row">
+              <div class="metric-item">
+                <span class="metric-label">修得済単位</span>
+                <span class="metric-value text-success" id="sum-passed-credits">0</span>
+              </div>
+              <div class="metric-separator">+</div>
+              <div class="metric-item">
+                <span class="metric-label">履修中見込</span>
+                <span class="metric-value text-primary" id="sum-enrolled-credits">0</span>
+              </div>
+              <div class="metric-separator">=</div>
+              <div class="metric-item">
+                <span class="metric-label">修得見込計</span>
+                <span class="metric-value" id="sum-potential-credits">0</span>
+              </div>
+              <div class="metric-separator">/</div>
+              <div class="metric-item">
+                <span class="metric-label">卒業必要単位</span>
+                <span class="metric-value text-dark" id="sum-required-credits">124</span>
+              </div>
+              <div class="metric-item metric-remaining">
+                <span class="metric-label">残り必要単位</span>
+                <span class="metric-value-lg text-danger" id="sum-remaining-credits">124</span>
+              </div>
+            </div>
+
+            <!-- TACT標準プログレスバー -->
+            <div class="tact-progress-container">
+              <div class="tact-progress-bar">
+                <div class="progress-segment passed-segment" id="sum-passed-bar" style="width: 0%"></div>
+                <div class="progress-segment enrolled-segment" id="sum-enrolled-bar" style="width: 0%"></div>
+              </div>
+              <div class="tact-progress-legend">
+                <span><span class="legend-color legend-passed"></span> 修得済: <strong id="legend-passed-txt">0</strong> 単位</span>
+                <span><span class="legend-color legend-enrolled"></span> 履修中: <strong id="legend-enrolled-txt">0</strong> 単位</span>
+                <span>達成率: <strong id="sum-progress-pct">0%</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 未分類科目アラート -->
+        <div class="tact-alert tact-alert-warning" id="uncategorized-warning" style="display: none;">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-content">
+            <strong>学修要覧の区分が未設定の科目が <span id="warn-uncat-count">0</span> 件あります。</strong>
+            <p>「履修科目一覧・個別精査」タブで、手引き（学生便覧）の配当区分に割り当ててください。</p>
+          </div>
+          <button class="tact-btn tact-btn-sm" id="jump-to-courses-btn">科目を精査する</button>
+        </div>
+
+        <!-- 学生便覧・単位配当表 -->
+        <div class="tact-card">
+          <div class="tact-card-header">
+            <h3>学修要覧 単位配当表（区分別チェック）</h3>
+            <span class="tact-card-subtext">※ お手元の学生便覧（単位配当表）と照合しながら確認してください</span>
+          </div>
+          <div class="tact-card-body p-0">
+            <table class="tact-table requirement-table">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">大区分</th>
+                  <th style="width: 220px;">科目区分</th>
+                  <th>手引き・履修条件メモ</th>
+                  <th style="width: 90px; text-align: right;">必要単位</th>
+                  <th style="width: 90px; text-align: right;">修得済</th>
+                  <th style="width: 90px; text-align: right;">履修中</th>
+                  <th style="width: 90px; text-align: right;">不足単位</th>
+                  <th style="width: 100px; text-align: center;">充足判定</th>
+                </tr>
+              </thead>
+              <tbody id="requirement-table-body">
+                <!-- JSで動的生成 -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
-      <!-- テーブルビュー -->
-      <section class="table-view" id="table-view" style="display: none;">
-        <div class="table-card">
-          <table class="course-table">
-            <thead>
-              <tr>
-                <th>科目名</th>
-                <th>開講期</th>
-                <th>区分</th>
-                <th style="width: 80px;">単位数</th>
-                <th style="width: 120px;">ステータス</th>
-                <th style="width: 90px;">操作</th>
-              </tr>
-            </thead>
-            <tbody id="course-table-body">
-              <!-- 行を動的生成 -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
-
-    <!-- モーダル: 科目追加 -->
-    <div class="modal-overlay" id="add-course-modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>科目の新規追加</h3>
-          <button class="modal-close" data-close="add-course-modal">✕</button>
-        </div>
-        <form id="add-course-form" class="modal-form">
-          <div class="form-group">
-            <label>科目名 *</label>
-            <input type="text" id="add-title" required placeholder="例: 認知科学入門" class="form-input">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>単位数 *</label>
-              <input type="number" id="add-credits" value="2" min="1" max="16" required class="form-input">
+      <!-- タブ2: 履修科目一覧・個別精査 -->
+      <section id="tab-courses" class="tab-pane">
+        <div class="tact-card">
+          <div class="tact-card-header">
+            <div class="header-left">
+              <h3>登録講義一覧・個別区分割り当て</h3>
+              <span class="tact-card-subtext">TACTから同期した講義の単位数や学修要覧区分を1科目ずつ精査・変更できます</span>
             </div>
-            <div class="form-group">
-              <label>開講年度・学期</label>
-              <input type="text" id="add-term" value="2025年度 前期" class="form-input">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>区分</label>
-              <select id="add-category" class="form-select">
-                <!-- JSでオプション生成 -->
+            <div class="header-right">
+              <input type="text" id="course-filter-input" placeholder="講義名・年度で絞り込み..." class="tact-input tact-input-sm">
+              <select id="course-cat-filter" class="tact-select tact-select-sm">
+                <option value="all">すべての区分</option>
+                <!-- JSで生成 -->
               </select>
             </div>
-            <div class="form-group">
-              <label>ステータス</label>
-              <select id="add-status" class="form-select">
+          </div>
+          <div class="tact-card-body p-0">
+            <table class="tact-table course-management-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">#</th>
+                  <th>講義名（TACT登録名）</th>
+                  <th style="width: 130px;">開講期</th>
+                  <th style="width: 240px;">学修要覧 配当区分</th>
+                  <th style="width: 100px; text-align: center;">単位数</th>
+                  <th style="width: 130px; text-align: center;">履修・成績状況</th>
+                  <th style="width: 70px; text-align: center;">削除</th>
+                </tr>
+              </thead>
+              <tbody id="course-management-tbody">
+                <!-- JSで動的生成 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- タブ3: 学修要覧・要件設定シート -->
+      <section id="tab-rules" class="tab-pane">
+        <div class="tact-card">
+          <div class="tact-card-header">
+            <h3>学修要覧（学生便覧）要件設定・カスタマイズ</h3>
+            <button class="tact-btn tact-btn-primary" id="save-custom-rules-btn">設定を保存する</button>
+          </div>
+          <div class="tact-card-body">
+            <div class="tact-callout">
+              <strong>【重要】名古屋大学の単位配当表との照合について</strong>
+              <p>名古屋大学の卒業要件単位は、<strong>「学部」「専攻・学科」「入学年度」</strong>ごとに細かく指定されています。
+              下記のテンプレートは標準的な枠組みです。必ずお手元の『全学教育科目履修の手引』および各学部の『学生便覧』を開き、
+              各区分の必要単位数やメモをご自身の入学年度の規則に合わせて直接編集して保存してください。</p>
+            </div>
+
+            <!-- プロファイル設定部 -->
+            <div class="profile-config-grid">
+              <div class="config-field">
+                <label>入学年度</label>
+                <input type="number" id="cfg-entrance-year" class="tact-input" value="2024" min="2015" max="2035">
+              </div>
+              <div class="config-field">
+                <label>学部・専攻テンプレート</label>
+                <select id="cfg-preset-select" class="tact-select">
+                  <!-- JSで生成 -->
+                </select>
+              </div>
+              <div class="config-field">
+                <label>専攻・学科・系名（メモ）</label>
+                <input type="text" id="cfg-department-name" class="tact-input" placeholder="例: 人文学科 哲学専修 / 自然情報学科">
+              </div>
+            </div>
+
+            <!-- 区分編集テーブル -->
+            <div class="rule-editor-wrap">
+              <table class="tact-table rule-edit-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">大区分</th>
+                    <th style="width: 220px;">科目区分名</th>
+                    <th style="width: 100px;">必要単位数</th>
+                    <th>手引き・履修条件メモ（例: 英語4単位必修等）</th>
+                    <th style="width: 60px; text-align: center;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="rule-edit-tbody">
+                  <!-- JSで動的生成 -->
+                </tbody>
+              </table>
+              <div class="rule-table-footer">
+                <button class="tact-btn tact-btn-sm tact-btn-light" id="add-rule-row-btn">➕ 新しい区分を追加</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- モーダル: 科目手動追加 -->
+    <div class="tact-modal-overlay" id="add-course-modal" style="display: none;">
+      <div class="tact-modal">
+        <div class="tact-modal-header">
+          <h3>科目の手動登録</h3>
+          <button class="tact-modal-close" data-close="add-course-modal">✕</button>
+        </div>
+        <form id="add-course-form" class="tact-modal-body">
+          <div class="tact-form-group">
+            <label>講義名（科目名） *</label>
+            <input type="text" id="manual-course-title" required class="tact-input" placeholder="例: 認知心理学概論">
+          </div>
+          <div class="tact-form-row">
+            <div class="tact-form-group">
+              <label>単位数 *</label>
+              <input type="number" id="manual-course-credits" value="2" min="1" max="16" required class="tact-input">
+            </div>
+            <div class="tact-form-group">
+              <label>開講期（年度・学期）</label>
+              <input type="text" id="manual-course-term" value="2025年度 前期" class="tact-input">
+            </div>
+          </div>
+          <div class="tact-form-row">
+            <div class="tact-form-group">
+              <label>学修要覧 配当区分</label>
+              <select id="manual-course-category" class="tact-select"></select>
+            </div>
+            <div class="tact-form-group">
+              <label>状況</label>
+              <select id="manual-course-status" class="tact-select">
                 <option value="passed">修得済 (Passed)</option>
                 <option value="enrolled" selected>履修中 (Enrolled)</option>
                 <option value="exempt">認定・免除 (Exempt)</option>
               </select>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-close="add-course-modal">キャンセル</button>
-            <button type="submit" class="btn btn-primary">追加する</button>
+          <div class="tact-modal-footer">
+            <button type="button" class="tact-btn tact-btn-light" data-close="add-course-modal">キャンセル</button>
+            <button type="submit" class="tact-btn tact-btn-primary">追加する</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- モーダル: 要件ルールエディタ -->
-    <div class="modal-overlay" id="rule-editor-modal" style="display: none;">
-      <div class="modal-content modal-lg">
-        <div class="modal-header">
-          <h3>卒業要件・区分カスタマイズ</h3>
-          <button class="modal-close" data-close="rule-editor-modal">✕</button>
+    <!-- モーダル: データ入出力 -->
+    <div class="tact-modal-overlay" id="backup-modal" style="display: none;">
+      <div class="tact-modal">
+        <div class="tact-modal-header">
+          <h3>データ入出力（バックアップ）</h3>
+          <button class="tact-modal-close" data-close="backup-modal">✕</button>
         </div>
-        <div class="modal-body">
-          <p class="modal-desc">学修要覧（履修の手引き）に合わせて各区分の必要単位数を変更したり、新しい区分を追加できます。</p>
-          <div class="rule-list" id="rule-category-list">
-            <!-- 区分編集行を動的生成 -->
+        <div class="tact-modal-body">
+          <div class="backup-block">
+            <h4>💾 エクスポート</h4>
+            <p>登録された履修科目と要覧設定を書き出します。</p>
+            <div class="btn-row">
+              <button class="tact-btn tact-btn-light" id="export-json-btn">JSONバックアップ</button>
+              <button class="tact-btn tact-btn-light" id="export-csv-btn">Excel互換 CSV出力</button>
+            </div>
           </div>
-          <button class="btn btn-secondary btn-sm" id="add-new-category-btn">➕ 新しい区分を追加</button>
+          <hr class="tact-divider">
+          <div class="backup-block">
+            <h4>📂 インポート</h4>
+            <p>保存したJSONファイルから設定・履修状況を復元します。</p>
+            <input type="file" id="import-json-file" accept=".json" class="tact-input">
+          </div>
+          <hr class="tact-divider">
+          <div class="backup-block">
+            <h4>🗑️ データ初期化</h4>
+            <p style="color: #dc2626; font-size: 12px;">保存されているすべての履修データ・カスタムルールをクリアします。</p>
+            <button class="tact-btn tact-btn-danger" id="reset-data-btn">データを全消去</button>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-close="rule-editor-modal">キャンセル</button>
-          <button type="button" class="btn btn-primary" id="save-rules-btn">設定を保存</button>
+        <div class="tact-modal-footer">
+          <button type="button" class="tact-btn tact-btn-light" data-close="backup-modal">閉じる</button>
         </div>
       </div>
     </div>
 
-    <!-- モーダル: バックアップ & インポート -->
-    <div class="modal-overlay" id="backup-modal" style="display: none;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>データのエクスポート・インポート</h3>
-          <button class="modal-close" data-close="backup-modal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="backup-section">
-            <h4>💾 エクスポート</h4>
-            <p>現在の履修計画とルール設定をファイルに書き出します。</p>
-            <div class="btn-group">
-              <button class="btn btn-secondary" id="export-json-btn">JSON形式で保存</button>
-              <button class="btn btn-secondary" id="export-csv-btn">CSV形式で保存 (Excel互換)</button>
-            </div>
-          </div>
-          <hr class="modal-divider">
-          <div class="backup-section">
-            <h4>📂 インポート</h4>
-            <p>保存したJSONファイルからデータを復元します。</p>
-            <input type="file" id="import-file-input" accept=".json" class="file-input">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-close="backup-modal">閉じる</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script type="module" src="dashboard.js"></script>

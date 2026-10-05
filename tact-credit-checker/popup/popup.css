@@ -1,4 +1,4 @@
-/* TACT Credit Checker - Popup Styles */
+/* TACT Credit Checker - Popup Styles (TACT / Sakai CLE Edition) */
 
 * {
   box-sizing: border-box;
@@ -7,12 +7,12 @@
 }
 
 body {
-  width: 380px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #1e293b;
-  background-color: #f8fafc;
-  font-size: 13px;
-  line-height: 1.5;
+  width: 370px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Meiryo", sans-serif;
+  color: #1f2937;
+  background-color: #f4f6f8;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .popup-container {
@@ -20,36 +20,38 @@ body {
   flex-direction: column;
 }
 
+/* ヘッダー: TACT ネイビー */
 .popup-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  background-color: #19365c;
+  color: #ffffff;
+  border-bottom: 2px solid #0f2440;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .brand-icon {
-  font-size: 24px;
-  line-height: 1;
+  font-size: 18px;
 }
 
 .brand-text h1 {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #ffffff;
+  letter-spacing: 0.02em;
 }
 
 .brand-text p {
   font-size: 11px;
-  color: #64748b;
-  max-width: 220px;
+  color: #cbd5e1;
+  max-width: 230px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -59,88 +61,87 @@ body {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #64748b;
-  padding: 6px;
-  border-radius: 6px;
+  color: #cbd5e1;
+  padding: 4px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
 }
 
 .icon-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .popup-main {
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* サマリーカード */
 .summary-card {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  padding: 12px;
+  border: 1px solid #d0d7de;
 }
 
 .summary-stats {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .stat-item .label {
   display: block;
-  font-size: 11px;
-  color: #64748b;
+  font-size: 10.5px;
+  color: #6b7280;
   margin-bottom: 2px;
 }
 
 .main-stat .value {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
-  color: #0f172a;
+  color: #111827;
 }
 
 .main-stat .value small {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: #94a3b8;
+  color: #6b7280;
 }
 
 .value-enrolled {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: #3b82f6;
+  color: #0284c7;
 }
 
 .value-pct {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
-  color: #10b981;
+  color: #15803d;
 }
 
 /* プログレスバー */
 .progress-bar-wrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .progress-bar {
   display: flex;
-  height: 10px;
+  height: 8px;
   width: 100%;
-  background-color: #e2e8f0;
-  border-radius: 5px;
+  background-color: #e5e7eb;
+  border-radius: 2px;
   overflow: hidden;
+  border: 1px solid #d1d5db;
 }
 
 .progress-fill {
@@ -148,99 +149,91 @@ body {
   transition: width 0.3s ease;
 }
 
-.passed-fill {
-  background: #10b981;
-}
-
-.enrolled-fill {
-  background: #60a5fa;
-}
+.passed-fill { background: #15803d; }
+.enrolled-fill { background: #38bdf8; }
 
 .progress-legend {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 10.5px;
-  color: #64748b;
+  color: #6b7280;
 }
 
 .dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  margin-right: 2px;
 }
 
-.passed-dot { background: #10b981; }
-.enrolled-dot { background: #60a5fa; }
+.passed-dot { background: #15803d; }
+.enrolled-dot { background: #38bdf8; }
 
 /* カテゴリ一覧 */
 .categories-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .section-title {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b5563;
 }
 
 .category-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 180px;
+  gap: 4px;
+  max-height: 170px;
   overflow-y: auto;
-  padding-right: 2px;
+  border: 1px solid #d0d7de;
+  border-radius: 3px;
+  background: #ffffff;
 }
 
 .category-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 11.5px;
+}
+
+.category-row:last-child {
+  border-bottom: none;
 }
 
 .cat-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.cat-color-tag {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  gap: 6px;
+  overflow: hidden;
 }
 
 .cat-name {
-  font-weight: 500;
-  color: #1e293b;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
 }
 
 .cat-credits {
-  font-size: 11.5px;
-  color: #64748b;
-}
-
-.cat-credits strong {
-  color: #0f172a;
+  font-size: 11px;
+  color: #6b7280;
 }
 
 .status-badge {
   font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 2px;
 }
 
 .badge-fulfilled {
@@ -249,76 +242,70 @@ body {
 }
 
 .badge-pending {
-  background: #fef3c7;
-  color: #b45309;
+  color: #dc2626;
+  font-weight: 700;
 }
 
 /* フッター */
 .popup-footer {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 6px;
+  padding: 10px 14px;
   background: #ffffff;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #d0d7de;
 }
 
 .btn {
   flex: 1;
-  padding: 9px 12px;
-  font-size: 12.5px;
+  padding: 7px 10px;
+  font-size: 12px;
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
-  border: none;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: all 0.15s ease;
+  gap: 4px;
 }
 
 .btn-primary {
-  background: #2563eb;
+  background: #0284c7;
   color: #ffffff;
+  border-color: #0369a1;
 }
 
 .btn-primary:hover {
-  background: #1d4ed8;
+  background: #0369a1;
 }
 
 .btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background: #f9fafb;
+  color: #1f2937;
+  border-color: #d0d7de;
 }
 
 .btn-secondary:hover {
-  background: #e2e8f0;
+  background: #f3f4f6;
 }
 
-/* オフライン・デモバナー */
 .offline-demo-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 16px;
-  background: #eff6ff;
-  border-top: 1px solid #bfdbfe;
-  font-size: 11px;
-  color: #1d4ed8;
+  padding: 5px 14px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  font-size: 10.5px;
+  color: #64748b;
 }
 
 .offline-demo-banner button {
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 10.5px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 10px;
   cursor: pointer;
-  font-weight: 600;
-}
-
-.offline-demo-banner button:hover {
-  background: #1d4ed8;
 }

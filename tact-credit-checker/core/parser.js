@@ -185,15 +185,27 @@ export function calculateCredits(courses = [], categories = []) {
 
   // カテゴリ初期化
   const catMap = {};
+  const sectionSummary = {};
+
   categories.forEach(cat => {
+    const sec = cat.section || "全学教育科目";
+    if (!sectionSummary[sec]) {
+      sectionSummary[sec] = { required: 0, passed: 0, enrolled: 0, potential: 0 };
+    }
+    sectionSummary[sec].required += (cat.requiredCredits || 0);
+
     catMap[cat.id] = {
       id: cat.id,
+      section: sec,
       name: cat.name,
+      note: cat.note || "",
       required: cat.requiredCredits || 0,
-      color: cat.color || "#3b82f6",
+      color: cat.color || "#19365c",
       passed: 0,
       enrolled: 0,
       potential: 0,
+      shortfall: 0,
+      excess: 0,
       isFulfilled: false,
       courses: []
     };
@@ -211,12 +223,12 @@ export function calculateCredits(courses = [], categories = []) {
       if (isPassed) {
         cat.passed += credits;
         summary.totalPassed += credits;
+        if (sectionSummary[cat.section]) sectionSummary[cat.section].passed += credits;
       } else if (isEnrolled) {
         cat.enrolled += credits;
         summary.totalEnrolled += credits;
+        if (sectionSummary[cat.section]) sectionSummary[cat.section].enrolled += credits;
       }
-      cat.potential = cat.passed + cat.enrolled;
-      cat.isFulfilled = cat.passed >= cat.required;
     } else {
       // 未分類
       summary.uncategorizedCourses.push(course);
@@ -225,8 +237,21 @@ export function calculateCredits(courses = [], categories = []) {
     }
   });
 
+  // 各カテゴリの充足・不足・超過計算
+  Object.values(catMap).forEach(cat => {
+    cat.potential = cat.passed + cat.enrolled;
+    cat.isFulfilled = cat.passed >= cat.required;
+    cat.shortfall = Math.max(0, cat.required - cat.passed);
+    cat.excess = Math.max(0, cat.passed - cat.required);
+  });
+
+  Object.values(sectionSummary).forEach(s => {
+    s.potential = s.passed + s.enrolled;
+  });
+
   summary.totalPotential = summary.totalPassed + summary.totalEnrolled;
   summary.categoryProgress = catMap;
+  summary.sectionSummary = sectionSummary;
   summary.isAllFulfilled = summary.totalPassed >= summary.totalRequired &&
     Object.values(catMap).every(c => c.isFulfilled);
 
