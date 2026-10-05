@@ -270,6 +270,11 @@ export function getMockCourseSites() {
       props: { term: "2024年度 前期" }
     },
     {
+      id: "2024_01_0004000",
+      title: "健康・スポーツ科学講義 (2024前期)",
+      props: { term: "2024年度 前期" }
+    },
+    {
       id: "2024_01_0004001",
       title: "健康・スポーツ科学実習 (バドミントン)",
       props: { term: "2024年度 前期" }
@@ -341,7 +346,7 @@ export function getMockCourseSites() {
     },
     {
       id: "2025_01_0003006",
-      title: "英語（上級） (2025前期)",
+      title: "英語（上級リーディング） (2025前期)",
       props: { term: "2025年度 前期" }
     },
     {

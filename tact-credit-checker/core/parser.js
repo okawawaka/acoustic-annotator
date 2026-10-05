@@ -127,13 +127,32 @@ export function extractCourseCode(siteId, title) {
 export function estimateCredits(cleanTitle, rawTitle) {
   const combined = `${cleanTitle} ${rawTitle}`;
 
+  // 1. 卒論・研究科目
   if (/卒業論文|卒業研究|特別研究|学士論文/i.test(combined)) {
     return 6;
   }
-  // 文学部 共通基盤・共通実践科目の1単位科目、および実習・スポーツ
+
+  // 2. データ科学基礎科目は原則1単位
+  if (/データ科学|データサイエンス/i.test(combined)) {
+    return 1;
+  }
+
+  // 3. 英語（上級リーディング）は1単位
+  if (/上級リーディング|advanced reading/i.test(combined)) {
+    return 1;
+  }
+
+  // 4. スポーツ科学の講義は2単位（※実習より先に判定）
+  if (/健康.*講義|スポーツ.*講義|健康・スポーツ科学講義/i.test(combined)) {
+    return 2;
+  }
+
+  // 5. スポーツ科学の実習・演習、実験、実習、1単位指定科目
   if (/日本文化事情|異文化理解|ジェンダー学概論|セクシュアリティ学概論|情報リテラシー|科学技術と人文学|デジタル人文学|コミュニケーションスキル|イノベーション創出|実験|実習|スポーツ|体育|身体運動|演習[I1]|チュートリアル/i.test(combined)) {
     return 1;
   }
+
+  // 6. 通年・特論・総合演習
   if (/通年|特論|総合演習/i.test(combined)) {
     return 4;
   }
@@ -187,10 +206,17 @@ export function guessCategory(cleanTitle, categories = []) {
     const cat = categories.find(c => c.id === "data_sci");
     if (cat) return cat.id;
   }
-  if (/健康|スポーツ|身体運動|体育|バドミントン|テニス|サッカー|バレー/i.test(title)) {
-    const cat = categories.find(c => c.id === "health_sports");
-    if (cat) return cat.id;
+
+  // 健康・スポーツ科学科目（講義と実習の識別）
+  if ((title.includes("講義") || title.includes("概論")) && (title.includes("健康") || title.includes("スポーツ"))) {
+    const catLec = categories.find(c => c.id === "health_sports_lec");
+    if (catLec) return catLec.id;
   }
+  if (/健康|スポーツ|身体運動|体育|バドミントン|テニス|サッカー|バレー|卓球|水泳|スキー/i.test(title)) {
+    const catPrac = categories.find(c => c.id === "health_sports_prac" || c.id === "health_sports");
+    if (catPrac) return catPrac.id;
+  }
+
   if (title.includes("国際理解") || title.includes("多文化")) {
     const cat = categories.find(c => c.id === "intl_understanding");
     if (cat) return cat.id;

@@ -5,7 +5,7 @@
  * 参考資料: 名古屋大学教養教育院「全学教育科目履修の手引（Student's Guide 2023〜2026）」
  */
 
-export const PRESET_VERSION = "2026.10.literature_v4";
+export const PRESET_VERSION = "2026.10.literature_v5";
 
 export const SUPPORTED_FACULTIES = [
   { id: "nu-humanities", name: "名古屋大学 文学部（人文学科）" },
@@ -89,13 +89,22 @@ export function buildLiteratureCategories(deptId = "philosophy") {
       keywords: ["哲学", "歴史", "心理", "地理", "法学", "経済学", "政治学", "社会学", "宗教学", "論理学", "倫理学", "芸術", "日本史", "東洋史", "西洋史"]
     },
     {
-      id: "health_sports",
+      id: "health_sports_lec",
       section: "全学教育科目",
-      name: "健康・スポーツ科学科目",
+      name: "健康・スポーツ科学講義",
+      requiredCredits: 2,
+      advancementRequired: 2,
+      note: "健康・スポーツ科学講義（2単位必修 ※工学部・法学部以外は講義・実習ともに必修）",
+      keywords: ["健康・スポーツ科学講義", "健康スポーツ科学講義", "スポーツ科学講義", "健康科学講義", "健康・スポーツ科学(講義)"]
+    },
+    {
+      id: "health_sports_prac",
+      section: "全学教育科目",
+      name: "健康・スポーツ科学実習",
       requiredCredits: 2,
       advancementRequired: 1,
-      note: "講義または実習から2単位（進級判定には1単位以上）",
-      keywords: ["健康", "スポーツ", "健康・スポーツ", "身体運動", "体育", "実習"]
+      note: "健康・スポーツ科学実習（各1単位×2科目＝計2単位必修）",
+      keywords: ["健康・スポーツ科学実習", "健康スポーツ科学実習", "スポーツ科学実習", "身体運動", "健康科学実習", "バドミントン", "テニス", "卓球", "サッカー", "バスケット", "バレー", "水泳", "フィットネス", "スキー", "スポーツ実習"]
     },
     {
       id: "data_sci",
@@ -103,8 +112,8 @@ export function buildLiteratureCategories(deptId = "philosophy") {
       name: "データ科学科目",
       requiredCredits: 1,
       advancementRequired: 1,
-      note: "講義1単位（随意科目としてデータ科学基礎演習Aを履修可能）",
-      keywords: ["データ科学", "データサイエンス", "情報", "データ科学の基礎", "データ科学基礎演習"]
+      note: "データ科学基礎科目（原則1単位）",
+      keywords: ["データ科学", "データサイエンス", "情報", "データ科学の基礎", "データ科学基礎"]
     },
     {
       id: "intl_understanding",
@@ -119,9 +128,9 @@ export function buildLiteratureCategories(deptId = "philosophy") {
       id: "modern_liberal",
       section: "全学教育科目",
       name: "現代教養科目／超学部セミナー",
-      requiredCredits: 4,
+      requiredCredits: 2,
       advancementRequired: 2,
-      note: "「現代教養科目（自然系）」又は「現代教養科目（学際・融合系）」2単位を含む4単位",
+      note: "「現代教養科目（自然系）」又は「現代教養科目（学際・融合系）」から2単位",
       keywords: ["現代教養", "超学部セミナー", "自然系", "学際", "環境", "生命倫理"]
     },
 

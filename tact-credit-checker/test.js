@@ -78,9 +78,21 @@ assert(secondLang.length >= 3, `Second language categorized into lang_second (fo
 
 const dataSci = parsed.find(c => c.categoryId === "data_sci");
 assert(dataSci !== undefined, "データ科学 correctly categorized into data_sci");
+assert(dataSci.credits === 1, `データ科学基礎科目は原則1単位 (got ${dataSci.credits})`);
 
-const healthSports = parsed.find(c => c.categoryId === "health_sports");
-assert(healthSports !== undefined, "健康・スポーツ実習 categorized into health_sports");
+// 英語（上級リーディング）は1単位
+const advReading = parsed.find(c => c.title.includes("上級リーディング"));
+assert(advReading !== undefined, "英語（上級リーディング） exists in mock data");
+assert(advReading.credits === 1, `英語（上級リーディング）は1単位 (got ${advReading.credits})`);
+
+// 健康・スポーツ科学：講義（2単位）と実習（2単位: 各1単位×2）
+const sportsLec = parsed.find(c => c.categoryId === "health_sports_lec");
+assert(sportsLec !== undefined, "健康・スポーツ科学講義 correctly categorized into health_sports_lec");
+assert(sportsLec.credits === 2, `スポーツ科学講義は2単位 (got ${sportsLec.credits})`);
+
+const sportsPrac = parsed.find(c => c.categoryId === "health_sports_prac");
+assert(sportsPrac !== undefined, "健康・スポーツ科学実習 correctly categorized into health_sports_prac");
+assert(sportsPrac.credits === 1, `スポーツ科学実習は1単位 (got ${sportsPrac.credits})`);
 
 // 専門系科目：専門基礎科目（人文学入門Ⅰ・Ⅱ）
 const majorBasics = parsed.filter(c => c.categoryId === "major_basics");
