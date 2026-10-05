@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>TACT Credit Checker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="brand">
+        <span class="brand-icon">🎓</span>
+        <div class="brand-text">
+          <h1>TACT 単位チェッカー</h1>
+          <p id="preset-name">名古屋大学 文学部 (標準モデル)</p>
+        </div>
+      </div>
+      <button class="icon-btn" id="open-full-dashboard-btn" title="全画面ダッシュボードを開く">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      </button>
+    </header>
+
+    <main class="popup-main">
+      <!-- 達成度サマリーカード -->
+      <section class="summary-card">
+        <div class="summary-stats">
+          <div class="stat-item main-stat">
+            <span class="label">修得済単位</span>
+            <span class="value" id="passed-credits">0 <small id="total-req-label">/ 124</small></span>
+          </div>
+          <div class="stat-item sub-stat">
+            <span class="label">履修中見込</span>
+            <span class="value-enrolled" id="enrolled-credits">+0</span>
+          </div>
+          <div class="stat-item sub-stat">
+            <span class="label">達成率</span>
+            <span class="value-pct" id="achievement-pct">0%</span>
+          </div>
+        </div>
+
+        <div class="progress-bar-wrap">
+          <div class="progress-bar">
+            <div class="progress-fill passed-fill" id="summary-passed-bar" style="width: 0%"></div>
+            <div class="progress-fill enrolled-fill" id="summary-enrolled-bar" style="width: 0%"></div>
+          </div>
+          <div class="progress-legend">
+            <span><span class="dot passed-dot"></span> 修得済</span>
+            <span><span class="dot enrolled-dot"></span> 履修中</span>
+            <span id="remaining-label">残り 124 単位</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- カテゴリ簡易リスト -->
+      <section class="categories-section">
+        <div class="section-title">区分別の充足状況</div>
+        <div class="category-list" id="category-quick-list">
+          <!-- JSで動的生成 -->
+        </div>
+      </section>
+    </main>
+
+    <footer class="popup-footer">
+      <button class="btn btn-secondary" id="sync-tact-btn">
+        <span class="btn-icon">🔄</span> TACTと同期
+      </button>
+      <button class="btn btn-primary" id="open-dashboard-btn">
+        詳細ダッシュボード ➜
+      </button>
+    </footer>
+
+    <div class="offline-demo-banner" id="demo-banner">
+      <span>TACT外ですか？</span>
+      <button id="load-sample-btn">サンプルデータで試す</button>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

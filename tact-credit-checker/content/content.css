@@ -1,0 +1,176 @@
+/* TACT Credit Checker - Injected Styles on TACT pages */
+
+#tact-credit-checker-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.tcc-floating-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4), 0 2px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  user-select: none;
+}
+
+.tcc-floating-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+}
+
+.tcc-floating-btn:active {
+  transform: translateY(0);
+}
+
+.tcc-panel {
+  position: absolute;
+  bottom: 50px;
+  right: 0;
+  width: 320px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 1px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  animation: tccFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tcc-panel.active {
+  display: flex;
+}
+
+@keyframes tccFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tcc-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tcc-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tcc-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+}
+
+.tcc-close-btn:hover {
+  color: #475569;
+}
+
+.tcc-panel-body {
+  padding: 16px;
+}
+
+.tcc-stat-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.tcc-stat-label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.tcc-stat-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #2563eb;
+}
+
+.tcc-stat-val span {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.tcc-progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.tcc-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.tcc-panel-footer {
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+}
+
+.tcc-action-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  border: none;
+  transition: background 0.15s ease;
+}
+
+.tcc-btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.tcc-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.tcc-btn-secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.tcc-btn-secondary:hover {
+  background: #e2e8f0;
+}

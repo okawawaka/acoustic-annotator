@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "TACT Credit Checker - 履修状況・単位要件チェッカー",
+  "version": "1.0.0",
+  "description": "東海国立大学機構 TACT の講義データから大学生の履修状況・卒業必要単位を自動判定・可視化するブラウザ拡張機能",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "TACT 単位チェッカー",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://tact.ac.jp/*",
+    "https://tact.thers.ac.jp/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://tact.ac.jp/*",
+        "https://tact.thers.ac.jp/*"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard/*",
+        "core/*",
+        "icons/*"
+      ],
+      "matches": [
+        "https://tact.ac.jp/*",
+        "https://tact.thers.ac.jp/*"
+      ]
+    }
+  ]
+}

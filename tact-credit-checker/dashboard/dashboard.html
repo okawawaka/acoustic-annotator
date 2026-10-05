@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TACT 単位要件チェッカー - ダッシュボード</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ナビゲーションバー -->
+    <header class="app-navbar">
+      <div class="nav-brand">
+        <span class="nav-logo">🎓</span>
+        <div class="nav-title-group">
+          <h2>TACT Credit Checker</h2>
+          <span class="nav-subtitle">履修状況 & 卒業要件自動判定ダッシュボード</span>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <div class="preset-selector-wrap">
+          <label for="preset-select">学修要覧モデル:</label>
+          <select id="preset-select" class="form-select">
+            <!-- JSで動的生成 -->
+          </select>
+        </div>
+
+        <button class="nav-btn btn-sync" id="sync-tact-btn" title="TACTから最新の講義を同期">
+          <span class="btn-icon">🔄</span> TACTと同期
+        </button>
+        <button class="nav-btn btn-secondary" id="add-course-btn" title="科目を手動追加">
+          <span class="btn-icon">➕</span> 科目追加
+        </button>
+        <button class="nav-btn btn-secondary" id="edit-rules-btn" title="区分・必要単位のカスタマイズ">
+          <span class="btn-icon">⚙️</span> 要件設定
+        </button>
+        <button class="nav-btn btn-ghost" id="export-import-btn" title="データの保存・読み込み">
+          <span class="btn-icon">💾</span> バックアップ
+        </button>
+        <button class="nav-btn btn-ghost btn-sample" id="load-sample-btn" title="名大の模擬履修データを読み込む">
+          <span class="btn-icon">✨</span> サンプル読込
+        </button>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="app-main">
+      <!-- サマリー・KPI セクション -->
+      <section class="kpi-grid">
+        <!-- 総単位達成率カード -->
+        <div class="kpi-card total-credit-card">
+          <div class="card-header">
+            <h3>卒業要件 単位達成状況</h3>
+            <span class="badge" id="overall-status-badge">判定中</span>
+          </div>
+          <div class="credit-main-numbers">
+            <div class="number-block">
+              <span class="label">修得済単位</span>
+              <span class="num text-passed" id="kpi-passed-credits">0</span>
+            </div>
+            <div class="operator">+</div>
+            <div class="number-block">
+              <span class="label">履修中 (見込)</span>
+              <span class="num text-enrolled" id="kpi-enrolled-credits">0</span>
+            </div>
+            <div class="operator">/</div>
+            <div class="number-block">
+              <span class="label">卒業必要単位</span>
+              <span class="num text-total" id="kpi-required-credits">124</span>
+            </div>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-lg">
+              <div class="progress-fill passed-fill" id="kpi-passed-bar" style="width: 0%"></div>
+              <div class="progress-fill enrolled-fill" id="kpi-enrolled-bar" style="width: 0%"></div>
+            </div>
+            <div class="progress-meta">
+              <span id="kpi-progress-text">達成率: 0% (修得済 0 単位)</span>
+              <span id="kpi-remaining-text">あと 124 単位必要</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 区分達成サマリー -->
+        <div class="kpi-card category-summary-card">
+          <div class="card-header">
+            <h3>区分充足率</h3>
+            <span class="stat-small" id="fulfilled-category-count">0 / 0 区分達成</span>
+          </div>
+          <div class="category-bars-container" id="mini-category-bars">
+            <!-- ミニプログレスバーを動的生成 -->
+          </div>
+        </div>
+
+        <!-- 同期ステータス・情報カード -->
+        <div class="kpi-card sync-info-card">
+          <div class="card-header">
+            <h3>データ連携状況</h3>
+            <span class="pulse-indicator"></span>
+          </div>
+          <div class="sync-info-body">
+            <p><strong>登録科目総数:</strong> <span id="sync-total-courses">0</span> 科目</p>
+            <p><strong>TACT連携状態:</strong> <span id="sync-tact-status">未同期</span></p>
+            <p><strong>最終同期日時:</strong> <span id="sync-last-time">なし</span></p>
+            <p class="privacy-note">🔒 データはブラウザ内にのみ保存されます</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 未分類アラートシェルフ (未分類科目がある場合のみ目立つように表示) -->
+      <section class="uncategorized-shelf" id="uncategorized-shelf" style="display: none;">
+        <div class="shelf-header">
+          <span class="shelf-alert-icon">⚠️</span>
+          <h4>未分類の科目が <span id="uncategorized-count">0</span> 件あります</h4>
+          <p>下のカードをドラッグ＆ドロップして、該当する区分に振り分けてください。</p>
+        </div>
+        <div class="shelf-cards-container" id="uncategorized-cards-container">
+          <!-- 未分類カード群 -->
+        </div>
+      </section>
+
+      <!-- 表示切り替えツールバー -->
+      <div class="view-toolbar">
+        <div class="view-toggles">
+          <button class="toggle-btn active" id="view-kanban-btn">📋 かんばん振分ボード</button>
+          <button class="toggle-btn" id="view-table-btn">📑 科目一覧テーブル</button>
+        </div>
+
+        <div class="search-filter-bar">
+          <input type="text" id="course-search-input" placeholder="科目名を検索..." class="search-input">
+          <select id="status-filter-select" class="form-select-sm">
+            <option value="all">すべてのステータス</option>
+            <option value="passed">修得済 (Passed)</option>
+            <option value="enrolled">履修中 (Enrolled)</option>
+            <option value="failed">不可 (Failed)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- かんばんビュー -->
+      <section class="kanban-view" id="kanban-view">
+        <div class="kanban-board" id="kanban-board">
+          <!-- カテゴリごとのカラムを動的生成 -->
+        </div>
+      </section>
+
+      <!-- テーブルビュー -->
+      <section class="table-view" id="table-view" style="display: none;">
+        <div class="table-card">
+          <table class="course-table">
+            <thead>
+              <tr>
+                <th>科目名</th>
+                <th>開講期</th>
+                <th>区分</th>
+                <th style="width: 80px;">単位数</th>
+                <th style="width: 120px;">ステータス</th>
+                <th style="width: 90px;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="course-table-body">
+              <!-- 行を動的生成 -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- モーダル: 科目追加 -->
+    <div class="modal-overlay" id="add-course-modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>科目の新規追加</h3>
+          <button class="modal-close" data-close="add-course-modal">✕</button>
+        </div>
+        <form id="add-course-form" class="modal-form">
+          <div class="form-group">
+            <label>科目名 *</label>
+            <input type="text" id="add-title" required placeholder="例: 認知科学入門" class="form-input">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>単位数 *</label>
+              <input type="number" id="add-credits" value="2" min="1" max="16" required class="form-input">
+            </div>
+            <div class="form-group">
+              <label>開講年度・学期</label>
+              <input type="text" id="add-term" value="2025年度 前期" class="form-input">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>区分</label>
+              <select id="add-category" class="form-select">
+                <!-- JSでオプション生成 -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ステータス</label>
+              <select id="add-status" class="form-select">
+                <option value="passed">修得済 (Passed)</option>
+                <option value="enrolled" selected>履修中 (Enrolled)</option>
+                <option value="exempt">認定・免除 (Exempt)</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-close="add-course-modal">キャンセル</button>
+            <button type="submit" class="btn btn-primary">追加する</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- モーダル: 要件ルールエディタ -->
+    <div class="modal-overlay" id="rule-editor-modal" style="display: none;">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h3>卒業要件・区分カスタマイズ</h3>
+          <button class="modal-close" data-close="rule-editor-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">学修要覧（履修の手引き）に合わせて各区分の必要単位数を変更したり、新しい区分を追加できます。</p>
+          <div class="rule-list" id="rule-category-list">
+            <!-- 区分編集行を動的生成 -->
+          </div>
+          <button class="btn btn-secondary btn-sm" id="add-new-category-btn">➕ 新しい区分を追加</button>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="rule-editor-modal">キャンセル</button>
+          <button type="button" class="btn btn-primary" id="save-rules-btn">設定を保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- モーダル: バックアップ & インポート -->
+    <div class="modal-overlay" id="backup-modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>データのエクスポート・インポート</h3>
+          <button class="modal-close" data-close="backup-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="backup-section">
+            <h4>💾 エクスポート</h4>
+            <p>現在の履修計画とルール設定をファイルに書き出します。</p>
+            <div class="btn-group">
+              <button class="btn btn-secondary" id="export-json-btn">JSON形式で保存</button>
+              <button class="btn btn-secondary" id="export-csv-btn">CSV形式で保存 (Excel互換)</button>
+            </div>
+          </div>
+          <hr class="modal-divider">
+          <div class="backup-section">
+            <h4>📂 インポート</h4>
+            <p>保存したJSONファイルからデータを復元します。</p>
+            <input type="file" id="import-file-input" accept=".json" class="file-input">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="backup-modal">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>
