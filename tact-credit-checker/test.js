@@ -33,18 +33,24 @@ const generalEdCredits = litPreset.categories
   .reduce((sum, c) => sum + c.requiredCredits, 0);
 assert(generalEdCredits === 40, `General education credits sum to exactly 40 (got ${generalEdCredits})`);
 
-// 学部専門科目 (84単位) の検証
-const majorCredits = litPreset.categories
-  .filter(c => c.section === "学部専門科目")
+// 専門系科目 (専門基礎科目 2単位) の検証
+const basicsCredits = litPreset.categories
+  .filter(c => c.section === "専門系科目")
   .reduce((sum, c) => sum + c.requiredCredits, 0);
-assert(majorCredits === 84, `Major education credits sum to exactly 84 (got ${majorCredits})`);
+assert(basicsCredits === 2, `Specialized basics section credits sum to exactly 2 (got ${basicsCredits})`);
+
+// 専門科目 (82単位) の検証
+const majorCredits = litPreset.categories
+  .filter(c => c.section === "専門科目")
+  .reduce((sum, c) => sum + c.requiredCredits, 0);
+assert(majorCredits === 82, `Major section credits sum to exactly 82 (got ${majorCredits})`);
 
 console.log("\n=== 2. Course Parser & Title Cleaner Tests ===");
 const clean1 = cleanCourseTitle("基礎セミナー [文学部1組] (2024前期)");
 assert(clean1 === "基礎セミナー", `Cleaned title matches expected: '${clean1}' === '基礎セミナー'`);
 
-const clean2 = cleanCourseTitle("2024_01_1234567: 専門基礎：人文学入門 (月2)");
-assert(clean2 === "専門基礎：人文学入門", `Cleaned title with code prefix: '${clean2}'`);
+const clean2 = cleanCourseTitle("2024_01_1234567: 専門基礎：人文学入門Ⅰ (月2)");
+assert(clean2 === "専門基礎：人文学入門Ⅰ", `Cleaned title with code prefix: '${clean2}'`);
 
 const termInfo = extractTermAndYear("ドイツ語基礎1 (2024前期)");
 assert(termInfo.year === 2024, `Extracted year is 2024 (got ${termInfo.year})`);
@@ -53,7 +59,7 @@ assert(termInfo.season === "春/前期", `Extracted season is 春/前期 (got ${
 console.log("\n=== 3. Literature Faculty Course Categorization Tests ===");
 const categories = litPreset.categories;
 const mockSites = getMockCourseSites();
-assert(mockSites.length >= 16, `Mock data has ${mockSites.length} courses`);
+assert(mockSites.length >= 20, `Mock data has ${mockSites.length} courses`);
 
 const parsed = mockSites.map(s => parseCourseSite(s, categories, {}));
 
@@ -76,43 +82,53 @@ assert(dataSci !== undefined, "データ科学 correctly categorized into data_s
 const healthSports = parsed.find(c => c.categoryId === "health_sports");
 assert(healthSports !== undefined, "健康・スポーツ実習 categorized into health_sports");
 
-const intl = parsed.find(c => c.categoryId === "intl_understanding");
-assert(intl !== undefined, "国際理解科目 categorized into intl_understanding");
+// 専門系科目：専門基礎科目（人文学入門Ⅰ・Ⅱ）
+const majorBasics = parsed.filter(c => c.categoryId === "major_basics");
+assert(majorBasics.length >= 2, `人文学入門Ⅰ・Ⅱ categorized into major_basics (found ${majorBasics.length})`);
 
-const modern = parsed.find(c => c.categoryId === "modern_liberal");
-assert(modern !== undefined, "現代教養科目 categorized into modern_liberal");
+// 専門科目：共通基盤科目（日本文化事情, 人間と倫理, ジェンダー学概論）
+const commonBase = parsed.filter(c => c.categoryId === "major_common_base");
+assert(commonBase.length >= 3, `共通基盤科目 correctly categorized (found ${commonBase.length})`);
+const jpCulture = parsed.find(c => c.title.includes("日本文化事情"));
+assert(jpCulture !== undefined && jpCulture.credits === 1, "日本文化事情 correctly has 1 credit");
+const genderIntro = parsed.find(c => c.title.includes("ジェンダー学概論"));
+assert(genderIntro !== undefined && genderIntro.credits === 1, "ジェンダー学概論 correctly has 1 credit");
 
-const majorBasics = parsed.find(c => c.categoryId === "major_basics");
-assert(majorBasics !== undefined, "人文学入門 categorized into major_basics");
+// 専門科目：共通実践科目（デジタル人文学, 科学技術と人文学）
+const commonPractice = parsed.filter(c => c.categoryId === "major_common_practice");
+assert(commonPractice.length >= 2, `共通実践科目 correctly categorized (found ${commonPractice.length})`);
+const digitalHum = parsed.find(c => c.title.includes("デジタル人文学"));
+assert(digitalHum !== undefined && digitalHum.credits === 1, "デジタル人文学 correctly has 1 credit");
 
 console.log("\n=== 4. Credit Calculation & Advancement Check Tests ===");
 const summary = calculateCredits(parsed, categories);
 assert(summary.totalRequired === 124, `Total required is 124`);
 assert(summary.sectionSummary["全学教育科目"].required === 40, "General Ed section required is 40");
-assert(summary.sectionSummary["学部専門科目"].required === 84, "Major section required is 84");
+assert(summary.sectionSummary["専門系科目"].required === 2, "Specialized basics section required is 2");
+assert(summary.sectionSummary["専門科目"].required === 82, "Specialized section required is 82");
 assert(summary.totalPassed > 0, `Total passed credits > 0 (got ${summary.totalPassed})`);
 assert(summary.totalEnrolled > 0, `Total enrolled credits > 0 (got ${summary.totalEnrolled})`);
 
 console.log("\n=== 5. Literature Departments Customization Tests ===");
 assert(LIT_DEPARTMENTS.length === 17, `LIT_DEPARTMENTS has all 17 Nagoya U Lit major tracks (got ${LIT_DEPARTMENTS.length})`);
 
-// 哲学専修のテスト
+// 哲学専修のテスト (専門系2 + 専門82 = 84)
 const philCats = buildLiteratureCategories("philosophy");
-const philMajorSum = philCats.filter(c => c.section === "学部専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+const philMajorSum = philCats.filter(c => c.section === "専門科目" || c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
 assert(philMajorSum === 84, `Philosophy track major sum is exactly 84 (got ${philMajorSum})`);
 const philMajorCat = philCats.find(c => c.name.includes("哲学・倫理学"));
 assert(philMajorCat !== undefined, "Philosophy-specific category created with専修名");
 
-// 言語学専修のテスト
+// 言語学専修のテスト (専門系2 + 専門82 = 84)
 const lingCats = buildLiteratureCategories("linguistics");
-const lingMajorSum = lingCats.filter(c => c.section === "学部専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+const lingMajorSum = lingCats.filter(c => c.section === "専門科目" || c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
 assert(lingMajorSum === 84, `Linguistics track major sum is exactly 84 (got ${lingMajorSum})`);
 const lingMajorCat = lingCats.find(c => c.name.includes("言語学"));
 assert(lingMajorCat !== undefined, "Linguistics-specific category created with専修名");
 
-// 人間発達科学専修（心理学）のテスト（必修34/選択34/自由14=82 + 専門基礎2 = 84）
+// 人間発達科学専修（心理学）のテスト
 const psychCats = buildLiteratureCategories("human_dev");
-const psychMajorSum = psychCats.filter(c => c.section === "学部専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+const psychMajorSum = psychCats.filter(c => c.section === "専門科目" || c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
 assert(psychMajorSum === 84, `Psychology track major sum is exactly 84 (got ${psychMajorSum})`);
 
 console.log(`\n======================================`);

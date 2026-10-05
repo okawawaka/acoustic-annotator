@@ -122,7 +122,7 @@ export function extractCourseCode(siteId, title) {
 }
 
 /**
- * 単位数の推測（デフォルト2単位、実験・実習・スポーツは1単位、卒論は4〜8単位）
+ * 単位数の推測（デフォルト2単位、実験・実習・スポーツ・特定専門科目は1単位、卒論は4〜8単位）
  */
 export function estimateCredits(cleanTitle, rawTitle) {
   const combined = `${cleanTitle} ${rawTitle}`;
@@ -130,14 +130,15 @@ export function estimateCredits(cleanTitle, rawTitle) {
   if (/卒業論文|卒業研究|特別研究|学士論文/i.test(combined)) {
     return 6;
   }
-  if (/実験|実習|スポーツ|体育|身体運動|演習[I1]|チュートリアル/i.test(combined)) {
+  // 文学部 共通基盤・共通実践科目の1単位科目、および実習・スポーツ
+  if (/日本文化事情|異文化理解|ジェンダー学概論|セクシュアリティ学概論|情報リテラシー|科学技術と人文学|デジタル人文学|コミュニケーションスキル|イノベーション創出|実験|実習|スポーツ|体育|身体運動|演習[I1]|チュートリアル/i.test(combined)) {
     return 1;
   }
   if (/通年|特論|総合演習/i.test(combined)) {
     return 4;
   }
 
-  return 2; // 大学講義の標準単位数
+  return 2; // 大学講義の標準単位数（人文学入門Ⅰ〜Ⅳ、人間と倫理、国際移民論、応用倫理学演習等含む）
 }
 
 /**
@@ -147,7 +148,25 @@ export function guessCategory(cleanTitle, categories = []) {
   if (!categories || categories.length === 0) return "uncategorized";
   const title = cleanTitle.toLowerCase();
 
-  // 1. 文学部固有の確実なキーワード判定
+  // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ）
+  if (title.includes("人文学入門") || title.includes("専門基礎")) {
+    const cat = categories.find(c => c.id === "major_basics");
+    if (cat) return cat.id;
+  }
+
+  // 2. 文学部 共通基盤科目
+  if (/日本文化事情|異文化理解|人間と倫理|ジェンダー学概論|セクシュアリティ学概論|国際移民論|ナショナリズム/i.test(title)) {
+    const cat = categories.find(c => c.id === "major_common_base");
+    if (cat) return cat.id;
+  }
+
+  // 3. 文学部 共通実践科目
+  if (/情報リテラシー|科学技術と人文学|応用倫理学演習|デジタル人文学|コミュニケーションスキル|人文科学イノベーション/i.test(title)) {
+    const cat = categories.find(c => c.id === "major_common_practice");
+    if (cat) return cat.id;
+  }
+
+  // 4. 全学教育科目固有の確実なキーワード判定
   if (title.includes("大学での学び")) {
     const cat = categories.find(c => c.id === "intro_study");
     if (cat) return cat.id;
@@ -162,10 +181,6 @@ export function guessCategory(cleanTitle, categories = []) {
   }
   if (/ドイツ語|フランス語|中国語|ロシア語|スペイン語|朝鮮語|韓国語|german|french|chinese|russian|spanish/i.test(title)) {
     const cat = categories.find(c => c.id === "lang_second");
-    if (cat) return cat.id;
-  }
-  if (title.includes("人文学入門") || title.includes("専門基礎")) {
-    const cat = categories.find(c => c.id === "major_basics");
     if (cat) return cat.id;
   }
   if (title.includes("データ科学") || title.includes("データサイエンス")) {
@@ -185,13 +200,13 @@ export function guessCategory(cleanTitle, categories = []) {
     if (cat) return cat.id;
   }
 
-  // 2. 専門科目（演習、講読、卒業論文、特論）の判定
+  // 5. 専修専門科目（演習、講読、卒業論文、特論）の判定
   if (/卒業論文|卒業研究|卒論|学士論文/i.test(title) || /演習|講読|特論|特殊研究|特殊講義/i.test(title)) {
     const majorReq = categories.find(c => c.id === "major_req" || c.id === "major_specialized");
     if (majorReq) return majorReq.id;
   }
 
-  // 3. カテゴリ定義のキーワード配列による判定
+  // 6. カテゴリ定義のキーワード配列による判定
   for (const cat of categories) {
     if (!cat.keywords || cat.keywords.length === 0) continue;
     for (const kw of cat.keywords) {

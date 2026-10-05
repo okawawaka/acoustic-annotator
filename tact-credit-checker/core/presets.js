@@ -5,7 +5,7 @@
  * 参考資料: 名古屋大学教養教育院「全学教育科目履修の手引（Student's Guide 2023〜2026）」
  */
 
-export const PRESET_VERSION = "2026.10.literature_v3";
+export const PRESET_VERSION = "2026.10.literature_v4";
 
 export const SUPPORTED_FACULTIES = [
   { id: "nu-humanities", name: "名古屋大学 文学部（人文学科）" },
@@ -13,24 +13,25 @@ export const SUPPORTED_FACULTIES = [
 ];
 
 // 名古屋大学文学部（人文学科）の全16専修
+// 専門教育科目（専門系科目2単位＋専門科目82単位＝計84単位）
 export const LIT_DEPARTMENTS = [
-  { id: "philosophy", name: "哲学・倫理学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "eastern_phil", name: "インド哲学仏教学・宗教学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "japanese_history", name: "日本史学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "oriental_history", name: "東洋史学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "western_history", name: "西洋史学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "archaeology", name: "考古学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "japanese_lit", name: "日本語学・日本文学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "linguistics", name: "言語学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "english_lit", name: "英語学・英米文学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "french_lit", name: "フランス語学・フランス文学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "german_lit", name: "ドイツ語学・ドイツ文学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "russian_lit", name: "ロシア語学・ロシア文学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "chinese_lit", name: "中国語学・中国文学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "human_dev", name: "人間発達科学専修（心理学等）", reqCredits: 34, elecCredits: 34, freeCredits: 14 },
-  { id: "sociology", name: "社会学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "geography", name: "地理学専修", reqCredits: 32, elecCredits: 36, freeCredits: 14 },
-  { id: "custom", name: "その他の専修・独自設定", reqCredits: 32, elecCredits: 36, freeCredits: 14 }
+  { id: "philosophy", name: "哲学・倫理学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "eastern_phil", name: "インド哲学仏教学・宗教学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "japanese_history", name: "日本史学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "oriental_history", name: "東洋史学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "western_history", name: "西洋史学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "archaeology", name: "考古学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "japanese_lit", name: "日本語学・日本文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "linguistics", name: "言語学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "english_lit", name: "英語学・英米文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "french_lit", name: "フランス語学・フランス文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "german_lit", name: "ドイツ語学・ドイツ文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "russian_lit", name: "ロシア語学・ロシア文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "chinese_lit", name: "中国語学・中国文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "human_dev", name: "人間発達科学専修（心理学等）", reqCredits: 34, elecCredits: 30, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "sociology", name: "社会学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "geography", name: "地理学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
+  { id: "custom", name: "その他の専修・独自設定", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 }
 ];
 
 /**
@@ -124,19 +125,64 @@ export function buildLiteratureCategories(deptId = "philosophy") {
       keywords: ["現代教養", "超学部セミナー", "自然系", "学際", "環境", "生命倫理"]
     },
 
-    // --- 学部専門科目（計84単位 / 進級要件2単位） ---
+    // --- 専門系科目（計2単位 / 進級要件2単位） ---
     {
       id: "major_basics",
-      section: "学部専門科目",
+      section: "専門系科目",
       name: "専門基礎科目",
       requiredCredits: 2,
       advancementRequired: 2,
-      note: "文学部専門基礎科目（人文学入門等）2単位必修",
-      keywords: ["専門基礎", "人文学入門", "人文学基礎", "概論"]
+      note: "人文学入門Ⅰ・人文学入門Ⅱ・人文学入門Ⅲ・人文学入門Ⅳから2単位必修（2年次進級要件）",
+      keywords: ["人文学入門Ⅰ", "人文学入門Ⅱ", "人文学入門Ⅲ", "人文学入門Ⅳ", "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門", "専門基礎"]
+    },
+
+    // --- 専門科目（計82単位） ---
+    {
+      id: "major_common_base",
+      section: "専門科目",
+      name: "共通基盤科目",
+      requiredCredits: dept.commonBaseCredits || 2,
+      advancementRequired: 0,
+      note: "日本文化事情(1), 異文化理解(1), 人間と倫理, ジェンダー学概論(1), セクシュアリティ学概論(1), 国際移民論, ナショナリズム・トランスナショナリズム論",
+      keywords: [
+        "日本文化事情",
+        "異文化理解",
+        "人間と倫理",
+        "ジェンダー学概論",
+        "ジェンダー学",
+        "セクシュアリティ学概論",
+        "セクシュアリティ学",
+        "国際移民論",
+        "ナショナリズム・トランスナショナリズム論",
+        "ナショナリズム",
+        "トランスナショナリズム",
+        "共通基盤"
+      ]
+    },
+    {
+      id: "major_common_practice",
+      section: "専門科目",
+      name: "共通実践科目",
+      requiredCredits: dept.commonPracticeCredits || 2,
+      advancementRequired: 0,
+      note: "人文学の学生のための情報リテラシー(1), 科学技術と人文学(1), 応用倫理学演習, デジタル人文学(1), 人文学のためのコミュニケーションスキル(1), 人文科学イノベーション創出と課題解決(1)",
+      keywords: [
+        "人文学の学生のための情報リテラシー",
+        "情報リテラシー",
+        "科学技術と人文学",
+        "応用倫理学演習",
+        "応用倫理学",
+        "デジタル人文学",
+        "人文学のためのコミュニケーションスキル",
+        "コミュニケーションスキル",
+        "人文科学イノベーション創出と課題解決",
+        "人文科学イノベーション",
+        "共通実践"
+      ]
     },
     {
       id: "major_req",
-      section: "学部専門科目",
+      section: "専門科目",
       name: `【${deptName}】専修必修科目`,
       requiredCredits: dept.reqCredits,
       advancementRequired: 0,
@@ -145,7 +191,7 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     },
     {
       id: "major_elec",
-      section: "学部専門科目",
+      section: "専門科目",
       name: `【${deptName}】専修選択科目`,
       requiredCredits: dept.elecCredits,
       advancementRequired: 0,
@@ -154,7 +200,7 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     },
     {
       id: "major_free",
-      section: "学部専門科目",
+      section: "専門科目",
       name: "関連専門科目・自由選択",
       requiredCredits: dept.freeCredits,
       advancementRequired: 0,

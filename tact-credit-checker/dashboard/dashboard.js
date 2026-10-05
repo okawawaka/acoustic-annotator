@@ -262,9 +262,18 @@ function renderSummary() {
   const tbody = document.getElementById("requirement-table-body");
   tbody.innerHTML = "";
 
-  const sections = ["全学教育科目", "専門教育科目", "その他・自由選択"];
+  const standardOrder = ["全学教育科目", "専門系科目", "専門科目", "学部専門科目", "専門教育科目", "その他・自由選択"];
+  const dynamicSections = [];
+  standardOrder.forEach(s => {
+    if (state.categories.some(c => c.section === s)) dynamicSections.push(s);
+  });
+  state.categories.forEach(cat => {
+    const sec = cat.section || "全学教育科目";
+    if (!dynamicSections.includes(sec)) dynamicSections.push(sec);
+  });
+
   const categoriesBySec = {};
-  sections.forEach(s => categoriesBySec[s] = []);
+  dynamicSections.forEach(s => categoriesBySec[s] = []);
 
   state.categories.forEach(cat => {
     const sec = cat.section || "全学教育科目";
@@ -272,7 +281,7 @@ function renderSummary() {
     categoriesBySec[sec].push(cat);
   });
 
-  sections.forEach(secName => {
+  dynamicSections.forEach(secName => {
     const cats = categoriesBySec[secName];
     if (!cats || cats.length === 0) return;
 
@@ -684,6 +693,9 @@ function renderRuleEditorTable() {
       <td>
         <select class="tact-select tact-select-sm" data-field="section" style="width: 100%;">
           <option value="全学教育科目" ${cat.section === '全学教育科目' ? 'selected' : ''}>全学教育科目</option>
+          <option value="専門系科目" ${cat.section === '専門系科目' ? 'selected' : ''}>専門系科目</option>
+          <option value="専門科目" ${cat.section === '専門科目' ? 'selected' : ''}>専門科目</option>
+          <option value="学部専門科目" ${cat.section === '学部専門科目' ? 'selected' : ''}>学部専門科目</option>
           <option value="専門教育科目" ${cat.section === '専門教育科目' ? 'selected' : ''}>専門教育科目</option>
           <option value="その他・自由選択" ${cat.section === 'その他・自由選択' ? 'selected' : ''}>その他・自由選択</option>
         </select>
