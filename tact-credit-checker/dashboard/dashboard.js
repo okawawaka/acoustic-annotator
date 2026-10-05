@@ -479,13 +479,27 @@ async function handleTactSync() {
   try {
     const session = await checkTactSession();
     if (!session.isLoggedIn) {
-      alert("TACTへのログインが確認できませんでした。\n東海国立大学機構 TACT (https://tact.ac.jp) にブラウザでログインした状態で再度お試しください。");
+      const openTab = confirm(
+        "TACT（https://tact.ac.thers.ac.jp）へのログインが確認できませんでした。\n\n" +
+        "【確認事項】\n" +
+        "1. ブラウザで TACT にログインしたタブが開いているかご確認ください。\n" +
+        "2. まだ開いていない場合、「OK」を押すと TACT のページを新しいタブで開きます。\n" +
+        "（TACTでログイン後、再度このボタンを押してください）\n\n" +
+        "TACTを開きますか？"
+      );
+      if (openTab) {
+        if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.create) {
+          chrome.tabs.create({ url: "https://tact.ac.thers.ac.jp" });
+        } else {
+          window.open("https://tact.ac.thers.ac.jp", "_blank");
+        }
+      }
       syncBtn.disabled = false;
       syncBtn.innerHTML = `<span class="btn-icon">🔄</span> TACTと同期`;
       return;
     }
 
-    const sites = await fetchUserCourseSites(session.baseUrl);
+    const sites = await fetchUserCourseSites(session.baseUrl, session.tabId);
     const existingMap = new Map(state.courses.map(c => [c.id, c]));
 
     const parsed = sites.map(site => {

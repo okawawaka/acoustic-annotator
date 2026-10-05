@@ -90,13 +90,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const session = await checkTactSession();
       if (!session.isLoggedIn) {
-        alert("TACTにログインしていないか、セッションが切れています。\nTCCダッシュボードまたはTACTを開いてログインしてください。");
+        alert("TACT (https://tact.ac.thers.ac.jp) にログインしたタブが開いているかご確認ください。\nログイン中のタブを開いた状態で再度お試しください。");
         syncBtn.disabled = false;
         syncBtn.innerHTML = `<span class="btn-icon">🔄</span> TACTと同期`;
         return;
       }
 
-      const rawSites = await fetchUserCourseSites(session.baseUrl);
+      const rawSites = await fetchUserCourseSites(session.baseUrl, session.tabId);
       const existingMap = new Map((appState.courses || []).map(c => [c.id, c]));
 
       const parsedCourses = rawSites.map(site => {

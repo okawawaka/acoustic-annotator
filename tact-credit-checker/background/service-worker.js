@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "FETCH_TACT_SITES") {
-    const baseUrl = message.baseUrl || "https://tact.ac.jp";
+    const baseUrl = message.baseUrl || "https://tact.ac.thers.ac.jp";
     fetch(`${baseUrl}/direct/site.json`, {
       credentials: "include",
       headers: { "Accept": "application/json" }
@@ -35,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "CHECK_TACT_SESSION") {
-    const baseUrl = message.baseUrl || "https://tact.ac.jp";
+    const baseUrl = message.baseUrl || "https://tact.ac.thers.ac.jp";
     fetch(`${baseUrl}/direct/session/current.json`, {
       credentials: "include",
       headers: { "Accept": "application/json" }
