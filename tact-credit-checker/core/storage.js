@@ -3,7 +3,7 @@
  * chrome.storage.local と localStorage のフォールバック対応ストレージ管理
  */
 
-import { DEFAULT_PRESETS } from "./presets.js";
+import { DEFAULT_PRESETS, PRESET_VERSION, buildLiteratureCategories } from "./presets.js";
 
 const STORAGE_KEYS = {
   PRESET_ID: "tcc_selected_preset_id",
@@ -12,7 +12,8 @@ const STORAGE_KEYS = {
   MAPPINGS: "tcc_custom_mappings",
   LAST_SYNC: "tcc_last_sync_time",
   USER: "tcc_user_profile",
-  STUDENT_PROFILE: "tcc_student_profile"
+  STUDENT_PROFILE: "tcc_student_profile",
+  VERSION: "tcc_preset_version"
 };
 
 const isExtensionEnv = typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
@@ -53,7 +54,7 @@ export async function setStorageData(key, value) {
 }
 
 /**
- * アプリの初期状態のロード
+ * アプリの初期状態のロード（自動マイグレーション対応）
  */
 export async function loadAppState() {
   let presetId = await getStorageData(STORAGE_KEYS.PRESET_ID, DEFAULT_PRESETS[0].id);
@@ -62,17 +63,28 @@ export async function loadAppState() {
   const mappings = await getStorageData(STORAGE_KEYS.MAPPINGS, {});
   const lastSync = await getStorageData(STORAGE_KEYS.LAST_SYNC, null);
   const user = await getStorageData(STORAGE_KEYS.USER, null);
+  const storedVersion = await getStorageData(STORAGE_KEYS.VERSION, "");
+
   const studentProfile = await getStorageData(STORAGE_KEYS.STUDENT_PROFILE, {
     entranceYear: new Date().getFullYear(),
     faculty: "文学部",
-    department: "人文学科"
+    departmentId: "philosophy",
+    department: "哲学・倫理学専修"
   });
 
-  // カテゴリ未初期化時は選択プリセットから初期化
-  if (!categories || categories.length === 0) {
-    const preset = DEFAULT_PRESETS.find(p => p.id === presetId) || DEFAULT_PRESETS[0];
-    categories = JSON.parse(JSON.stringify(preset.categories));
+  // バージョン更新または旧カテゴリキャッシュの検出時は自動マイグレーション
+  const isOutdated = storedVersion !== PRESET_VERSION ||
+    !categories ||
+    categories.length === 0 ||
+    !categories.some(c => c.id === "lang_en");
+
+  if (isOutdated) {
+    presetId = DEFAULT_PRESETS[0].id;
+    const deptId = studentProfile.departmentId || "philosophy";
+    categories = buildLiteratureCategories(deptId);
+    await setStorageData(STORAGE_KEYS.PRESET_ID, presetId);
     await setStorageData(STORAGE_KEYS.CATEGORIES, categories);
+    await setStorageData(STORAGE_KEYS.VERSION, PRESET_VERSION);
   }
 
   return {

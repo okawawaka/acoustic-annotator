@@ -145,12 +145,57 @@ export function estimateCredits(cleanTitle, rawTitle) {
  */
 export function guessCategory(cleanTitle, categories = []) {
   if (!categories || categories.length === 0) return "uncategorized";
+  const title = cleanTitle.toLowerCase();
 
-  // 1. 各カテゴリのキーワードにヒットするか探索
+  // 1. 文学部固有の確実なキーワード判定
+  if (title.includes("大学での学び")) {
+    const cat = categories.find(c => c.id === "intro_study");
+    if (cat) return cat.id;
+  }
+  if (title.includes("基礎セミナー")) {
+    const cat = categories.find(c => c.id === "seminar");
+    if (cat) return cat.id;
+  }
+  if (title.includes("英語") || title.includes("english") || title.includes("academic english")) {
+    const cat = categories.find(c => c.id === "lang_en");
+    if (cat) return cat.id;
+  }
+  if (/ドイツ語|フランス語|中国語|ロシア語|スペイン語|朝鮮語|韓国語|german|french|chinese|russian|spanish/i.test(title)) {
+    const cat = categories.find(c => c.id === "lang_second");
+    if (cat) return cat.id;
+  }
+  if (title.includes("人文学入門") || title.includes("専門基礎")) {
+    const cat = categories.find(c => c.id === "major_basics");
+    if (cat) return cat.id;
+  }
+  if (title.includes("データ科学") || title.includes("データサイエンス")) {
+    const cat = categories.find(c => c.id === "data_sci");
+    if (cat) return cat.id;
+  }
+  if (/健康|スポーツ|身体運動|体育|バドミントン|テニス|サッカー|バレー/i.test(title)) {
+    const cat = categories.find(c => c.id === "health_sports");
+    if (cat) return cat.id;
+  }
+  if (title.includes("国際理解") || title.includes("多文化")) {
+    const cat = categories.find(c => c.id === "intl_understanding");
+    if (cat) return cat.id;
+  }
+  if (title.includes("現代教養") || title.includes("超学部")) {
+    const cat = categories.find(c => c.id === "modern_liberal");
+    if (cat) return cat.id;
+  }
+
+  // 2. 専門科目（演習、講読、卒業論文、特論）の判定
+  if (/卒業論文|卒業研究|卒論|学士論文/i.test(title) || /演習|講読|特論|特殊研究|特殊講義/i.test(title)) {
+    const majorReq = categories.find(c => c.id === "major_req" || c.id === "major_specialized");
+    if (majorReq) return majorReq.id;
+  }
+
+  // 3. カテゴリ定義のキーワード配列による判定
   for (const cat of categories) {
     if (!cat.keywords || cat.keywords.length === 0) continue;
     for (const kw of cat.keywords) {
-      if (cleanTitle.toLowerCase().includes(kw.toLowerCase())) {
+      if (title.includes(kw.toLowerCase())) {
         return cat.id;
       }
     }

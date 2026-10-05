@@ -3,7 +3,7 @@
  * 名古屋大学文学部公式要覧（Student's Guide 2023〜2026）準拠テスト
  */
 
-import { DEFAULT_PRESETS, SUPPORTED_FACULTIES } from "./core/presets.js";
+import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "./core/presets.js";
 import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear } from "./core/parser.js";
 import { getMockCourseSites } from "./core/api.js";
 
@@ -92,6 +92,28 @@ assert(summary.sectionSummary["全学教育科目"].required === 40, "General Ed
 assert(summary.sectionSummary["学部専門科目"].required === 84, "Major section required is 84");
 assert(summary.totalPassed > 0, `Total passed credits > 0 (got ${summary.totalPassed})`);
 assert(summary.totalEnrolled > 0, `Total enrolled credits > 0 (got ${summary.totalEnrolled})`);
+
+console.log("\n=== 5. Literature Departments Customization Tests ===");
+assert(LIT_DEPARTMENTS.length === 17, `LIT_DEPARTMENTS has all 17 Nagoya U Lit major tracks (got ${LIT_DEPARTMENTS.length})`);
+
+// 哲学専修のテスト
+const philCats = buildLiteratureCategories("philosophy");
+const philMajorSum = philCats.filter(c => c.section === "学部専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+assert(philMajorSum === 84, `Philosophy track major sum is exactly 84 (got ${philMajorSum})`);
+const philMajorCat = philCats.find(c => c.name.includes("哲学・倫理学"));
+assert(philMajorCat !== undefined, "Philosophy-specific category created with専修名");
+
+// 言語学専修のテスト
+const lingCats = buildLiteratureCategories("linguistics");
+const lingMajorSum = lingCats.filter(c => c.section === "学部専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+assert(lingMajorSum === 84, `Linguistics track major sum is exactly 84 (got ${lingMajorSum})`);
+const lingMajorCat = lingCats.find(c => c.name.includes("言語学"));
+assert(lingMajorCat !== undefined, "Linguistics-specific category created with専修名");
+
+// 人間発達科学専修（心理学）のテスト（必修34/選択34/自由14=82 + 専門基礎2 = 84）
+const psychCats = buildLiteratureCategories("human_dev");
+const psychMajorSum = psychCats.filter(c => c.section === "学部専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+assert(psychMajorSum === 84, `Psychology track major sum is exactly 84 (got ${psychMajorSum})`);
 
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);

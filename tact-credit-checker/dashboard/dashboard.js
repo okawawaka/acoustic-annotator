@@ -1,9 +1,5 @@
-/**
- * TACT Credit Checker - Dashboard Controller (TACT / Sakai CLE Edition)
- */
-
-import { DEFAULT_PRESETS, NU_FACULTIES } from "../core/presets.js";
-import { parseCourseSite, calculateCredits } from "../core/parser.js";
+import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "../core/presets.js";
+import { parseCourseSite, calculateCredits, guessCategory } from "../core/parser.js";
 import {
   loadAppState,
   saveCourses,
@@ -41,6 +37,21 @@ let state = {
 document.addEventListener("DOMContentLoaded", async () => {
   const loaded = await loadAppState();
   state = { ...state, ...loaded };
+  // 既存科目の中に現行カテゴリに存在しないものや未分類のものがあれば再推定
+  let hadUnmapped = false;
+  state.courses.forEach(course => {
+    const catExists = state.categories.some(c => c.id === course.categoryId);
+    if (!course.categoryId || course.categoryId === "uncategorized" || !catExists) {
+      const guessed = guessCategory(course.title, state.categories, state.mappings);
+      if (guessed && guessed !== "uncategorized") {
+        course.categoryId = guessed;
+        hadUnmapped = true;
+      }
+    }
+  });
+  if (hadUnmapped) {
+    await saveCourses(state.courses);
+  }
   initUI();
   render();
 });
@@ -71,28 +82,65 @@ function initUI() {
   });
 
   document.getElementById("jump-to-courses-btn").addEventListener("click", () => {
+    state.categoryFilter = "uncategorized";
     const courseTabBtn = document.querySelector('[data-tab="tab-courses"]');
     if (courseTabBtn) courseTabBtn.click();
   });
 
   // 検索・フィルタ
   const filterInput = document.getElementById("course-filter-input");
-  filterInput.addEventListener("input", (e) => {
-    state.searchQuery = e.target.value.toLowerCase().trim();
-    renderCoursesTable();
-  });
+  if (filterInput) {
+    filterInput.addEventListener("input", (e) => {
+      state.searchQuery = e.target.value.toLowerCase().trim();
+      renderCoursesTable();
+    });
+  }
 
   const catFilter = document.getElementById("course-cat-filter");
-  catFilter.addEventListener("change", (e) => {
-    state.categoryFilter = e.target.value;
-    renderCoursesTable();
-  });
+  if (catFilter) {
+    catFilter.addEventListener("change", (e) => {
+      state.categoryFilter = e.target.value;
+      renderCoursesTable();
+    });
+  }
 
   // TACT同期
   document.getElementById("sync-tact-btn").addEventListener("click", handleTactSync);
 
   // サンプルデータ
   document.getElementById("load-sample-btn").addEventListener("click", handleLoadSample);
+
+  // 拡張機能ストレージの変更監視（ポップアップ等からの更新を即時反映）
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local") {
+        let shouldRerender = false;
+        if (changes.tact_credit_courses) {
+          state.courses = changes.tact_credit_courses.newValue || [];
+          shouldRerender = true;
+        }
+        if (changes.tact_credit_categories) {
+          state.categories = changes.tact_credit_categories.newValue || [];
+          shouldRerender = true;
+        }
+        if (changes.tact_credit_profile) {
+          state.studentProfile = changes.tact_credit_profile.newValue || state.studentProfile;
+          shouldRerender = true;
+        }
+        if (changes.tact_credit_preset_id) {
+          state.presetId = changes.tact_credit_preset_id.newValue || state.presetId;
+          shouldRerender = true;
+        }
+        if (changes.tact_credit_mappings) {
+          state.mappings = changes.tact_credit_mappings.newValue || {};
+          shouldRerender = true;
+        }
+        if (shouldRerender) {
+          render();
+        }
+      }
+    });
+  }
 
   // モーダル初期化
   setupModals();
@@ -307,6 +355,45 @@ function renderSummary() {
       }
     });
   });
+
+  // 未分類科目がある場合は要件表の末尾にも要確認行を明示
+  if (summary.uncategorizedCourses && summary.uncategorizedCourses.length > 0) {
+    const uncatPassedCredits = summary.uncategorizedCourses
+      .filter(c => c.status === "passed" || c.status === "exempt")
+      .reduce((s, c) => s + (c.credits || 0), 0);
+    const uncatEnrolledCredits = summary.uncategorizedCourses
+      .filter(c => c.status === "enrolled")
+      .reduce((s, c) => s + (c.credits || 0), 0);
+
+    const uncatRow = document.createElement("tr");
+    uncatRow.style.backgroundColor = "#fffbeb";
+    uncatRow.style.borderTop = "2px solid #f59e0b";
+    uncatRow.innerHTML = `
+      <td style="color: #b45309; font-weight: 700;">⚠️ 要確認</td>
+      <td>
+        <span style="font-weight: 700; color: #b45309;">未分類科目（${summary.uncategorizedCourses.length}件）</span>
+        <div style="font-size: 11px; color: #78350f;">どの区分（全学／専門等）に算入するか未指定の講義です。</div>
+      </td>
+      <td style="font-size: 11.5px; color: #78350f;">「履修科目一覧」タブで学生便覧の配当区分に割り当ててください</td>
+      <td style="text-align: right; color: #94a3b8;">-</td>
+      <td style="text-align: right; font-weight: 700; color: #b45309;">計 ${uncatPassedCredits} 単位</td>
+      <td style="text-align: right; color: #0284c7;">${uncatEnrolledCredits > 0 ? `+${uncatEnrolledCredits}` : '-'}</td>
+      <td style="text-align: right; color: #94a3b8;">-</td>
+      <td style="text-align: center;">
+        <button class="tact-btn tact-btn-sm tact-btn-warning" id="resolve-uncat-table-btn" style="font-size: 11px; padding: 3px 8px;">区分を設定</button>
+      </td>
+    `;
+    tbody.appendChild(uncatRow);
+
+    const resolveBtn = uncatRow.querySelector("#resolve-uncat-table-btn");
+    if (resolveBtn) {
+      resolveBtn.addEventListener("click", () => {
+        state.categoryFilter = "uncategorized";
+        const courseTabBtn = document.querySelector('[data-tab="tab-courses"]');
+        if (courseTabBtn) courseTabBtn.click();
+      });
+    }
+  }
 }
 
 /**
@@ -425,8 +512,14 @@ function renderCoursesTable() {
 /**
  * タブ3: 学修要覧・要件設定シートの初期化 & イベント
  */
+/**
+ * タブ3: 学修要覧・要件設定シートの初期化 & イベント
+ */
 function initRuleEditor() {
   const presetSelect = document.getElementById("cfg-preset-select");
+  const deptSelect = document.getElementById("cfg-lit-department-select");
+  const deptWrapper = document.getElementById("cfg-dept-wrapper");
+
   presetSelect.innerHTML = "";
   DEFAULT_PRESETS.forEach(p => {
     const opt = document.createElement("option");
@@ -436,23 +529,82 @@ function initRuleEditor() {
     presetSelect.appendChild(opt);
   });
 
-  const p = state.studentProfile || {};
-  document.getElementById("cfg-entrance-year").value = p.entranceYear || 2024;
-  document.getElementById("cfg-department-name").value = p.department || "";
+  // 文学部 専修セレクトボックスの初期化
+  if (deptSelect) {
+    deptSelect.innerHTML = "";
+    LIT_DEPARTMENTS.forEach(dept => {
+      const opt = document.createElement("option");
+      opt.value = dept.id;
+      opt.textContent = dept.name;
+      deptSelect.appendChild(opt);
+    });
 
+    // 現在の所属専修の選択
+    const currentDeptName = (state.studentProfile && state.studentProfile.department) || "";
+    const matchedDept = LIT_DEPARTMENTS.find(d => d.name === currentDeptName || d.id === currentDeptName);
+    if (matchedDept) {
+      deptSelect.value = matchedDept.id;
+    } else {
+      deptSelect.value = "general_lit";
+    }
+  }
+
+  const p = state.studentProfile || {};
+  const entranceYearInput = document.getElementById("cfg-entrance-year");
+  if (entranceYearInput) entranceYearInput.value = p.entranceYear || 2024;
+
+  const updateDeptVisibility = () => {
+    if (deptWrapper) {
+      deptWrapper.style.display = (presetSelect.value === "lit_2023_2026") ? "block" : "none";
+    }
+  };
+  updateDeptVisibility();
+
+  // プリセット変更イベント
   presetSelect.addEventListener("change", (e) => {
     const selectedPreset = DEFAULT_PRESETS.find(p => p.id === e.target.value);
     if (selectedPreset) {
       if (confirm("選択した学部の標準枠組みを読み込みますか？\n（現在の区分・単位数設定は上書きされます）")) {
         state.presetId = selectedPreset.id;
-        state.categories = JSON.parse(JSON.stringify(selectedPreset.categories));
         state.studentProfile.faculty = selectedPreset.faculty;
+        if (selectedPreset.id === "lit_2023_2026" && deptSelect) {
+          const deptId = deptSelect.value || "general_lit";
+          const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
+          state.studentProfile.department = deptObj ? deptObj.name : "人文学科（専修共通・総合）";
+          state.categories = buildLiteratureCategories(deptId);
+        } else {
+          state.categories = JSON.parse(JSON.stringify(selectedPreset.categories));
+          state.studentProfile.department = "";
+        }
+        updateDeptVisibility();
+        reclassifyCourses();
         renderRuleEditorTable();
+        render();
       } else {
         presetSelect.value = state.presetId;
       }
     }
   });
+
+  // 文学部 専修変更イベント
+  if (deptSelect) {
+    deptSelect.addEventListener("change", (e) => {
+      const deptId = e.target.value;
+      const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
+      const deptName = deptObj ? deptObj.name : "人文学科（専修共通・総合）";
+
+      if (confirm(`文学部の所属専修を「${deptName}」に変更し、専門科目の配当要件を自動再構成しますか？`)) {
+        state.studentProfile.department = deptName;
+        state.categories = buildLiteratureCategories(deptId);
+        reclassifyCourses();
+        renderRuleEditorTable();
+        render();
+      } else {
+        const matched = LIT_DEPARTMENTS.find(d => d.name === state.studentProfile.department);
+        deptSelect.value = matched ? matched.id : "general_lit";
+      }
+    });
+  }
 
   renderRuleEditorTable();
 
@@ -469,7 +621,7 @@ function initRuleEditor() {
     renderRuleEditorTable();
   });
 
-  // 保存ボタン
+  // 設定保存ボタン
   document.getElementById("save-custom-rules-btn").addEventListener("click", async () => {
     const rows = document.querySelectorAll("#rule-edit-tbody tr");
     const updatedCategories = [];
@@ -491,14 +643,34 @@ function initRuleEditor() {
     });
 
     state.categories = updatedCategories;
-    state.studentProfile.entranceYear = parseInt(document.getElementById("cfg-entrance-year").value, 10) || 2024;
-    state.studentProfile.department = document.getElementById("cfg-department-name").value.trim();
+    const yearEl = document.getElementById("cfg-entrance-year");
+    state.studentProfile.entranceYear = yearEl ? (parseInt(yearEl.value, 10) || 2024) : 2024;
+
+    if (deptSelect && presetSelect.value === "lit_2023_2026") {
+      const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptSelect.value);
+      state.studentProfile.department = deptObj ? deptObj.name : state.studentProfile.department;
+    }
+
+    reclassifyCourses();
 
     await saveCategories(state.categories);
     await saveStudentProfile(state.studentProfile);
+    await saveCourses(state.courses);
 
-    alert("学修要覧・卒業要件設定を保存しました！");
+    alert("学修要覧・卒業要件設定を保存しました！\n科目への区分割り当ても更新されました。");
     render();
+  });
+}
+
+/**
+ * 登録済み科目のカテゴリを最新のカテゴリリストで再割り当て
+ */
+function reclassifyCourses() {
+  state.courses.forEach(course => {
+    const catExists = state.categories.some(c => c.id === course.categoryId);
+    if (!course.categoryId || course.categoryId === "uncategorized" || !catExists) {
+      course.categoryId = guessCategory(course.title, state.categories, state.mappings);
+    }
   });
 }
 
@@ -573,10 +745,18 @@ async function handleTactSync() {
     const existingMap = new Map(state.courses.map(c => [c.id, c]));
 
     const parsed = sites.map(site => {
+      let course;
       if (existingMap.has(site.id)) {
-        return existingMap.get(site.id);
+        course = existingMap.get(site.id);
+        // カテゴリが未設定、または現行カテゴリ一覧に存在しない場合は再推定して修復
+        const catExists = state.categories.some(cat => cat.id === course.categoryId);
+        if (!course.categoryId || course.categoryId === "uncategorized" || !catExists) {
+          course.categoryId = guessCategory(course.title, state.categories, state.mappings);
+        }
+      } else {
+        course = parseCourseSite(site, state.categories, state.mappings);
       }
-      return parseCourseSite(site, state.categories, state.mappings);
+      return course;
     });
 
     state.courses = parsed;

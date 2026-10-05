@@ -3,7 +3,7 @@
  */
 
 import { DEFAULT_PRESETS } from "../core/presets.js";
-import { parseCourseSite, calculateCredits } from "../core/parser.js";
+import { parseCourseSite, calculateCredits, guessCategory } from "../core/parser.js";
 import { loadAppState, saveCourses, updateLastSync } from "../core/storage.js";
 import { getMockCourseSites, checkTactSession, fetchUserCourseSites } from "../core/api.js";
 
@@ -26,7 +26,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function render() {
     const currentPreset = DEFAULT_PRESETS.find(p => p.id === appState.presetId) || DEFAULT_PRESETS[0];
-    presetNameEl.textContent = currentPreset.name;
+    const deptStr = (appState.studentProfile && appState.studentProfile.department) ? `（${appState.studentProfile.department}）` : "";
+    presetNameEl.textContent = `${currentPreset.name}${deptStr}`;
 
     const summary = calculateCredits(appState.courses, appState.categories);
     const totalReq = summary.totalRequired || currentPreset.totalRequired || 124;
@@ -100,10 +101,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       const existingMap = new Map((appState.courses || []).map(c => [c.id, c]));
 
       const parsedCourses = rawSites.map(site => {
+        let course;
         if (existingMap.has(site.id)) {
-          return existingMap.get(site.id); // 既存編集を保持
+          course = existingMap.get(site.id); // 既存編集を保持
+          const catExists = appState.categories.some(cat => cat.id === course.categoryId);
+          if (!course.categoryId || course.categoryId === "uncategorized" || !catExists) {
+            course.categoryId = guessCategory(course.title, appState.categories, appState.mappings);
+          }
+        } else {
+          course = parseCourseSite(site, appState.categories, appState.mappings);
         }
-        return parseCourseSite(site, appState.categories, appState.mappings);
+        return course;
       });
 
       await saveCourses(parsedCourses);

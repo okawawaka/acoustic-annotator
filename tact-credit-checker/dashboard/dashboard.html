@@ -206,20 +206,22 @@
             </div>
 
             <!-- プロファイル設定部 -->
-            <div class="profile-config-grid">
+            <div class="profile-config-grid" style="grid-template-columns: 120px 220px 1fr;">
               <div class="config-field">
                 <label>入学年度</label>
                 <input type="number" id="cfg-entrance-year" class="tact-input" value="2024" min="2015" max="2035">
               </div>
               <div class="config-field">
-                <label>学部・専攻テンプレート</label>
+                <label>履修要覧モデル</label>
                 <select id="cfg-preset-select" class="tact-select">
                   <!-- JSで生成 -->
                 </select>
               </div>
-              <div class="config-field">
-                <label>専攻・学科・系名（メモ）</label>
-                <input type="text" id="cfg-department-name" class="tact-input" placeholder="例: 人文学科 哲学専修 / 自然情報学科">
+              <div class="config-field" id="cfg-dept-wrapper">
+                <label>文学部 所属専修（専門科目配当）</label>
+                <select id="cfg-lit-department-select" class="tact-select">
+                  <!-- JSで生成 -->
+                </select>
               </div>
             </div>
 
