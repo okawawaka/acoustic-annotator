@@ -40,7 +40,7 @@ const basicsCredits = litPreset.categories
   .reduce((sum, c) => sum + c.requiredCredits, 0);
 assert(basicsCredits === 2, `Specialized basics section credits sum to exactly 2 (got ${basicsCredits})`);
 
-// 専門科目 (82単位) の検証: 共通基盤(3) + 共通実践(2) + 専攻(32) + 卒論(10) + 選択(35) = 82
+// 専門科目 (82単位) の検証: 共通基盤(2) + 共通実践(3) + 専攻(32) + 卒論(10) + 選択(35) = 82
 const majorCredits = litPreset.categories
   .filter(c => c.section === "専門科目")
   .reduce((sum, c) => sum + c.requiredCredits, 0);
@@ -100,7 +100,9 @@ assert(sportsPrac.credits === 1, `スポーツ科学実習は1単位 (got ${spor
 const majorBasics = parsed.filter(c => c.categoryId === "major_basics");
 assert(majorBasics.length >= 2, `人文学入門Ⅰ・Ⅱ categorized into major_basics (found ${majorBasics.length})`);
 
-// 専門科目：共通基盤科目（日本文化事情, 人間と倫理, ジェンダー学概論）
+// 専門科目：共通基盤科目（必要2単位: 日本文化事情, 人間と倫理, ジェンダー学概論）
+const commonBaseCat = categories.find(c => c.id === "major_common_base");
+assert(commonBaseCat && commonBaseCat.requiredCredits === 2, `共通基盤科目の必要単位は2 (got ${commonBaseCat?.requiredCredits})`);
 const commonBase = parsed.filter(c => c.categoryId === "major_common_base");
 assert(commonBase.length >= 3, `共通基盤科目 correctly categorized (found ${commonBase.length})`);
 const jpCulture = parsed.find(c => c.title.includes("日本文化事情"));
@@ -108,7 +110,9 @@ assert(jpCulture !== undefined && jpCulture.credits === 1, "日本文化事情 c
 const genderIntro = parsed.find(c => c.title.includes("ジェンダー学概論"));
 assert(genderIntro !== undefined && genderIntro.credits === 1, "ジェンダー学概論 correctly has 1 credit");
 
-// 専門科目：共通実践科目（デジタル人文学, 科学技術と人文学）
+// 専門科目：共通実践科目（必要3単位: デジタル人文学, 科学技術と人文学）
+const commonPracticeCat = categories.find(c => c.id === "major_common_practice");
+assert(commonPracticeCat && commonPracticeCat.requiredCredits === 3, `共通実践科目の必要単位は3 (got ${commonPracticeCat?.requiredCredits})`);
 const commonPractice = parsed.filter(c => c.categoryId === "major_common_practice");
 assert(commonPractice.length >= 2, `共通実践科目 correctly categorized (found ${commonPractice.length})`);
 const digitalHum = parsed.find(c => c.title.includes("デジタル人文学"));
@@ -200,7 +204,8 @@ assert(otherMajorCourse.categoryId === "dept_free", `文学部他専修科目 ma
 console.log("\n=== 7. Overflow Absorption into 35 Free Credits Tests ===");
 // 超過算入シミュレーション:
 // - 人文学入門で4単位修得（必要2単位、超過2単位）
-// - 共通基盤科目で4単位修得（必要3単位、超過1単位）
+// - 共通基盤科目で4単位修得（必要2単位、超過2単位）
+// - 共通実践科目で4単位修得（必要3単位、超過1単位）
 // - 専攻概論系科目で6単位修得（必要4単位、超過2単位）
 // - 全学教育（英語）で12単位修得（必要10単位、超過2単位） -> 【重要】選択科目には絶対に振替されないこと！
 // - 専攻外選択科目(dept_free)を直接4単位履修
@@ -208,10 +213,13 @@ const overflowCourses = [
   // 人文学入門: 4単位 (超過2)
   { id: "c1", title: "人文学入門Ⅰ", credits: 2, categoryId: "major_basics", status: "passed" },
   { id: "c2", title: "人文学入門Ⅱ", credits: 2, categoryId: "major_basics", status: "passed" },
-  // 共通基盤: 4単位 (超過1)
+  // 共通基盤: 4単位 (必要2単位 -> 超過2)
   { id: "c3", title: "人間と倫理", credits: 2, categoryId: "major_common_base", status: "passed" },
   { id: "c4", title: "国際移民論", credits: 2, categoryId: "major_common_base", status: "passed" },
-  // 専攻概論: 6単位 (超過2)
+  // 共通実践: 4単位 (必要3単位 -> 超過1)
+  { id: "c4_1", title: "デジタル人文学", credits: 2, categoryId: "major_common_practice", status: "passed" },
+  { id: "c4_2", title: "科学技術と人文学", credits: 2, categoryId: "major_common_practice", status: "passed" },
+  // 専攻概論: 6単位 (必要4単位 -> 超過2)
   { id: "c5", title: "言語学概論a", credits: 2, categoryId: "dept_survey", status: "passed" },
   { id: "c6", title: "言語学概論b", credits: 2, categoryId: "dept_survey", status: "passed" },
   { id: "c7", title: "言語学概論特論", credits: 2, categoryId: "dept_survey", status: "passed" },
@@ -231,9 +239,9 @@ const overflowSummary = calculateCredits(overflowCourses, lingCats);
 const freeCatResult = overflowSummary.categoryProgress["dept_free"];
 
 assert(freeCatResult.directPassed === 4, `Direct passed credits in dept_free is 4 (got ${freeCatResult.directPassed})`);
-// 超過振替分 = 人文学入門(2) + 共通基盤(1) + 専攻概論(2) = 5単位（全学英語超過2単位は厳格に除外）
-assert(freeCatResult.overflowCredits === 5, `Overflow credits transferred into dept_free is exactly 5 (got ${freeCatResult.overflowCredits})`);
-assert(freeCatResult.passed === 9, `Total effective passed credits in dept_free is 9 (got ${freeCatResult.passed})`);
+// 超過振替分 = 人文学入門(2) + 共通基盤(2) + 共通実践(1) + 専攻概論(2) = 7単位（全学英語超過2単位は厳格に除外）
+assert(freeCatResult.overflowCredits === 7, `Overflow credits transferred into dept_free is exactly 7 (got ${freeCatResult.overflowCredits})`);
+assert(freeCatResult.passed === 11, `Total effective passed credits in dept_free is 11 (got ${freeCatResult.passed})`);
 
 console.log("\n=== 8. Non-credit Sites Exclusion Tests ===");
 const nonCreditExamples = [

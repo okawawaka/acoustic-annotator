@@ -45,8 +45,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const isLinguistics = deptId === "linguistics";
     const hasPhilosophyMismatch = isLinguistics && state.categories.some(c => c.name.includes("【哲学】"));
     const lacksSurveyCat = !state.categories.some(c => c.id === "dept_survey");
+    const isCommonBaseOld = state.categories.some(c => c.id === "major_common_base" && c.requiredCredits === 3);
 
-    if (hasPhilosophyMismatch || lacksSurveyCat) {
+    if (hasPhilosophyMismatch || lacksSurveyCat || isCommonBaseOld) {
       state.categories = buildLiteratureCategories(deptId);
       const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
       state.studentProfile = state.studentProfile || {};

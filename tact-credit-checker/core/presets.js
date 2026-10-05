@@ -6,7 +6,7 @@
  *           名古屋大学文学部履修要覧（卒業要件124単位・専攻専門32単位・選択35単位モデル）
  */
 
-export const PRESET_VERSION = "2026.10.literature_v8";
+export const PRESET_VERSION = "2026.10.literature_v9";
 
 export const SUPPORTED_FACULTIES = [
   { id: "nu-humanities", name: "名古屋大学 文学部（人文学科・22専攻対応）" },
@@ -744,9 +744,9 @@ export function buildLiteratureCategories(deptId = "linguistics") {
       group: "全専修共通科目",
       scope: "faculty",
       name: "共通基盤科目",
-      requiredCredits: 3,
+      requiredCredits: 2,
       advancementRequired: 0,
-      note: "日本文化事情(1), 異文化理解(1), 人間と倫理, ジェンダー学概論(1), セクシュアリティ学概論(1), 国際移民論, ナショナリズム・トランスナショナリズム論（3単位超過分は選択科目へ算入）",
+      note: "日本文化事情(1), 異文化理解(1), 人間と倫理, ジェンダー学概論(1), セクシュアリティ学概論(1), 国際移民論, ナショナリズム・トランスナショナリズム論（2単位超過分は選択科目へ算入）",
       keywords: [
         "日本文化事情",
         "異文化理解",
@@ -765,9 +765,9 @@ export function buildLiteratureCategories(deptId = "linguistics") {
       group: "全専修共通科目",
       scope: "faculty",
       name: "共通実践科目",
-      requiredCredits: 2,
+      requiredCredits: 3,
       advancementRequired: 0,
-      note: "人文学の学生のための情報リテラシー(1), 科学技術と人文学(1), 応用倫理学演習, デジタル人文学(1), 人文学のためのコミュニケーションスキル(1), 人文科学イノベーション創出と課題解決(1)（2単位超過分は選択科目へ算入）",
+      note: "人文学の学生のための情報リテラシー(1), 科学技術と人文学(1), 応用倫理学演習, デジタル人文学(1), 人文学のためのコミュニケーションスキル(1), 人文科学イノベーション創出と課題解決(1)（3単位超過分は選択科目へ算入）",
       keywords: [
         "人文学の学生のための情報リテラシー",
         "情報リテラシー",
