@@ -68,19 +68,27 @@ export async function loadAppState() {
   const studentProfile = await getStorageData(STORAGE_KEYS.STUDENT_PROFILE, {
     entranceYear: new Date().getFullYear(),
     faculty: "文学部",
-    departmentId: "philosophy",
-    department: "哲学・倫理学専修"
+    departmentId: "linguistics",
+    department: "言語学専修"
   });
 
-  // バージョン更新または旧カテゴリキャッシュの検出時は自動マイグレーション
+  // 文学部で専修指定とカテゴリ定義の不一致を検出（例: 言語学選択なのに哲学カテゴリが残っている場合）
+  const currentDeptId = studentProfile.departmentId || "linguistics";
+  const hasDeptMismatch = presetId === "nu-humanities" && categories && (
+    (currentDeptId === "linguistics" && categories.some(c => c.name.includes("【哲学】"))) ||
+    (!categories.some(c => c.id === "dept_survey" || c.id === "dept_free"))
+  );
+
+  // バージョン更新または旧カテゴリキャッシュ・専修不一致の検出時は自動マイグレーション
   const isOutdated = storedVersion !== PRESET_VERSION ||
     !categories ||
     categories.length === 0 ||
-    !categories.some(c => c.id === "lang_en");
+    !categories.some(c => c.id === "lang_en") ||
+    hasDeptMismatch;
 
   if (isOutdated) {
     presetId = DEFAULT_PRESETS[0].id;
-    const deptId = studentProfile.departmentId || "philosophy";
+    const deptId = studentProfile.departmentId || "linguistics";
     categories = buildLiteratureCategories(deptId);
     await setStorageData(STORAGE_KEYS.PRESET_ID, presetId);
     await setStorageData(STORAGE_KEYS.CATEGORIES, categories);
@@ -122,11 +130,16 @@ export async function saveCategories(categories) {
 /**
  * プリセットの切り替えとカテゴリのリセット
  */
-export async function switchPreset(newPresetId) {
+export async function switchPreset(newPresetId, deptId = "linguistics") {
   const preset = DEFAULT_PRESETS.find(p => p.id === newPresetId);
   if (!preset) return null;
 
-  const newCategories = JSON.parse(JSON.stringify(preset.categories));
+  let newCategories;
+  if (newPresetId === "nu-humanities") {
+    newCategories = buildLiteratureCategories(deptId);
+  } else {
+    newCategories = JSON.parse(JSON.stringify(preset.categories));
+  }
   await setStorageData(STORAGE_KEYS.PRESET_ID, newPresetId);
   await setStorageData(STORAGE_KEYS.CATEGORIES, newCategories);
   return newCategories;

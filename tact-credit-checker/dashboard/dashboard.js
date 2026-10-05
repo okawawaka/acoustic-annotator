@@ -37,6 +37,26 @@ let state = {
 document.addEventListener("DOMContentLoaded", async () => {
   const loaded = await loadAppState();
   state = { ...state, ...loaded };
+
+  // 文学部において言語学専修が選択されている、またはデフォルトの場合に、
+  // カテゴリが言語学専修のものでない（旧キャッシュの哲学カテゴリなど）場合は自動修復
+  if (state.presetId === "nu-humanities") {
+    const deptId = (state.studentProfile && state.studentProfile.departmentId) || "linguistics";
+    const isLinguistics = deptId === "linguistics";
+    const hasPhilosophyMismatch = isLinguistics && state.categories.some(c => c.name.includes("【哲学】"));
+    const lacksSurveyCat = !state.categories.some(c => c.id === "dept_survey");
+
+    if (hasPhilosophyMismatch || lacksSurveyCat) {
+      state.categories = buildLiteratureCategories(deptId);
+      const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
+      state.studentProfile = state.studentProfile || {};
+      state.studentProfile.department = deptObj ? deptObj.name : "言語学専修";
+      state.studentProfile.departmentId = deptId;
+      await saveCategories(state.categories);
+      await saveStudentProfile(state.studentProfile);
+    }
+  }
+
   // 既存科目データを最新の判定（非単位除外・単位数・開講元・カテゴリ）で自動マイグレーション
   migrateAndSanitizeCourses(state.courses);
   await saveCourses(state.courses);
@@ -790,11 +810,12 @@ function initRuleEditor() {
 
     // 現在の所属専修の選択
     const currentDeptName = (state.studentProfile && state.studentProfile.department) || "";
-    const matchedDept = LIT_DEPARTMENTS.find(d => d.name === currentDeptName || d.id === currentDeptName);
+    const currentDeptId = (state.studentProfile && state.studentProfile.departmentId) || "";
+    const matchedDept = LIT_DEPARTMENTS.find(d => d.id === currentDeptId || d.name === currentDeptName || d.id === currentDeptName);
     if (matchedDept) {
       deptSelect.value = matchedDept.id;
     } else {
-      deptSelect.value = "philosophy";
+      deptSelect.value = "linguistics";
     }
   }
 
@@ -810,24 +831,30 @@ function initRuleEditor() {
   updateDeptVisibility();
 
   // プリセット変更イベント
-  presetSelect.addEventListener("change", (e) => {
+  presetSelect.addEventListener("change", async (e) => {
     const selectedPreset = DEFAULT_PRESETS.find(p => p.id === e.target.value);
     if (selectedPreset) {
       if (confirm("選択した学部の標準枠組みを読み込みますか？\n（現在の区分・単位数設定は上書きされます）")) {
         state.presetId = selectedPreset.id;
         state.studentProfile.faculty = selectedPreset.faculty;
         if (selectedPreset.id === "nu-humanities" && deptSelect) {
-          const deptId = deptSelect.value || "philosophy";
+          const deptId = deptSelect.value || "linguistics";
           const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
-          state.studentProfile.department = deptObj ? deptObj.name : "哲学専修";
+          state.studentProfile.department = deptObj ? deptObj.name : "言語学専修";
+          state.studentProfile.departmentId = deptId;
           state.categories = buildLiteratureCategories(deptId);
         } else {
           state.categories = JSON.parse(JSON.stringify(selectedPreset.categories));
           state.studentProfile.department = "";
+          state.studentProfile.departmentId = "";
         }
+        await saveStudentProfile(state.studentProfile);
+        await saveCategories(state.categories);
         updateDeptVisibility();
         reclassifyCourses();
+        await saveCourses(state.courses);
         renderRuleEditorTable();
+        renderProfileBar();
         render();
       } else {
         presetSelect.value = state.presetId;
@@ -837,20 +864,26 @@ function initRuleEditor() {
 
   // 文学部 専修変更イベント
   if (deptSelect) {
-    deptSelect.addEventListener("change", (e) => {
+    deptSelect.addEventListener("change", async (e) => {
       const deptId = e.target.value;
       const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
-      const deptName = deptObj ? deptObj.name : "哲学専修";
+      const deptName = deptObj ? deptObj.name : "言語学専修";
 
       if (confirm(`文学部の所属専修を「${deptName}」に変更し、専門科目（実習・演習・特殊講義・卒論）の配当要件を自動再構成しますか？`)) {
+        state.studentProfile = state.studentProfile || {};
         state.studentProfile.department = deptName;
+        state.studentProfile.departmentId = deptId;
         state.categories = buildLiteratureCategories(deptId);
+        await saveStudentProfile(state.studentProfile);
+        await saveCategories(state.categories);
         reclassifyCourses();
+        await saveCourses(state.courses);
         renderRuleEditorTable();
+        renderProfileBar();
         render();
       } else {
-        const matched = LIT_DEPARTMENTS.find(d => d.name === state.studentProfile.department || d.id === state.studentProfile.department);
-        deptSelect.value = matched ? matched.id : "philosophy";
+        const matched = LIT_DEPARTMENTS.find(d => d.id === state.studentProfile.departmentId || d.name === state.studentProfile.department);
+        deptSelect.value = matched ? matched.id : "linguistics";
       }
     });
   }
@@ -897,7 +930,8 @@ function initRuleEditor() {
 
     if (deptSelect && (presetSelect.value === "nu-humanities" || state.presetId === "nu-humanities")) {
       const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptSelect.value);
-      state.studentProfile.department = deptObj ? deptObj.name : state.studentProfile.department;
+      state.studentProfile.department = deptObj ? deptObj.name : "言語学専修";
+      state.studentProfile.departmentId = deptSelect.value;
     }
 
     reclassifyCourses();
@@ -907,6 +941,7 @@ function initRuleEditor() {
     await saveCourses(state.courses);
 
     alert("学修要覧・卒業要件設定を保存しました！\n科目への区分割り当ても更新されました。");
+    renderProfileBar();
     render();
   });
 }

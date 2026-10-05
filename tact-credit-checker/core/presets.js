@@ -6,7 +6,7 @@
  *           名古屋大学文学部履修要覧（卒業要件124単位・専攻専門32単位・選択35単位モデル）
  */
 
-export const PRESET_VERSION = "2026.10.literature_v7";
+export const PRESET_VERSION = "2026.10.literature_v8";
 
 export const SUPPORTED_FACULTIES = [
   { id: "nu-humanities", name: "名古屋大学 文学部（人文学科・22専攻対応）" },
