@@ -59,6 +59,60 @@ export function isNonCreditCourse(cleanTitle, rawTitle = "", rawSite = {}) {
   return false;
 }
 
+// =============================================================================
+// 名古屋大学教養教育院「全学教育科目授業時間割表（B表）」公式マスターデータ
+// =============================================================================
+
+// B表公式: 分野別・人文社会 (人文・社会系基礎科目)
+export const B_TABLE_HUM_SOC = [
+  "哲学", "歴史学", "文学", "心理学", "社会学", "地理学", "法学", "政治学",
+  "経済学", "経営・会計", "宗教学・文化人類学", "宗教学", "文化人類学", "教育学",
+  "比較文化論", "比較教育論", "統計学", "アーカイブズ学", "日本国憲法", "高等教育学"
+];
+
+// B表公式: 分野別・自然系 (自然科学系基礎科目)
+export const B_TABLE_NAT_SCI = [
+  "微分積分学Ⅰ", "微分積分学Ⅱ", "線形代数学Ⅰ", "線形代数学Ⅱ", "数学通論Ⅰ", "数学通論Ⅱ",
+  "複素関数論", "力学Ⅰ", "力学Ⅱ", "電磁気学Ⅰ", "電磁気学Ⅱ", "物理学基礎Ⅰ", "物理学基礎Ⅱ",
+  "物理学基礎Ⅰ［総合］", "物理学実験", "化学基礎Ⅰ", "化学基礎Ⅱ", "化学基礎Ⅰ［総合］",
+  "化学実験", "生物学基礎Ⅰ", "生物学基礎Ⅱ", "生物学実験", "地球科学基礎Ⅰ", "地球科学基礎Ⅱ",
+  "地球科学実験"
+];
+
+// B表公式: 教養・現代教養
+export const B_TABLE_MODERN_LIBERAL = [
+  "現代社会と教育", "歴史学入門", "言語学入門", "文化・芸術学入門", "社会学入門",
+  "心理学入門", "法学入門", "政治学入門", "経済概論", "経営・会計入門", "環境学入門",
+  "博物館概論", "芸術論b", "芸術論", "大学でどう生きるか", "青年期における心の健康",
+  "社会安全学", "ジェンダー学", "学問の面白さを知る", "超学部セミナー"
+];
+
+// B表公式: 教養・国際理解
+export const B_TABLE_INTL_UNDERSTANDING = [
+  "国際関係論", "国際開発学", "国際学", "英語・プレゼンテーション", "グローバル化時代の国際社会",
+  "グローバル化と国際教育交流", "留学生と日本", "日本語教育実践入門", "フランス語・アカデミック",
+  "囲碁と日本文化", "海外言語文化演習", "短期海外研修", "海外留学準備セミナー",
+  "studium generale", "biology in english", "immigration in japan", "sml"
+];
+
+// 文学部公式: 専門基礎科目（人文学入門Ⅰ〜Ⅳ）
+export const LIT_MAJOR_BASICS = [
+  "人文学入門ⅰ", "人文学入門ⅱ", "人文学入門ⅲ", "人文学入門ⅳ",
+  "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門"
+];
+
+// 文学部公式: 共通基盤科目
+export const LIT_COMMON_BASE = [
+  "日本文化事情", "異文化理解", "人間と倫理", "ジェンダー学概論", "セクシュアリティ学概論",
+  "国際移民論", "ナショナリズム・トランスナショナリズム論", "ナショナリズム論"
+];
+
+// 文学部公式: 共通実践科目
+export const LIT_COMMON_PRACTICE = [
+  "人文学の学生のための情報リテラシー", "科学技術と人文学", "応用倫理学演習",
+  "デジタル人文学", "人文学のためのコミュニケーションスキル", "人文科学イノベーション創出と課題解決"
+];
+
 /**
  * TACTサイトIDや講義名から開講元（教養教育院 vs 文学部専門）を判定
  * @param {string} siteId
@@ -69,34 +123,36 @@ export function isNonCreditCourse(cleanTitle, rawTitle = "", rawSite = {}) {
 export function detectCourseOrigin(siteId = "", title = "", rawSite = {}) {
   const combined = `${siteId} ${title} ${rawSite.title || ""} ${(rawSite.props && rawSite.props.dept) || ""}`.toLowerCase();
 
-  // 1. 全学教育科目固有の絶対的科目（組名に [文学部] 等が含まれていても全学教育科目）
-  if (/基礎セミナー|大学での学び/i.test(combined)) {
-    return "ilas";
-  }
-
-  // 2. 文学部専門科目固有の明確なキーワード
-  if (/専門基礎|人文学入門|共通基盤|共通実践|日本文化事情|異文化理解|人間と倫理|ジェンダー学|セクシュアリティ学|国際移民論|ナショナリズム|特殊講義|特論|特殊研究|文学部.*専修|演習|講読|史料講読|原典講読|卒業論文|卒論|学士論文|巡検|実測|発掘調査|心理学実験|社会調査実習/i.test(combined)) {
+  // 1. 文学部専門科目固有の明確なキーワード（人文学入門、共通基盤、共通実践、専修、特殊講義等）
+  if (/専門基礎|人文学入門|日本文化事情|異文化理解|人間と倫理|ジェンダー学概論|セクシュアリティ学概論|国際移民論|ナショナリズム|情報リテラシー|科学技術と人文学|応用倫理学演習|デジタル人文学|コミュニケーションスキル|イノベーション創出|特殊講義|特論|特殊研究|文学部.*専修|演習|講読|史料講読|原典講読|卒業論文|卒論|学士論文|巡検|実測|発掘調査|心理学実験|社会調査実習/i.test(combined)) {
     return "faculty";
   }
 
-  // 3. 教養教育院（全学教育科目）固有の明確なキーワード
-  if (/英語|english|academic english|ドイツ語|フランス語|中国語|ロシア語|スペイン語|朝鮮語|韓国語|初修外国語|スポーツ科学|身体運動|健康・スポーツ|データ科学|現代教養|超学部セミナー|国際理解|多文化共生|人文・社会系基礎|哲学入門|論理学|倫理学入門|歴史学入門|文学入門|社会学入門|心理学入門|地理学入門|法学入門|政治学入門|経済学入門/i.test(combined)) {
+  // 2. 教養教育院（全学教育科目）固有のプレフィックス・キーワード（B表区分等）
+  if (/共通・|分野別・|教養・|基礎セミナー|大学での学び|超学部セミナー|初修外国語|多言語修得基礎|スポーツ科学|身体運動|健康・スポーツ|健康スポーツ|データ科学|現代教養|国際理解|多文化共生|留学生と日本|英語|english|ドイツ語|フランス語|中国語|ロシア語|スペイン語|朝鮮語|韓国語/i.test(combined)) {
     return "ilas";
   }
 
-  // 4. 明示的な部局プロパティによる判定
+  // 3. 明示的な部局プロパティによる判定
   if (rawSite.props && rawSite.props.dept) {
     const dept = rawSite.props.dept.toLowerCase();
     if (dept.includes("教養教育") || dept.includes("ilas")) return "ilas";
-    if (dept.includes("文学部") || dept.includes("人文学")) return "faculty";
+    if (dept.includes("文学部") || dept.includes("人文学") || dept.includes("letters")) return "faculty";
   }
 
-  // 5. TACTサイトIDの部局コード判定（フォールバック）
-  // 01: 教養教育院, 02: 文学部
+  // 4. 時間割コード / TACTサイトIDの部局コード判定
+  // 名大の時間割コード: 00 は教養教育院（全学教育科目）
+  if (/\b00\s*\d{5}\b/.test(combined)) {
+    return "ilas";
+  }
   const matchCode = siteId.match(/20\d{2}_(\d{2})_/);
   if (matchCode) {
     const code = matchCode[1];
-    if (code === "01") return "ilas";
+    if (code === "00") return "ilas";
+    if (code === "01") {
+      if (combined.includes("文学部") || combined.includes("人文学") || combined.includes("letters")) return "faculty";
+      return "ilas";
+    }
     if (code === "02" || code === "03") return "faculty";
   }
 
@@ -316,22 +372,45 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     targetPool = categories.filter(c => c.scope === "faculty" || c.section !== "全学教育科目");
   }
 
+  // -------------------------------------------------------------
+  // [A] B表プレフィックスの明示的一致（最も高い信頼度 1.0）
+  // -------------------------------------------------------------
+  if (title.includes("教養・現代教養") || title.startsWith("現代教養")) {
+    const cat = targetPool.find(c => c.id === "modern_liberal");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+  }
+  if (title.includes("教養・国際理解") || title.startsWith("国際理解")) {
+    const cat = targetPool.find(c => c.id === "intl_understanding");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+  }
+  if (title.includes("教養・超学部") || title.includes("超学部セミナー")) {
+    const cat = targetPool.find(c => c.id === "modern_liberal");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+  }
+  if (title.includes("分野別・人文社会")) {
+    const cat = targetPool.find(c => c.id === "hum_soc");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+  }
+
+  // -------------------------------------------------------------
+  // [B] 文学部専門科目マスターによる完全・高信頼判定
+  // -------------------------------------------------------------
   // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ）
-  if (title.includes("人文学入門") || title.includes("専門基礎")) {
+  if (LIT_MAJOR_BASICS.some(kw => title.includes(kw)) || title.includes("人文学入門") || title.includes("専門基礎")) {
     const cat = targetPool.find(c => c.id === "major_basics");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
-  // 2. 文学部 共通基盤科目
-  if (/日本文化事情|異文化理解|人間と倫理|ジェンダー学概論|セクシュアリティ学概論|国際移民論|ナショナリズム/i.test(title)) {
+  // 2. 文学部 共通基盤科目（ジェンダー学概論、セクシュアリティ学概論、日本文化事情等）
+  if (LIT_COMMON_BASE.some(kw => title.includes(kw))) {
     const cat = targetPool.find(c => c.id === "major_common_base");
-    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
-  // 3. 文学部 共通実践科目
-  if (/情報リテラシー|科学技術と人文学|応用倫理学演習|デジタル人文学|コミュニケーションスキル|人文科学イノベーション/i.test(title)) {
+  // 3. 文学部 共通実践科目（デジタル人文学、情報リテラシー、応用倫理学演習等）
+  if (LIT_COMMON_PRACTICE.some(kw => title.includes(kw))) {
     const cat = targetPool.find(c => c.id === "major_common_practice");
-    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
   // 4. 卒業論文演習・卒論演習（専修必修演習区分へ、卒論本体と明確に区別）
@@ -398,21 +477,22 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     }
   }
 
-  if (title.includes("国際理解") || title.includes("多文化")) {
+  // 教養・国際理解
+  if (B_TABLE_INTL_UNDERSTANDING.some(kw => title.includes(kw)) || title.includes("国際理解") || title.includes("多文化")) {
     const cat = targetPool.find(c => c.id === "intl_understanding");
-    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
-  }
-  if (title.includes("現代教養") || title.includes("超学部")) {
-    const cat = targetPool.find(c => c.id === "modern_liberal");
-    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
 
-  // 全学教育科目：人文・社会系基礎科目の確実なキーワード判定
-  if (origin === "ilas" || targetPool.some(c => c.id === "hum_soc")) {
-    if (/哲学入門|論理学|倫理学入門|歴史学入門|日本史入門|東洋史入門|西洋史入門|文学入門|社会学入門|心理学入門|地理学入門|法学入門|政治学入門|経済学入門/i.test(title)) {
-      const cat = targetPool.find(c => c.id === "hum_soc");
-      if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
-    }
+  // 教養・現代教養（B表に掲載されている入門・概論・融合科目群: 歴史学入門、心理学入門、社会学入門、ジェンダー学等）
+  if (B_TABLE_MODERN_LIBERAL.some(kw => title.includes(kw)) || title.includes("現代教養") || title.includes("超学部")) {
+    const cat = targetPool.find(c => c.id === "modern_liberal");
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+  }
+
+  // 分野別・人文社会（B表の人文社会系基礎科目: 哲学、歴史学、文学、社会学、心理学等）
+  if (B_TABLE_HUM_SOC.some(kw => title.includes(kw))) {
+    const cat = targetPool.find(c => c.id === "hum_soc");
+    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
   }
 
   // 9. 各カテゴリ定義のキーワード配列による判定（フォールバック）

@@ -271,6 +271,46 @@ const parsedSportsPracTennis = parseCourseSite({ id: "2024_01_sports2", title: "
 assert(parsedSportsPracTennis.credits === 1, `健康スポーツ（テニス）は1単位 (got ${parsedSportsPracTennis.credits})`);
 assert(parsedSportsPracTennis.categoryId === "health_sports_prac", `健康スポーツ（テニス） maps to 'health_sports_prac' (got ${parsedSportsPracTennis.categoryId})`);
 
+console.log("\n=== 8. B-Table (ILAS) vs Literature Faculty Strict Categorization Tests ===");
+// 1. 歴史学入門 (現代教養) vs 歴史学 (人文社会系基礎)
+const histIntro = parseCourseSite({ id: "2024_00_35114", title: "歴史学入門" }, litCats);
+assert(histIntro.categoryId === "modern_liberal", `歴史学入門 maps to 'modern_liberal' (got ${histIntro.categoryId})`);
+assert(histIntro.origin === "ilas", `歴史学入門 origin is 'ilas' (got ${histIntro.origin})`);
+
+const histBase = parseCourseSite({ id: "2024_00_11304", title: "歴史学" }, litCats);
+assert(histBase.categoryId === "hum_soc", `歴史学 maps to 'hum_soc' (got ${histBase.categoryId})`);
+
+// 2. 心理学入門 (現代教養) vs 心理学 (人文社会系基礎)
+const psychIntro = parseCourseSite({ id: "2024_00_35118", title: "心理学入門" }, litCats);
+assert(psychIntro.categoryId === "modern_liberal", `心理学入門 maps to 'modern_liberal' (got ${psychIntro.categoryId})`);
+
+const psychBase = parseCourseSite({ id: "2024_00_11301", title: "心理学" }, litCats);
+assert(psychBase.categoryId === "hum_soc", `心理学 maps to 'hum_soc' (got ${psychBase.categoryId})`);
+
+// 3. ジェンダー学 (現代教養 2単位) vs ジェンダー学概論 (文学部共通基盤 1単位)
+const genderLiberal = parseCourseSite({ id: "2024_00_35213", title: "ジェンダー学" }, litCats);
+assert(genderLiberal.categoryId === "modern_liberal", `ジェンダー学 maps to 'modern_liberal' (got ${genderLiberal.categoryId})`);
+assert(genderLiberal.credits === 2, `ジェンダー学は2単位 (got ${genderLiberal.credits})`);
+
+const genderMajor = parseCourseSite({ id: "2024_02_1001", title: "ジェンダー学概論" }, litCats);
+assert(genderMajor.categoryId === "major_common_base", `ジェンダー学概論 maps to 'major_common_base' (got ${genderMajor.categoryId})`);
+assert(genderMajor.credits === 1, `ジェンダー学概論は1単位 (got ${genderMajor.credits})`);
+
+// 4. 国際関係論 (国際理解 2単位) vs 国際移民論 (文学部共通基盤 2単位)
+const intlRel = parseCourseSite({ id: "2024_00_35130", title: "国際関係論" }, litCats);
+assert(intlRel.categoryId === "intl_understanding", `国際関係論 maps to 'intl_understanding' (got ${intlRel.categoryId})`);
+
+const intlMig = parseCourseSite({ id: "2024_02_1002", title: "国際移民論" }, litCats);
+assert(intlMig.categoryId === "major_common_base", `国際移民論 maps to 'major_common_base' (got ${intlMig.categoryId})`);
+
+// 5. 超学部セミナー
+const superSem = parseCourseSite({ id: "2024_00_70101", title: "超学部セミナー（Diversity）" }, litCats);
+assert(superSem.categoryId === "modern_liberal", `超学部セミナー maps to 'modern_liberal' (got ${superSem.categoryId})`);
+
+// 6. B表プレフィックス付き科目
+const prefixedCat = parseCourseSite({ id: "2024_00_11305", title: "分野別・人文社会 地理学" }, litCats);
+assert(prefixedCat.categoryId === "hum_soc", `分野別・人文社会 地理学 maps to 'hum_soc' (got ${prefixedCat.categoryId})`);
+
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
 
