@@ -1,0 +1,29 @@
+{
+  "name": "tact-credit-checker",
+  "version": "1.0.1",
+  "description": "東海国立大学機構 TACT の講義データから大学生の履修状況・卒業要件単位を自動判定・可視化するブラウザ拡張機能",
+  "type": "module",
+  "main": "background/service-worker.js",
+  "scripts": {
+    "test": "node test.js",
+    "check": "node -c core/parser.js core/presets.js core/storage.js dashboard/dashboard.js popup/popup.js test.js"
+  },
+  "keywords": [
+    "tact",
+    "nagoya-university",
+    "sakai",
+    "chrome-extension",
+    "credit-checker",
+    "graduation-requirements"
+  ],
+  "author": "okawawaka",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/okawawaka/tact-credit-check.git"
+  },
+  "bugs": {
+    "url": "https://github.com/okawawaka/tact-credit-check/issues"
+  },
+  "homepage": "https://github.com/okawawaka/tact-credit-check#readme"
+}

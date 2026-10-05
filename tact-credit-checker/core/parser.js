@@ -263,6 +263,18 @@ export function extractTermAndYear(title, props = {}) {
 }
 
 /**
+ * 講義タイトルのUnicode NFKC正規化（全角半角・ローマ数字・空白・記号の統一）
+ * @param {string} text
+ * @returns {string}
+ */
+export function normalizeTitle(text = "") {
+  return String(text || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\s\-_・:：]/g, "");
+}
+
+/**
  * 講義名から余分な年度・組・記号をクリーニング
  */
 export function cleanCourseTitle(rawTitle) {
@@ -420,12 +432,12 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
   }
 
   // 5. 各専修の専門科目（courseList による高精度一致）
+  const normTitle = normalizeTitle(title);
   for (const cat of targetPool) {
     if (cat.courseList && Array.isArray(cat.courseList) && cat.courseList.length > 0) {
       for (const item of cat.courseList) {
-        const normItem = item.toLowerCase().replace(/\s+/g, "");
-        const normTitle = title.replace(/\s+/g, "");
-        if (normTitle === normItem || normTitle.includes(normItem)) {
+        const normItem = normalizeTitle(item);
+        if (normTitle === normItem || normTitle.includes(normItem) || normItem.includes(normTitle)) {
           return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
         }
       }

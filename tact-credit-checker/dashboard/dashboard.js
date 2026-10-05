@@ -16,6 +16,21 @@ import {
   fetchUserCourseSites
 } from "../core/api.js";
 
+/**
+ * XSS防止用HTMLエスケープヘルパー
+ * @param {string} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  if (typeof str !== "string") return String(str || "");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 let state = {
   presetId: "",
   categories: [],
@@ -1039,7 +1054,11 @@ async function handleTactSync() {
         // カテゴリが未設定、または現行カテゴリ一覧に存在しない場合は再推定して修復
         const catExists = state.categories.some(cat => cat.id === course.categoryId);
         if (!course.categoryId || course.categoryId === "uncategorized" || !catExists) {
-          course.categoryId = guessCategory(course.title, state.categories, state.mappings);
+          if (state.mappings && state.mappings[course.title]) {
+            course.categoryId = state.mappings[course.title];
+          } else {
+            course.categoryId = guessCategory(course.title, state.categories, course.origin);
+          }
         }
       } else {
         course = parseCourseSite(site, state.categories, state.mappings);
