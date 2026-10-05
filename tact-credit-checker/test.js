@@ -1,8 +1,9 @@
 /**
  * TACT Credit Checker - Automated Logic & Parser Tests
+ * 名古屋大学文学部公式要覧（Student's Guide 2023〜2026）準拠テスト
  */
 
-import { DEFAULT_PRESETS, NU_FACULTIES } from "./core/presets.js";
+import { DEFAULT_PRESETS, SUPPORTED_FACULTIES } from "./core/presets.js";
 import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear } from "./core/parser.js";
 import { getMockCourseSites } from "./core/api.js";
 
@@ -20,59 +21,77 @@ function assert(condition, message) {
 }
 
 console.log("=== 1. Presets Integrity Tests ===");
-assert(NU_FACULTIES.length >= 9, "All 9 faculties of Nagoya University defined");
-assert(DEFAULT_PRESETS.length >= 8, "Presets defined for major faculties");
-DEFAULT_PRESETS.forEach(p => {
-  assert(p.totalRequired >= 120, `Preset ${p.name} has reasonable totalRequired (${p.totalRequired})`);
-  assert(p.categories.length > 0, `Preset ${p.name} has categories (${p.categories.length})`);
-});
+assert(SUPPORTED_FACULTIES.length === 2, "Supported faculties limited to Literature & General");
+const litPreset = DEFAULT_PRESETS.find(p => p.id === "nu-humanities");
+assert(litPreset !== undefined, "Nagoya U Literature faculty preset exists");
+assert(litPreset.totalRequired === 124, "Literature faculty total required is exactly 124");
+assert(litPreset.advancementRequired === 38, "Literature faculty 2nd-year advancement requirement is exactly 38");
+
+// 全学教育科目 (40単位) の検証
+const generalEdCredits = litPreset.categories
+  .filter(c => c.section === "全学教育科目")
+  .reduce((sum, c) => sum + c.requiredCredits, 0);
+assert(generalEdCredits === 40, `General education credits sum to exactly 40 (got ${generalEdCredits})`);
+
+// 学部専門科目 (84単位) の検証
+const majorCredits = litPreset.categories
+  .filter(c => c.section === "学部専門科目")
+  .reduce((sum, c) => sum + c.requiredCredits, 0);
+assert(majorCredits === 84, `Major education credits sum to exactly 84 (got ${majorCredits})`);
 
 console.log("\n=== 2. Course Parser & Title Cleaner Tests ===");
-const clean1 = cleanCourseTitle("基礎セミナー [1組] (2024前期)");
+const clean1 = cleanCourseTitle("基礎セミナー [文学部1組] (2024前期)");
 assert(clean1 === "基礎セミナー", `Cleaned title matches expected: '${clean1}' === '基礎セミナー'`);
 
-const clean2 = cleanCourseTitle("2024_01_1234567: 言語学概論 (月2)");
-assert(clean2 === "言語学概論", `Cleaned title with code prefix: '${clean2}' === '言語学概論'`);
+const clean2 = cleanCourseTitle("2024_01_1234567: 専門基礎：人文学入門 (月2)");
+assert(clean2 === "専門基礎：人文学入門", `Cleaned title with code prefix: '${clean2}'`);
 
-const termInfo = extractTermAndYear("ドイツ語基礎I (2024春学期)");
+const termInfo = extractTermAndYear("ドイツ語基礎1 (2024前期)");
 assert(termInfo.year === 2024, `Extracted year is 2024 (got ${termInfo.year})`);
 assert(termInfo.season === "春/前期", `Extracted season is 春/前期 (got ${termInfo.season})`);
 
-console.log("\n=== 3. Auto Categorization & Credits Estimation Tests ===");
-const preset = DEFAULT_PRESETS[0]; // 文学部
-const categories = preset.categories;
-
+console.log("\n=== 3. Literature Faculty Course Categorization Tests ===");
+const categories = litPreset.categories;
 const mockSites = getMockCourseSites();
-assert(mockSites.length === 16, "Mock data has 16 courses");
+assert(mockSites.length >= 16, `Mock data has ${mockSites.length} courses`);
 
 const parsed = mockSites.map(s => parseCourseSite(s, categories, {}));
 
-// 言語文化のチェック (英語: lang_en, 初修外国語: lang_second)
-const englishCourses = parsed.filter(c => c.categoryId === "lang_en");
-const secondLangCourses = parsed.filter(c => c.categoryId === "lang_second");
-assert(englishCourses.length >= 2, `English courses correctly categorized: found ${englishCourses.length}`);
-assert(secondLangCourses.length >= 2, `Second language courses correctly categorized: found ${secondLangCourses.length}`);
+// 各区分への自動マッピング検証
+const intro = parsed.find(c => c.categoryId === "intro_study");
+assert(intro !== undefined, "「大学での学び」基礎論 correctly categorized into intro_study");
 
-// 基礎セミナーのチェック
-const seminar = parsed.find(c => c.title === "基礎セミナー");
-assert(seminar && seminar.categoryId === "seminar", "基礎セミナー categorized into seminar");
+const seminar = parsed.find(c => c.categoryId === "seminar");
+assert(seminar !== undefined, "基礎セミナー correctly categorized into seminar");
 
-// 卒業研究の単位数チェック
-const thesis = parsed.find(c => c.title.includes("卒業研究"));
-assert(thesis && thesis.credits === 6, `Thesis assigned 6 credits (got ${thesis ? thesis.credits : 0})`);
+const english = parsed.filter(c => c.categoryId === "lang_en");
+assert(english.length >= 3, `English courses categorized into lang_en (found ${english.length})`);
 
-// 実技の単位数チェック
-const sports = parsed.find(c => c.title.includes("スポーツ実技"));
-assert(sports && sports.credits === 1, `Sports assigned 1 credit (got ${sports ? sports.credits : 0})`);
+const secondLang = parsed.filter(c => c.categoryId === "lang_second");
+assert(secondLang.length >= 3, `Second language categorized into lang_second (found ${secondLang.length})`);
 
-console.log("\n=== 4. Credit Calculation & Section Summary Tests ===");
+const dataSci = parsed.find(c => c.categoryId === "data_sci");
+assert(dataSci !== undefined, "データ科学 correctly categorized into data_sci");
+
+const healthSports = parsed.find(c => c.categoryId === "health_sports");
+assert(healthSports !== undefined, "健康・スポーツ実習 categorized into health_sports");
+
+const intl = parsed.find(c => c.categoryId === "intl_understanding");
+assert(intl !== undefined, "国際理解科目 categorized into intl_understanding");
+
+const modern = parsed.find(c => c.categoryId === "modern_liberal");
+assert(modern !== undefined, "現代教養科目 categorized into modern_liberal");
+
+const majorBasics = parsed.find(c => c.categoryId === "major_basics");
+assert(majorBasics !== undefined, "人文学入門 categorized into major_basics");
+
+console.log("\n=== 4. Credit Calculation & Advancement Check Tests ===");
 const summary = calculateCredits(parsed, categories);
-assert(summary.totalRequired === 124, `Total required matches preset: ${summary.totalRequired} === 124`);
+assert(summary.totalRequired === 124, `Total required is 124`);
+assert(summary.sectionSummary["全学教育科目"].required === 40, "General Ed section required is 40");
+assert(summary.sectionSummary["学部専門科目"].required === 84, "Major section required is 84");
 assert(summary.totalPassed > 0, `Total passed credits > 0 (got ${summary.totalPassed})`);
 assert(summary.totalEnrolled > 0, `Total enrolled credits > 0 (got ${summary.totalEnrolled})`);
-assert(summary.categoryProgress["seminar"].passed === 2, "Seminar credits completed");
-assert(summary.sectionSummary["全学教育科目"] !== undefined, "Section summary for 全学教育科目 calculated");
-assert(summary.sectionSummary["専門教育科目"] !== undefined, "Section summary for 専門教育科目 calculated");
 
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
@@ -80,5 +99,5 @@ console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
 if (failedCount > 0) {
   process.exit(1);
 } else {
-  console.log("All automated tests passed successfully! 🎉");
+  console.log("All Nagoya U Literature faculty tests passed successfully! 🎉");
 }

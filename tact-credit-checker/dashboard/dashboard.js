@@ -156,8 +156,48 @@ function renderSummary() {
     statusTag.textContent = "✓ 卒業要件達成";
     statusTag.className = "tact-status-tag tag-success";
   } else {
-    statusTag.textContent = `要件未充足（あと${remaining}単位）`;
+    statusTag.textContent = `卒業要件未充足（あと${remaining}単位）`;
     statusTag.className = "tact-status-tag tag-warning";
+  }
+
+  // 文学部 進級判定（2年次終了時38単位基準・仮進級判定）
+  const advBar = document.getElementById("advancement-info-bar");
+  const advBadge = document.getElementById("advancement-status-badge");
+  const currentPreset = DEFAULT_PRESETS.find(p => p.id === state.presetId) || DEFAULT_PRESETS[0];
+
+  if (currentPreset.advancementRequired > 0) {
+    advBar.style.display = "flex";
+    let advPassed = 0;
+    let langShortfall = 0;
+
+    state.categories.forEach(cat => {
+      const advReq = cat.advancementRequired || 0;
+      if (advReq > 0) {
+        const catData = summary.categoryProgress[cat.id] || { passed: 0 };
+        advPassed += Math.min(advReq, catData.passed);
+        if (cat.id === "lang_en" || cat.id === "lang_second") {
+          langShortfall += Math.max(0, advReq - catData.passed);
+        }
+      }
+    });
+
+    const isAdvFulfilled = advPassed >= currentPreset.advancementRequired;
+    if (isAdvFulfilled) {
+      advBadge.textContent = `✓ 進級基準充足 (${advPassed} / ${currentPreset.advancementRequired} 単位)`;
+      advBadge.style.background = "#dcfce7";
+      advBadge.style.color = "#15803d";
+    } else if (langShortfall <= 2 && (advPassed + langShortfall) >= currentPreset.advancementRequired) {
+      advBadge.textContent = `⚠️ 仮進級対象（言語文化${langShortfall}単位不足 / 計${advPassed}単位）`;
+      advBadge.style.background = "#fef3c7";
+      advBadge.style.color = "#b45309";
+    } else {
+      const diff = currentPreset.advancementRequired - advPassed;
+      advBadge.textContent = `進級要件未充足（38単位中 ${advPassed}単位 / あと${diff}単位）`;
+      advBadge.style.background = "#fee2e2";
+      advBadge.style.color = "#b91c1c";
+    }
+  } else {
+    advBar.style.display = "none";
   }
 
   // 未分類アラート
