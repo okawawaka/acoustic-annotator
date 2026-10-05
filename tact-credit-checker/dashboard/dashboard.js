@@ -538,14 +538,28 @@ function initRuleEditor() {
     presetSelect.appendChild(opt);
   });
 
-  // 文学部 専修セレクトボックスの初期化
+  // 文学部 専修セレクトボックスの初期化（5学繫・22専攻をグループ化）
   if (deptSelect) {
     deptSelect.innerHTML = "";
+
+    // 学系ごとにグループ化
+    const groups = {};
     LIT_DEPARTMENTS.forEach(dept => {
-      const opt = document.createElement("option");
-      opt.value = dept.id;
-      opt.textContent = dept.name;
-      deptSelect.appendChild(opt);
+      const g = dept.facultyGroup || "人文学科";
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(dept);
+    });
+
+    Object.entries(groups).forEach(([groupName, depts]) => {
+      const optGroup = document.createElement("optgroup");
+      optGroup.label = `【${groupName}】`;
+      depts.forEach(dept => {
+        const opt = document.createElement("option");
+        opt.value = dept.id;
+        opt.textContent = dept.name;
+        optGroup.appendChild(opt);
+      });
+      deptSelect.appendChild(optGroup);
     });
 
     // 現在の所属専修の選択
@@ -554,7 +568,7 @@ function initRuleEditor() {
     if (matchedDept) {
       deptSelect.value = matchedDept.id;
     } else {
-      deptSelect.value = "general_lit";
+      deptSelect.value = "philosophy";
     }
   }
 
@@ -564,7 +578,7 @@ function initRuleEditor() {
 
   const updateDeptVisibility = () => {
     if (deptWrapper) {
-      deptWrapper.style.display = (presetSelect.value === "lit_2023_2026") ? "block" : "none";
+      deptWrapper.style.display = (presetSelect.value === "nu-humanities") ? "block" : "none";
     }
   };
   updateDeptVisibility();
@@ -576,10 +590,10 @@ function initRuleEditor() {
       if (confirm("選択した学部の標準枠組みを読み込みますか？\n（現在の区分・単位数設定は上書きされます）")) {
         state.presetId = selectedPreset.id;
         state.studentProfile.faculty = selectedPreset.faculty;
-        if (selectedPreset.id === "lit_2023_2026" && deptSelect) {
-          const deptId = deptSelect.value || "general_lit";
+        if (selectedPreset.id === "nu-humanities" && deptSelect) {
+          const deptId = deptSelect.value || "philosophy";
           const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
-          state.studentProfile.department = deptObj ? deptObj.name : "人文学科（専修共通・総合）";
+          state.studentProfile.department = deptObj ? deptObj.name : "哲学専修";
           state.categories = buildLiteratureCategories(deptId);
         } else {
           state.categories = JSON.parse(JSON.stringify(selectedPreset.categories));
@@ -600,17 +614,17 @@ function initRuleEditor() {
     deptSelect.addEventListener("change", (e) => {
       const deptId = e.target.value;
       const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptId);
-      const deptName = deptObj ? deptObj.name : "人文学科（専修共通・総合）";
+      const deptName = deptObj ? deptObj.name : "哲学専修";
 
-      if (confirm(`文学部の所属専修を「${deptName}」に変更し、専門科目の配当要件を自動再構成しますか？`)) {
+      if (confirm(`文学部の所属専修を「${deptName}」に変更し、専門科目（実習・演習・特殊講義・卒論）の配当要件を自動再構成しますか？`)) {
         state.studentProfile.department = deptName;
         state.categories = buildLiteratureCategories(deptId);
         reclassifyCourses();
         renderRuleEditorTable();
         render();
       } else {
-        const matched = LIT_DEPARTMENTS.find(d => d.name === state.studentProfile.department);
-        deptSelect.value = matched ? matched.id : "general_lit";
+        const matched = LIT_DEPARTMENTS.find(d => d.name === state.studentProfile.department || d.id === state.studentProfile.department);
+        deptSelect.value = matched ? matched.id : "philosophy";
       }
     });
   }
@@ -621,7 +635,7 @@ function initRuleEditor() {
   document.getElementById("add-rule-row-btn").addEventListener("click", () => {
     state.categories.push({
       id: `custom-cat-${Date.now()}`,
-      section: "専門教育科目",
+      section: "専門科目",
       name: "新規科目区分",
       requiredCredits: 4,
       note: "学生便覧記載の条件",
@@ -655,7 +669,7 @@ function initRuleEditor() {
     const yearEl = document.getElementById("cfg-entrance-year");
     state.studentProfile.entranceYear = yearEl ? (parseInt(yearEl.value, 10) || 2024) : 2024;
 
-    if (deptSelect && presetSelect.value === "lit_2023_2026") {
+    if (deptSelect && (presetSelect.value === "nu-humanities" || state.presetId === "nu-humanities")) {
       const deptObj = LIT_DEPARTMENTS.find(d => d.id === deptSelect.value);
       state.studentProfile.department = deptObj ? deptObj.name : state.studentProfile.department;
     }

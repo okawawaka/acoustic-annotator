@@ -121,27 +121,55 @@ assert(summary.sectionSummary["専門科目"].required === 82, "Specialized sect
 assert(summary.totalPassed > 0, `Total passed credits > 0 (got ${summary.totalPassed})`);
 assert(summary.totalEnrolled > 0, `Total enrolled credits > 0 (got ${summary.totalEnrolled})`);
 
-console.log("\n=== 5. Literature Departments Customization Tests ===");
-assert(LIT_DEPARTMENTS.length === 17, `LIT_DEPARTMENTS has all 17 Nagoya U Lit major tracks (got ${LIT_DEPARTMENTS.length})`);
+console.log("\n=== 5. Literature 22 Departments Customization Tests ===");
+assert(LIT_DEPARTMENTS.length === 22, `LIT_DEPARTMENTS has all 22 Nagoya U Lit major tracks (got ${LIT_DEPARTMENTS.length})`);
 
-// 哲学専修のテスト (専門系2 + 専門82 = 84)
+// 5学繫の網羅テスト
+const uniqueGroups = [...new Set(LIT_DEPARTMENTS.map(d => d.facultyGroup))];
+assert(uniqueGroups.length === 5, `All 5 faculty groups exist (got ${uniqueGroups.join(', ')})`);
+
+// 全22専攻の単位整合性ループテスト (全専攻で全学40 + 専門系2 + 専門82 = 124単位)
+let allDeptsValid = true;
+LIT_DEPARTMENTS.forEach(dept => {
+  const cats = buildLiteratureCategories(dept.id);
+  const genSum = cats.filter(c => c.section === "全学教育科目").reduce((s, c) => s + c.requiredCredits, 0);
+  const specBasicsSum = cats.filter(c => c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
+  const specMajorSum = cats.filter(c => c.section === "専門科目").reduce((s, c) => s + c.requiredCredits, 0);
+  const total = genSum + specBasicsSum + specMajorSum;
+
+  if (genSum !== 40 || specBasicsSum !== 2 || specMajorSum !== 82 || total !== 124) {
+    allDeptsValid = false;
+    console.error(`Invalid sum in dept ${dept.name}: gen=${genSum}, basics=${specBasicsSum}, major=${specMajorSum}, total=${total}`);
+  }
+});
+assert(allDeptsValid, "All 22 departments satisfy exact credit rules: 40 General + 2 Basics + 82 Major = 124 Total");
+
+// 心理学専修の固有区分テスト（実験実習8単位・卒論10単位）
+const psychCats = buildLiteratureCategories("psychology");
+const psychPrac = psychCats.find(c => c.name.includes("実験実習"));
+assert(psychPrac !== undefined && psychPrac.requiredCredits === 8, "Psychology track has dedicated experimental practice (8 credits)");
+const psychThesis = psychCats.find(c => c.id === "major_thesis");
+assert(psychThesis !== undefined && psychThesis.requiredCredits === 10, "Psychology track has 10 credits thesis");
+
+// 地理学専修の固有区分テスト（野外実習巡検6単位・卒論10単位）
+const geoCats = buildLiteratureCategories("geography");
+const geoField = geoCats.find(c => c.name.includes("野外実習"));
+assert(geoField !== undefined && geoField.requiredCredits === 6, "Geography track has dedicated fieldwork practice (6 credits)");
+
+// 考古学専修の固有区分テスト（発掘調査実習8単位）
+const archCats = buildLiteratureCategories("archaeology");
+const archExcav = archCats.find(c => c.name.includes("発掘調査"));
+assert(archExcav !== undefined && archExcav.requiredCredits === 8, "Archaeology track has excavation practicum (8 credits)");
+
+// 日本史学専修の固有区分テスト（古文書史料講読演習）
+const jHistCats = buildLiteratureCategories("japanese_history");
+const jHistSem = jHistCats.find(c => c.name.includes("古文書史料講読"));
+assert(jHistSem !== undefined && jHistSem.requiredCredits === 24, "Japanese history track has ancient archives & seminar (24 credits)");
+
+// 哲学専修の固有区分テスト（原典講読演習）
 const philCats = buildLiteratureCategories("philosophy");
-const philMajorSum = philCats.filter(c => c.section === "専門科目" || c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
-assert(philMajorSum === 84, `Philosophy track major sum is exactly 84 (got ${philMajorSum})`);
-const philMajorCat = philCats.find(c => c.name.includes("哲学・倫理学"));
-assert(philMajorCat !== undefined, "Philosophy-specific category created with専修名");
-
-// 言語学専修のテスト (専門系2 + 専門82 = 84)
-const lingCats = buildLiteratureCategories("linguistics");
-const lingMajorSum = lingCats.filter(c => c.section === "専門科目" || c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
-assert(lingMajorSum === 84, `Linguistics track major sum is exactly 84 (got ${lingMajorSum})`);
-const lingMajorCat = lingCats.find(c => c.name.includes("言語学"));
-assert(lingMajorCat !== undefined, "Linguistics-specific category created with専修名");
-
-// 人間発達科学専修（心理学）のテスト
-const psychCats = buildLiteratureCategories("human_dev");
-const psychMajorSum = psychCats.filter(c => c.section === "専門科目" || c.section === "専門系科目").reduce((s, c) => s + c.requiredCredits, 0);
-assert(psychMajorSum === 84, `Psychology track major sum is exactly 84 (got ${psychMajorSum})`);
+const philSem = philCats.find(c => c.name.includes("原典講読"));
+assert(philSem !== undefined && philSem.requiredCredits === 24, "Philosophy track has original texts & seminar (24 credits)");
 
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
@@ -149,5 +177,5 @@ console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
 if (failedCount > 0) {
   process.exit(1);
 } else {
-  console.log("All Nagoya U Literature faculty tests passed successfully! 🎉");
+  console.log("All Nagoya U Literature faculty 22 majors tests passed successfully! 🎉");
 }

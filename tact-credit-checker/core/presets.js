@@ -5,33 +5,272 @@
  * 参考資料: 名古屋大学教養教育院「全学教育科目履修の手引（Student's Guide 2023〜2026）」
  */
 
-export const PRESET_VERSION = "2026.10.literature_v5";
+export const PRESET_VERSION = "2026.10.literature_v6";
 
 export const SUPPORTED_FACULTIES = [
-  { id: "nu-humanities", name: "名古屋大学 文学部（人文学科）" },
+  { id: "nu-humanities", name: "名古屋大学 文学部（人文学科・22専攻対応）" },
   { id: "general-model", name: "【自由設定】汎用大学・学部モデル" }
 ];
 
-// 名古屋大学文学部（人文学科）の全16専修
-// 専門教育科目（専門系科目2単位＋専門科目82単位＝計84単位）
+// 名古屋大学文学部（人文学科）の全22専修（5学繫・22研究室）
+// 卒業要件: 全学教育科目40単位＋専門系科目2単位＋専門科目82単位（卒論10単位含む）＝計124単位
 export const LIT_DEPARTMENTS = [
-  { id: "philosophy", name: "哲学・倫理学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "eastern_phil", name: "インド哲学仏教学・宗教学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "japanese_history", name: "日本史学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "oriental_history", name: "東洋史学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "western_history", name: "西洋史学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "archaeology", name: "考古学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "japanese_lit", name: "日本語学・日本文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "linguistics", name: "言語学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "english_lit", name: "英語学・英米文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "french_lit", name: "フランス語学・フランス文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "german_lit", name: "ドイツ語学・ドイツ文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "russian_lit", name: "ロシア語学・ロシア文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "chinese_lit", name: "中国語学・中国文学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "human_dev", name: "人間発達科学専修（心理学等）", reqCredits: 34, elecCredits: 30, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "sociology", name: "社会学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "geography", name: "地理学専修", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 },
-  { id: "custom", name: "その他の専修・独自設定", reqCredits: 32, elecCredits: 32, commonBaseCredits: 2, commonPracticeCredits: 2, freeCredits: 14 }
+  // 1. 言語文化学繫
+  {
+    id: "linguistics",
+    name: "言語学専修",
+    facultyGroup: "言語文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【言語学】演習・調査実習", requiredCredits: 24, note: "言語学演習、音声・音韻・統語演習、言語調査実習", keywords: ["言語学演習", "言語調査", "音声学演習", "音韻論演習", "統語論演習", "形態論演習", "言語学研究法"] },
+      { id: "dept_elec_lecture", name: "【言語学】特殊講義・専門講義", requiredCredits: 34, note: "言語学特殊講義、音声学、音韻論、意味論、対照言語学", keywords: ["言語学特殊講義", "言語学特論", "音声学", "音韻論", "統語論", "意味論", "対照言語学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "japanese_ling",
+    name: "日本語学専修",
+    facultyGroup: "言語文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【日本語学】演習・史料講読", requiredCredits: 24, note: "日本語学演習、国語学演習、日本語史演習、方言学演習", keywords: ["日本語学演習", "国語学演習", "日本語史演習", "日本語講読", "方言学演習", "日本語学研究法"] },
+      { id: "dept_elec_lecture", name: "【日本語学】特殊講義・専門講義", requiredCredits: 34, note: "日本語学特殊講義、日本語文法論、日本語音韻論、日本語語彙論", keywords: ["日本語学特殊講義", "国語学特殊講義", "日本語文法", "日本語音韻", "日本語語彙", "日本語史"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+
+  // 2. 英語文化学繫
+  {
+    id: "english_ling",
+    name: "英語学専修",
+    facultyGroup: "英語文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【英語学】演習・文献講読", requiredCredits: 24, note: "英語学演習、英語史演習、英語学講読、統語論演習", keywords: ["英語学演習", "英語学講読", "英語史演習", "英語学文献講読", "統語論演習"] },
+      { id: "dept_elec_lecture", name: "【英語学】特殊講義・専門講義", requiredCredits: 34, note: "英語学特殊講義、生成文法論、英語史、英語音声学", keywords: ["英語学特殊講義", "英語学特論", "英語史", "生成文法", "英語音声学", "認知言語学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "english_lit",
+    name: "英米文学専修",
+    facultyGroup: "英語文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【英米文学】演習・原典講読", requiredCredits: 24, note: "イギリス文学演習、アメリカ文学演習、英米文学講読", keywords: ["英米文学演習", "イギリス文学演習", "アメリカ文学演習", "英文学講読", "米文学講読"] },
+      { id: "dept_elec_lecture", name: "【英米文学】特殊講義・専門講義", requiredCredits: 34, note: "英米文学特殊講義、イギリス文学史、アメリカ文学史、英米演劇論", keywords: ["英米文学特殊講義", "イギリス文学", "アメリカ文学", "英米演劇", "英米詩", "シェイクスピア"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+
+  // 3. 文献思想学繫
+  {
+    id: "german_lit",
+    name: "ドイツ語ドイツ文学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【ドイツ語ドイツ文学】演習・原典講読", requiredCredits: 24, note: "ドイツ語演習、ドイツ文学演習、ドイツ語原典講読", keywords: ["ドイツ語演習", "ドイツ文学演習", "ドイツ語講読", "ドイツ語学演習", "ドイツ語原典講読"] },
+      { id: "dept_elec_lecture", name: "【ドイツ語ドイツ文学】特殊講義・専門講義", requiredCredits: 34, note: "ドイツ文学特殊講義、ドイツ語学特殊講義、ドイツ文学史", keywords: ["ドイツ文学特殊講義", "ドイツ語特殊講義", "ドイツ文学史", "ドイツ現代文学", "ゲーテ"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "german_cult",
+    name: "ドイツ語圏文化学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【ドイツ語圏文化学】演習・文献講読", requiredCredits: 24, note: "ドイツ語圏文化学演習、ドイツ思想演習、オーストリア文化演習", keywords: ["ドイツ語圏文化学演習", "ドイツ文化演習", "ドイツ思想講読", "ドイツ文化論演習"] },
+      { id: "dept_elec_lecture", name: "【ドイツ語圏文化学】特殊講義・専門講義", requiredCredits: 34, note: "ドイツ語圏文化学特殊講義、ドイツ思想史、ドイツ現代文化論", keywords: ["ドイツ語圏文化学特殊講義", "ドイツ文化論", "ドイツ思想", "比較文化論"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "french_lit",
+    name: "フランス語フランス文学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【フランス語フランス文学】演習・原典講読", requiredCredits: 24, note: "フランス語演習、フランス文学演習、フランス語原典講読", keywords: ["フランス語演習", "フランス文学演習", "フランス語講読", "フランス文学講読"] },
+      { id: "dept_elec_lecture", name: "【フランス語フランス文学】特殊講義・専門講義", requiredCredits: 34, note: "フランス文学特殊講義、フランス思想特殊講義、フランス文化論", keywords: ["フランス文学特殊講義", "フランス文化論", "フランス思想", "フランス演劇", "フランス詩"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "japanese_lit",
+    name: "日本文学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【日本文学】演習・古典原典講読", requiredCredits: 24, note: "日本文学演習、古典文学演習、近代文学演習、古典原典講読", keywords: ["日本文学演習", "国文学演習", "日本古典文学演習", "日本近代文学演習", "国文学講読"] },
+      { id: "dept_elec_lecture", name: "【日本文学】特殊講義・専門講義", requiredCredits: 34, note: "日本文学特殊講義（上代・中古・中世・近世・近代）", keywords: ["日本文学特殊講義", "上代文学", "中古文学", "中世文学", "近世文学", "近代文学", "現代文学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "chinese_lit",
+    name: "中国語中国文学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【中国語中国文学】演習・原典講読", requiredCredits: 24, note: "中国語演習、中国文学演習、中国語学演習、漢詩文講読", keywords: ["中国語演習", "中国文学演習", "中国語講読", "漢詩演習", "中国語学演習"] },
+      { id: "dept_elec_lecture", name: "【中国語中国文学】特殊講義・専門講義", requiredCredits: 34, note: "中国文学特殊講義、中国古典文学論、中国近現代文学論", keywords: ["中国文学特殊講義", "中国古典文学", "中国現代文学", "中国語史", "白話小説"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "philosophy",
+    name: "哲学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【哲学】演習・原典講読", requiredCredits: 24, note: "哲学演習、倫理学演習、哲学文献講読、原典講読", keywords: ["哲学演習", "哲学講読", "倫理学演習", "哲学基本演習", "原典講読"] },
+      { id: "dept_elec_lecture", name: "【哲学】特殊講義・専門講義", requiredCredits: 34, note: "哲学特殊講義、倫理学特殊講義、西洋哲学史、現代哲学", keywords: ["哲学特殊講義", "倫理学特殊講義", "西洋哲学史", "現代哲学", "認識論", "存在論"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "classics",
+    name: "西洋古典学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【西洋古典学】演習・原典講読", requiredCredits: 24, note: "西洋古典学演習、ギリシャ語原典講読、ラテン語原典講読", keywords: ["西洋古典学演習", "古典語講読", "ギリシャ語演習", "ラテン語演習", "古典講読"] },
+      { id: "dept_elec_lecture", name: "【西洋古典学】特殊講義・専門講義", requiredCredits: 34, note: "西洋古典学特殊講義、ギリシャ古典文学論、ローマ文学論", keywords: ["西洋古典学特殊講義", "ギリシャ神話", "ホメロス", "ローマ文学", "古典文学史"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "chinese_phil",
+    name: "中国哲学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【中国哲学】演習・原典講読", requiredCredits: 24, note: "中国哲学演習、中国思想演習、漢籍原典講読", keywords: ["中国哲学演習", "中国思想演習", "漢籍講読", "儒教演習", "道教演習"] },
+      { id: "dept_elec_lecture", name: "【中国哲学】特殊講義・専門講義", requiredCredits: 34, note: "中国哲学特殊講義、中国思想史、諸子百家論、宋明理学", keywords: ["中国哲学特殊講義", "中国思想史", "諸子百家", "朱子学", "陽明学", "儒教思想"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "indian_phil",
+    name: "インド哲学専修",
+    facultyGroup: "文献思想学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【インド哲学】演習・原典講読", requiredCredits: 24, note: "インド哲学演習、仏教学演習、サンスクリット原典講読", keywords: ["インド哲学演習", "仏教学演習", "サンスクリット語", "チベット語", "パーリ語", "仏典講読"] },
+      { id: "dept_elec_lecture", name: "【インド哲学】特殊講義・専門講義", requiredCredits: 34, note: "インド哲学特殊講義、仏教学特殊講義、大乗仏教思想論", keywords: ["インド哲学特殊講義", "仏教学特殊講義", "インド思想史", "大乗仏教", "ウパニシャッド"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+
+  // 4. 歴史文化学繫
+  {
+    id: "japanese_history",
+    name: "日本史学専修",
+    facultyGroup: "歴史文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【日本史学】演習・古文書史料講読", requiredCredits: 24, note: "日本史学演習（古代・中世・近世・近現代）、古文書史料講読", keywords: ["日本史学演習", "日本史演習", "古文書学", "日本史史料講読", "日本古代史演習", "日本中世史演習", "日本近世史演習", "日本近現代史演習"] },
+      { id: "dept_elec_lecture", name: "【日本史学】特殊講義・専門講義", requiredCredits: 34, note: "日本史学特殊講義（古代史・中世史・近世史・近現代史）", keywords: ["日本史学特殊講義", "日本古代史", "日本中世史", "日本近世史", "日本近現代史", "日本文化史"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "oriental_history",
+    name: "東洋史学専修",
+    facultyGroup: "歴史文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【東洋史学】演習・漢文史料講読", requiredCredits: 24, note: "東洋史学演習、漢文史料講読、アジア史演習", keywords: ["東洋史学演習", "東洋史演習", "中国史演習", "漢文史料講読", "アジア史演習"] },
+      { id: "dept_elec_lecture", name: "【東洋史学】特殊講義・専門講義", requiredCredits: 34, note: "東洋史学特殊講義、中国古代史、明清史、中央ユーラシア史", keywords: ["東洋史学特殊講義", "中国古代史", "明清史", "中央ユーラシア史", "東南アジア史"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "western_history",
+    name: "西洋史学専修",
+    facultyGroup: "歴史文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【西洋史学】演習・外国語史料講読", requiredCredits: 24, note: "西洋史学演習、欧文史料講読、西洋史各時代演習", keywords: ["西洋史学演習", "西洋史演習", "ヨーロッパ中世史演習", "西洋近現代史演習", "欧文史料講読"] },
+      { id: "dept_elec_lecture", name: "【西洋史学】特殊講義・専門講義", requiredCredits: 34, note: "西洋史学特殊講義、古代地中海史、ヨーロッパ中世史、西洋近現代史", keywords: ["西洋史学特殊講義", "古代地中海史", "ヨーロッパ中世史", "近代ヨーロッパ史", "アメリカ現代史"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "art_history",
+    name: "美学美術史学専修",
+    facultyGroup: "歴史文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_seminar", name: "【美学美術史学】演習・作品調査・文献講読", requiredCredits: 24, note: "美術史学演習、美学演習、作品研究、美術史文献講読", keywords: ["美術史学演習", "美術史演習", "美学演習", "作品研究", "美術史講読"] },
+      { id: "dept_elec_lecture", name: "【美学美術史学】特殊講義・専門講義", requiredCredits: 34, note: "美学美術史学特殊講義、日本・東洋・西洋美術史論", keywords: ["美術史学特殊講義", "日本美術史", "東洋美術史", "西洋美術史", "美学理論", "芸術学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "archaeology",
+    name: "考古学専修",
+    facultyGroup: "歴史文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_prac", name: "【考古学】発掘調査実習・実測実習", requiredCredits: 8, note: "考古学発掘調査実習、実測・遺物整理実習（必修8単位）", keywords: ["考古学実習", "発掘調査", "実測実習", "考古学調査", "出土遺物実習"] },
+      { id: "dept_req_seminar", name: "【考古学】演習・文献講読", requiredCredits: 16, note: "考古学演習、考古学文献講読、物質文化演習", keywords: ["考古学演習", "考古学研究法", "物質文化演習"] },
+      { id: "dept_elec_lecture", name: "【考古学】特殊講義・専門講義", requiredCredits: 34, note: "考古学特殊講義、日本考古学、先史考古学、東アジア考古学", keywords: ["考古学特殊講義", "日本考古学", "先史考古学", "歴史考古学", "東アジア考古学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "cultural_anthro",
+    name: "文化人類学専修",
+    facultyGroup: "歴史文化学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_prac", name: "【文化人類学】フィールドワーク・調査実習", requiredCredits: 6, note: "文化人類学現地調査実習、民族誌調査実習（必修6単位）", keywords: ["フィールドワーク実習", "現地調査実習", "民族誌実習", "人類学調査"] },
+      { id: "dept_req_seminar", name: "【文化人類学】演習・文献講読", requiredCredits: 18, note: "文化人類学演習、民族誌演習、人類学理論演習", keywords: ["文化人類学演習", "人類学演習", "民族誌演習", "民族学演習"] },
+      { id: "dept_elec_lecture", name: "【文化人類学】特殊講義・専門講義", requiredCredits: 34, note: "文化人類学特殊講義、宗教人類学、医療人類学、地域研究", keywords: ["文化人類学特殊講義", "医療人類学", "宗教人類学", "生態人類学", "地域研究"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+
+  // 5. 環境行動学繫
+  {
+    id: "sociology",
+    name: "社会学専修",
+    facultyGroup: "環境行動学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_prac", name: "【社会学】社会調査実習（社会調査士対応）", requiredCredits: 6, note: "社会調査実習、計量・質的調査実習（必修6単位）", keywords: ["社会調査実習", "社会調査法", "社会調査演習", "計量社会学実習"] },
+      { id: "dept_req_seminar", name: "【社会学】演習・文献講読", requiredCredits: 18, note: "社会学演習、社会学理論演習、地域社会学演習", keywords: ["社会学演習", "社会学理論演習", "地域社会学演習", "家族社会学演習"] },
+      { id: "dept_elec_lecture", name: "【社会学】特殊講義・専門講義", requiredCredits: 34, note: "社会学特殊講義、社会学理論、地域社会論、産業社会学", keywords: ["社会学特殊講義", "社会学理論", "地域社会論", "産業社会学", "文化社会学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "psychology",
+    name: "心理学専修",
+    facultyGroup: "環境行動学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_prac", name: "【心理学】実験実習・心理統計実習", requiredCredits: 8, note: "心理学実験実習Ⅰ・Ⅱ、心理統計法実習（必修8単位）", keywords: ["心理学実験", "心理学実習", "心理統計", "実験実習", "心理学実験実習"] },
+      { id: "dept_req_seminar", name: "【心理学】演習・研究法", requiredCredits: 16, note: "心理学演習、認知心理学演習、発達心理学演習", keywords: ["心理学演習", "認知心理学演習", "発達心理学演習", "社会心理学演習", "心理学研究法"] },
+      { id: "dept_elec_lecture", name: "【心理学】特殊講義・専門講義", requiredCredits: 34, note: "心理学特殊講義、認知心理学、発達心理学、生理心理学、社会心理学", keywords: ["心理学特殊講義", "認知心理学", "発達心理学", "生理心理学", "社会心理学", "知覚心理学"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  },
+  {
+    id: "geography",
+    name: "地理学専修",
+    facultyGroup: "環境行動学繫",
+    thesisCredits: 10,
+    categories: [
+      { id: "dept_req_prac", name: "【地理学】野外実習（巡検）・地域調査法", requiredCredits: 6, note: "地理学野外実習（巡検）、GIS実習、地域調査実習（必修6単位）", keywords: ["地理学野外実習", "野外実習", "巡検", "地域調査実習", "地理情報実習", "GIS実習"] },
+      { id: "dept_req_seminar", name: "【地理学】演習・文献講読", requiredCredits: 18, note: "地理学演習、自然地理学演習、人文地理学演習", keywords: ["地理学演習", "自然地理学演習", "人文地理学演習", "地理学講読"] },
+      { id: "dept_elec_lecture", name: "【地理学】特殊講義・専門講義", requiredCredits: 34, note: "地理学特殊講義、自然地理学、人文地理学、気候学、地形学、GIS", keywords: ["地理学特殊講義", "自然地理学", "人文地理学", "気候学", "地形学", "都市地理学", "GIS"] },
+      { id: "dept_free", name: "関連専門科目・自由選択", requiredCredits: 10, note: "他専修専門科目、他学部科目、全学超過分", keywords: [] }
+    ]
+  }
 ];
 
 /**
@@ -41,7 +280,7 @@ export function buildLiteratureCategories(deptId = "philosophy") {
   const dept = LIT_DEPARTMENTS.find(d => d.id === deptId) || LIT_DEPARTMENTS[0];
   const deptName = dept.name.replace("専修", "");
 
-  return [
+  const generalCats = [
     // --- 全学教育科目（計40単位 / 進級要件36単位） ---
     {
       id: "intro_study",
@@ -145,7 +384,7 @@ export function buildLiteratureCategories(deptId = "philosophy") {
       keywords: ["人文学入門Ⅰ", "人文学入門Ⅱ", "人文学入門Ⅲ", "人文学入門Ⅳ", "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門", "専門基礎"]
     },
 
-    // --- 専門科目（計82単位） ---
+    // --- 専門科目（共通基盤・共通実践・卒業論文） ---
     {
       id: "major_common_base",
       section: "専門科目",
@@ -190,33 +429,24 @@ export function buildLiteratureCategories(deptId = "philosophy") {
       ]
     },
     {
-      id: "major_req",
+      id: "major_thesis",
       section: "専門科目",
-      name: `【${deptName}】専修必修科目`,
-      requiredCredits: dept.reqCredits,
+      name: `【${dept.name}】卒業論文`,
+      requiredCredits: dept.thesisCredits || 10,
       advancementRequired: 0,
-      note: `専修必修の基礎講読・演習・卒業論文（8単位）等 計${dept.reqCredits}単位`,
-      keywords: ["演習", "講読", "卒業論文", "卒論", "必修"]
-    },
-    {
-      id: "major_elec",
-      section: "専門科目",
-      name: `【${deptName}】専修選択科目`,
-      requiredCredits: dept.elecCredits,
-      advancementRequired: 0,
-      note: `専修専門講義・特殊講義 計${dept.elecCredits}単位`,
-      keywords: ["特論", "特殊研究", "特殊講義", "講義", "研究"]
-    },
-    {
-      id: "major_free",
-      section: "専門科目",
-      name: "関連専門科目・自由選択",
-      requiredCredits: dept.freeCredits,
-      advancementRequired: 0,
-      note: `他専修科目、他学部科目、全学教育超過分 計${dept.freeCredits}単位`,
-      keywords: []
+      note: "4年次卒業論文（10単位必修・卒業論文審査合格要件）",
+      keywords: ["卒業論文", "卒業研究", "卒論", "学士論文"]
     }
   ];
+
+  // 各専修固有の専門科目区分（実習・演習・特殊講義・自由選択）を展開
+  const deptSpecificCats = (dept.categories || []).map(cat => ({
+    ...cat,
+    section: "専門科目",
+    advancementRequired: 0
+  }));
+
+  return [...generalCats, ...deptSpecificCats];
 }
 
 export const DEFAULT_PRESETS = [
