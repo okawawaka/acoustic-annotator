@@ -60,6 +60,50 @@ export function isNonCreditCourse(cleanTitle, rawTitle = "", rawSite = {}) {
 }
 
 /**
+ * TACTサイトIDや講義名から開講元（教養教育院 vs 文学部専門）を判定
+ * @param {string} siteId
+ * @param {string} title
+ * @param {Object} rawSite
+ * @returns {"ilas" | "faculty" | "unknown"}
+ */
+export function detectCourseOrigin(siteId = "", title = "", rawSite = {}) {
+  const combined = `${siteId} ${title} ${rawSite.title || ""} ${(rawSite.props && rawSite.props.dept) || ""}`.toLowerCase();
+
+  // 1. 全学教育科目固有の絶対的科目（組名に [文学部] 等が含まれていても全学教育科目）
+  if (/基礎セミナー|大学での学び/i.test(combined)) {
+    return "ilas";
+  }
+
+  // 2. 文学部専門科目固有の明確なキーワード
+  if (/専門基礎|人文学入門|共通基盤|共通実践|日本文化事情|異文化理解|人間と倫理|ジェンダー学|セクシュアリティ学|国際移民論|ナショナリズム|特殊講義|特論|特殊研究|文学部.*専修|演習|講読|史料講読|原典講読|卒業論文|卒論|学士論文|巡検|実測|発掘調査|心理学実験|社会調査実習/i.test(combined)) {
+    return "faculty";
+  }
+
+  // 3. 教養教育院（全学教育科目）固有の明確なキーワード
+  if (/英語|english|academic english|ドイツ語|フランス語|中国語|ロシア語|スペイン語|朝鮮語|韓国語|初修外国語|スポーツ科学|身体運動|健康・スポーツ|データ科学|現代教養|超学部セミナー|国際理解|多文化共生|人文・社会系基礎|哲学入門|論理学|倫理学入門|歴史学入門|文学入門|社会学入門|心理学入門|地理学入門|法学入門|政治学入門|経済学入門/i.test(combined)) {
+    return "ilas";
+  }
+
+  // 4. 明示的な部局プロパティによる判定
+  if (rawSite.props && rawSite.props.dept) {
+    const dept = rawSite.props.dept.toLowerCase();
+    if (dept.includes("教養教育") || dept.includes("ilas")) return "ilas";
+    if (dept.includes("文学部") || dept.includes("人文学")) return "faculty";
+  }
+
+  // 5. TACTサイトIDの部局コード判定（フォールバック）
+  // 01: 教養教育院, 02: 文学部
+  const matchCode = siteId.match(/20\d{2}_(\d{2})_/);
+  if (matchCode) {
+    const code = matchCode[1];
+    if (code === "01") return "ilas";
+    if (code === "02" || code === "03") return "faculty";
+  }
+
+  return "unknown";
+}
+
+/**
  * TACTサイトオブジェクトから履修科目データを正規化・抽出
  * @param {Object} rawSite - TACT Direct API のサイトオブジェクト
  * @param {Array} categories - 現在適用中のカテゴリ定義
@@ -77,17 +121,25 @@ export function parseCourseSite(rawSite, categories = [], customMappings = {}) {
   // 単位対象外サイトかどうかの判定
   const nonCredit = isNonCreditCourse(cleanTitle, rawTitle, rawSite);
 
+  // 開講元の厳格判定（教養教育院 vs 文学部専門）
+  const origin = nonCredit ? "unknown" : detectCourseOrigin(siteId, rawTitle, rawSite);
+
   // 単位数の推測（単位対象外サイトは 0 単位）
   const credits = nonCredit ? 0 : estimateCredits(cleanTitle, rawTitle);
 
-  // カテゴリの推測
+  // カテゴリの推測（開講元スコープで絞り込み）
   let categoryId = "uncategorized";
+  let isEstimated = false;
+
   if (nonCredit) {
     categoryId = "non_credit";
   } else if (customMappings[cleanTitle]) {
     categoryId = customMappings[cleanTitle];
+    isEstimated = false;
   } else {
-    categoryId = guessCategory(cleanTitle, categories);
+    const guessResult = guessCategoryWithMeta(cleanTitle, categories, origin);
+    categoryId = guessResult.categoryId;
+    isEstimated = guessResult.isEstimated;
   }
 
   // ステータスの推測 (非単位サイトは exempt、過去年度なら修得済、今年度なら履修中)
@@ -103,6 +155,8 @@ export function parseCourseSite(rawSite, categories = [], customMappings = {}) {
     season: termInfo.season,
     credits: credits,
     categoryId: categoryId,
+    origin: origin, // "ilas" | "faculty" | "unknown"
+    isEstimated: isEstimated,
     status: status, // "passed" | "enrolled" | "failed" | "exempt"
     isNonCredit: nonCredit,
     isManual: false,
@@ -223,88 +277,138 @@ export function estimateCredits(cleanTitle, rawTitle) {
 }
 
 /**
- * 科目名からカテゴリを推測
+ * 開講元スコープと高精度キーワードによるカテゴリ推定（メタデータ付き）
+ * @param {string} cleanTitle
+ * @param {Array} categories
+ * @param {"ilas" | "faculty" | "unknown"} origin
+ * @returns {{ categoryId: string, confidence: number, isEstimated: boolean }}
  */
-export function guessCategory(cleanTitle, categories = []) {
-  if (!categories || categories.length === 0) return "uncategorized";
+export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unknown") {
+  if (!categories || categories.length === 0) {
+    return { categoryId: "uncategorized", confidence: 0, isEstimated: true };
+  }
+
   const title = cleanTitle.toLowerCase();
+
+  // 開講元（教養教育院 vs 文学部）による候補カテゴリプールの厳格分離
+  let targetPool = categories;
+  if (origin === "ilas") {
+    // 全学教育科目専用プール（文学部専門科目への誤マッピングを完全に防止）
+    targetPool = categories.filter(c => c.scope === "ilas" || c.section === "全学教育科目");
+  } else if (origin === "faculty") {
+    // 文学部専門科目専用プール（全学教育科目への誤マッピングを完全に防止）
+    targetPool = categories.filter(c => c.scope === "faculty" || c.section !== "全学教育科目");
+  }
 
   // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ）
   if (title.includes("人文学入門") || title.includes("専門基礎")) {
-    const cat = categories.find(c => c.id === "major_basics");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "major_basics");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
   // 2. 文学部 共通基盤科目
   if (/日本文化事情|異文化理解|人間と倫理|ジェンダー学概論|セクシュアリティ学概論|国際移民論|ナショナリズム/i.test(title)) {
-    const cat = categories.find(c => c.id === "major_common_base");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "major_common_base");
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
 
   // 3. 文学部 共通実践科目
   if (/情報リテラシー|科学技術と人文学|応用倫理学演習|デジタル人文学|コミュニケーションスキル|人文科学イノベーション/i.test(title)) {
-    const cat = categories.find(c => c.id === "major_common_practice");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "major_common_practice");
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
 
-  // 4. 全学教育科目固有の確実なキーワード判定
+  // 4. 文学部 卒業論文
+  if (/卒業論文|卒業研究|卒論|学士論文/i.test(title)) {
+    const cat = targetPool.find(c => c.id === "major_thesis");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+  }
+
+  // 5. 文学部 専修実習科目（発掘調査、心理学実験、社会調査実習、野外実習巡検等）
+  if (/発掘調査|実測|調査実習|野外実習|巡検|心理学実験|心理学実習|社会調査実習/i.test(title)) {
+    const cat = targetPool.find(c => c.id === "dept_req_prac");
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+  }
+
+  // 6. 文学部 専修演習・講読科目
+  if (/演習|講読|史料講読|原典講読|文献講読/i.test(title) && origin !== "ilas") {
+    const cat = targetPool.find(c => c.id === "dept_req_seminar" || c.id === "major_req");
+    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
+  }
+
+  // 7. 文学部 特殊講義・専門講義
+  if (/特殊講義|特論|特殊研究/i.test(title) && origin !== "ilas") {
+    const cat = targetPool.find(c => c.id === "dept_elec_lecture" || c.id === "major_elec");
+    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
+  }
+
+  // 8. 全学教育科目固有の確実なキーワード判定
   if (title.includes("大学での学び")) {
-    const cat = categories.find(c => c.id === "intro_study");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "intro_study");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
   if (title.includes("基礎セミナー")) {
-    const cat = categories.find(c => c.id === "seminar");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "seminar");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
   if (title.includes("英語") || title.includes("english") || title.includes("academic english")) {
-    const cat = categories.find(c => c.id === "lang_en");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "lang_en");
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
   if (/ドイツ語|フランス語|中国語|ロシア語|スペイン語|朝鮮語|韓国語|german|french|chinese|russian|spanish/i.test(title)) {
-    const cat = categories.find(c => c.id === "lang_second");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "lang_second");
+    if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
   if (title.includes("データ科学") || title.includes("データサイエンス")) {
-    const cat = categories.find(c => c.id === "data_sci");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "data_sci");
+    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
   // 健康・スポーツ科学科目（講義と実習の識別）
   if ((title.includes("講義") || title.includes("概論")) && (title.includes("健康") || title.includes("スポーツ"))) {
-    const catLec = categories.find(c => c.id === "health_sports_lec");
-    if (catLec) return catLec.id;
+    const catLec = targetPool.find(c => c.id === "health_sports_lec");
+    if (catLec) return { categoryId: catLec.id, confidence: 0.95, isEstimated: false };
   }
   if (/健康|スポーツ|身体運動|体育|バドミントン|テニス|サッカー|バレー|卓球|水泳|スキー/i.test(title)) {
-    const catPrac = categories.find(c => c.id === "health_sports_prac" || c.id === "health_sports");
-    if (catPrac) return catPrac.id;
+    const catPrac = targetPool.find(c => c.id === "health_sports_prac" || c.id === "health_sports");
+    if (catPrac) return { categoryId: catPrac.id, confidence: 0.95, isEstimated: false };
   }
 
   if (title.includes("国際理解") || title.includes("多文化")) {
-    const cat = categories.find(c => c.id === "intl_understanding");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "intl_understanding");
+    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
   }
   if (title.includes("現代教養") || title.includes("超学部")) {
-    const cat = categories.find(c => c.id === "modern_liberal");
-    if (cat) return cat.id;
+    const cat = targetPool.find(c => c.id === "modern_liberal");
+    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
   }
 
-  // 5. 専修専門科目（演習、講読、卒業論文、特論）の判定
-  if (/卒業論文|卒業研究|卒論|学士論文/i.test(title) || /演習|講読|特論|特殊研究|特殊講義/i.test(title)) {
-    const majorReq = categories.find(c => c.id === "major_req" || c.id === "major_specialized");
-    if (majorReq) return majorReq.id;
+  // 全学教育科目：人文・社会系基礎科目の確実なキーワード判定
+  if (origin === "ilas" || targetPool.some(c => c.id === "hum_soc")) {
+    if (/哲学入門|論理学|倫理学入門|歴史学入門|日本史入門|東洋史入門|西洋史入門|文学入門|社会学入門|心理学入門|地理学入門|法学入門|政治学入門|経済学入門/i.test(title)) {
+      const cat = targetPool.find(c => c.id === "hum_soc");
+      if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
+    }
   }
 
-  // 6. カテゴリ定義のキーワード配列による判定
-  for (const cat of categories) {
+  // 9. 各カテゴリ定義のキーワード配列による判定（フォールバック）
+  for (const cat of targetPool) {
     if (!cat.keywords || cat.keywords.length === 0) continue;
     for (const kw of cat.keywords) {
       if (title.includes(kw.toLowerCase())) {
-        return cat.id;
+        return { categoryId: cat.id, confidence: 0.7, isEstimated: true };
       }
     }
   }
 
-  return "uncategorized";
+  return { categoryId: "uncategorized", confidence: 0, isEstimated: true };
+}
+
+/**
+ * 科目名からカテゴリを推測（後方互換性ラッパー）
+ */
+export function guessCategory(cleanTitle, categories = [], origin = "unknown") {
+  return guessCategoryWithMeta(cleanTitle, categories, origin).categoryId;
 }
 
 /**

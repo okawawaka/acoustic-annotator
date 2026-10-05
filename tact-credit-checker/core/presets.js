@@ -282,9 +282,12 @@ export function buildLiteratureCategories(deptId = "philosophy") {
 
   const generalCats = [
     // --- 全学教育科目（計40単位 / 進級要件36単位） ---
+    // [中区分: 基礎科目群 (36単位)]
     {
       id: "intro_study",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "「大学での学び」基礎論",
       requiredCredits: 1,
       advancementRequired: 1,
@@ -294,6 +297,8 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "seminar",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "基礎セミナー",
       requiredCredits: 2,
       advancementRequired: 2,
@@ -303,6 +308,8 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "lang_en",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "言語文化科目：英語",
       requiredCredits: 10,
       advancementRequired: 10,
@@ -312,6 +319,8 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "lang_second",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "言語文化科目：初修外国語",
       requiredCredits: 10,
       advancementRequired: 10,
@@ -321,15 +330,19 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "hum_soc",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "人文・社会系基礎科目",
       requiredCredits: 8,
       advancementRequired: 6,
       note: "人文学・社会科学分野の基礎講義から8単位（進級判定には6単位以上）",
-      keywords: ["哲学", "歴史", "心理", "地理", "法学", "経済学", "政治学", "社会学", "宗教学", "論理学", "倫理学", "芸術", "日本史", "東洋史", "西洋史"]
+      keywords: ["哲学入門", "論理学", "倫理学入門", "歴史学入門", "文学入門", "社会学入門", "心理学入門", "地理学入門", "法学入門", "政治学入門", "経済学入門", "人文・社会"]
     },
     {
       id: "health_sports_lec",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "健康・スポーツ科学講義",
       requiredCredits: 2,
       advancementRequired: 2,
@@ -339,6 +352,8 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "health_sports_prac",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "健康・スポーツ科学実習",
       requiredCredits: 2,
       advancementRequired: 1,
@@ -348,46 +363,59 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "data_sci",
       section: "全学教育科目",
+      group: "基礎科目",
+      scope: "ilas",
       name: "データ科学科目",
       requiredCredits: 1,
       advancementRequired: 1,
       note: "データ科学基礎科目（原則1単位）",
-      keywords: ["データ科学", "データサイエンス", "情報", "データ科学の基礎", "データ科学基礎"]
+      keywords: ["データ科学", "データサイエンス", "データ科学の基礎", "データ科学基礎"]
     },
+
+    // [中区分: 総合科目群 (4単位)]
     {
       id: "intl_understanding",
       section: "全学教育科目",
+      group: "総合科目",
+      scope: "ilas",
       name: "国際理解科目",
       requiredCredits: 2,
       advancementRequired: 2,
       note: "国際理解・多文化共生等の科目から2単位",
-      keywords: ["国際理解", "国際", "グローバル", "多文化", "共生"]
+      keywords: ["国際理解", "多文化共生", "国際", "グローバル"]
     },
     {
       id: "modern_liberal",
       section: "全学教育科目",
+      group: "総合科目",
+      scope: "ilas",
       name: "現代教養科目／超学部セミナー",
       requiredCredits: 2,
       advancementRequired: 2,
       note: "「現代教養科目（自然系）」又は「現代教養科目（学際・融合系）」から2単位",
-      keywords: ["現代教養", "超学部セミナー", "自然系", "学際", "環境", "生命倫理"]
+      keywords: ["現代教養", "超学部セミナー", "自然系", "学際", "生命倫理"]
     },
 
     // --- 専門系科目（計2単位 / 進級要件2単位） ---
     {
       id: "major_basics",
       section: "専門系科目",
-      name: "専門基礎科目",
+      group: "専門基礎科目",
+      scope: "faculty",
+      name: "専門基礎科目（人文学入門）",
       requiredCredits: 2,
       advancementRequired: 2,
       note: "人文学入門Ⅰ・人文学入門Ⅱ・人文学入門Ⅲ・人文学入門Ⅳから2単位必修（2年次進級要件）",
       keywords: ["人文学入門Ⅰ", "人文学入門Ⅱ", "人文学入門Ⅲ", "人文学入門Ⅳ", "人文学入門1", "人文学入門2", "人文学入門3", "人文学入門4", "人文学入門", "専門基礎"]
     },
 
-    // --- 専門科目（共通基盤・共通実践・卒業論文） ---
+    // --- 専門科目（計82単位） ---
+    // [中区分: 全専修共通科目 (4単位)]
     {
       id: "major_common_base",
       section: "専門科目",
+      group: "全専修共通科目",
+      scope: "faculty",
       name: "共通基盤科目",
       requiredCredits: dept.commonBaseCredits || 2,
       advancementRequired: 0,
@@ -410,6 +438,8 @@ export function buildLiteratureCategories(deptId = "philosophy") {
     {
       id: "major_common_practice",
       section: "専門科目",
+      group: "全専修共通科目",
+      scope: "faculty",
       name: "共通実践科目",
       requiredCredits: dept.commonPracticeCredits || 2,
       advancementRequired: 0,
@@ -428,9 +458,12 @@ export function buildLiteratureCategories(deptId = "philosophy") {
         "共通実践"
       ]
     },
+    // [中区分: 専修必修科目 (卒業論文 10単位)]
     {
       id: "major_thesis",
       section: "専門科目",
+      group: "専修必修科目",
+      scope: "faculty",
       name: `【${dept.name}】卒業論文`,
       requiredCredits: dept.thesisCredits || 10,
       advancementRequired: 0,
@@ -440,11 +473,21 @@ export function buildLiteratureCategories(deptId = "philosophy") {
   ];
 
   // 各専修固有の専門科目区分（実習・演習・特殊講義・自由選択）を展開
-  const deptSpecificCats = (dept.categories || []).map(cat => ({
-    ...cat,
-    section: "専門科目",
-    advancementRequired: 0
-  }));
+  const deptSpecificCats = (dept.categories || []).map(cat => {
+    let group = "専修選択科目";
+    if (cat.id.includes("req_prac") || cat.id.includes("req_seminar")) {
+      group = "専修必修科目";
+    } else if (cat.id.includes("free")) {
+      group = "自由選択・関連科目";
+    }
+    return {
+      ...cat,
+      section: "専門科目",
+      group: group,
+      scope: "faculty",
+      advancementRequired: 0
+    };
+  });
 
   return [...generalCats, ...deptSpecificCats];
 }

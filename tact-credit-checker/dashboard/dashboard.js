@@ -300,8 +300,26 @@ function renderSummary() {
     `;
     tbody.appendChild(secRow);
 
-    // 各小区分
+    // 中区分（group）ごとにグループ化
+    let lastGroup = null;
+
     cats.forEach(cat => {
+      // 中区分サブヘッダーの表示
+      if (cat.group && cat.group !== lastGroup) {
+        lastGroup = cat.group;
+        const groupRow = document.createElement("tr");
+        groupRow.style.backgroundColor = "#f1f5f9";
+        groupRow.style.fontSize = "12px";
+        groupRow.style.fontWeight = "700";
+        groupRow.style.color = "#334155";
+        groupRow.innerHTML = `
+          <td colspan="8" style="padding: 5px 12px; border-left: 3px solid var(--tact-blue);">
+            📁 ${cat.group}
+          </td>
+        `;
+        tbody.appendChild(groupRow);
+      }
+
       const data = summary.categoryProgress[cat.id] || { passed: 0, enrolled: 0, required: cat.requiredCredits || 0, courses: [] };
       const row = document.createElement("tr");
       row.style.cursor = "pointer";
@@ -312,7 +330,7 @@ function renderSummary() {
       const isExpanded = state.expandedCategories.has(cat.id);
 
       row.innerHTML = `
-        <td style="color: var(--tact-text-sub); font-size: 11.5px;">${cat.section || ''}</td>
+        <td style="color: var(--tact-text-sub); font-size: 11.5px;">${cat.group || cat.section || ''}</td>
         <td>
           <span style="font-weight: 600; color: var(--tact-navy);">${isExpanded ? '▼' : '▶'} ${cat.name}</span>
           <span style="font-size: 11px; color: var(--tact-text-sub); margin-left: 6px;">(${data.courses.length}科目)</span>
@@ -349,6 +367,7 @@ function renderSummary() {
               ${data.courses.map(c => `
                 <span style="background: #ffffff; border: 1px solid var(--tact-border); padding: 3px 8px; border-radius: 3px; font-size: 11.5px;">
                   <strong>${c.title}</strong> (${c.credits}単位 / ${c.status === 'passed' ? '修得済' : '履修中'})
+                  ${c.origin === 'ilas' ? '<span style="color:#0284c7;font-size:10px;margin-left:3px;">[教養]</span>' : c.origin === 'faculty' ? '<span style="color:#b45309;font-size:10px;margin-left:3px;">[学部]</span>' : ''}
                 </span>
               `).join('')}
              </div>`;
@@ -503,17 +522,43 @@ function renderCoursesTable() {
       tr.style.opacity = "0.85";
     }
 
-    // 区分セレクトのHTML生成
+    // 区分セレクトのHTML生成（大区分・中区分で階層化）
     let catOptions = `<option value="uncategorized" ${(!course.categoryId || course.categoryId === 'uncategorized') ? 'selected' : ''}>⚠️ 未分類</option>`;
     catOptions += `<option value="non_credit" ${isNonCredit ? 'selected' : ''}>🚫 単位対象外（事務・連絡・研修等）</option>`;
+
+    const catGroups = {};
     state.categories.forEach(cat => {
-      catOptions += `<option value="${cat.id}" ${course.categoryId === cat.id ? 'selected' : ''}>${cat.section ? `[${cat.section}] ` : ''}${cat.name}</option>`;
+      const gName = cat.group ? `${cat.section}（${cat.group}）` : cat.section;
+      if (!catGroups[gName]) catGroups[gName] = [];
+      catGroups[gName].push(cat);
     });
+
+    Object.entries(catGroups).forEach(([gName, cats]) => {
+      catOptions += `<optgroup label="${gName}">`;
+      cats.forEach(cat => {
+        catOptions += `<option value="${cat.id}" ${course.categoryId === cat.id ? 'selected' : ''}>${cat.name} (${cat.requiredCredits}単位)</option>`;
+      });
+      catOptions += `</optgroup>`;
+    });
+
+    let originBadge = '';
+    if (course.origin === 'ilas') {
+      originBadge = '<span style="background: #e0f2fe; color: #0369a1; font-size: 10.5px; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 5px;">全学</span>';
+    } else if (course.origin === 'faculty') {
+      originBadge = '<span style="background: #fef3c7; color: #92400e; font-size: 10.5px; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 5px;">文学部</span>';
+    }
+
+    let estimatedBadge = '';
+    if (course.isEstimated && !isNonCredit) {
+      estimatedBadge = '<span title="講義名から自動推定された区分です。必要に応じてご確認ください" style="background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; font-size: 10px; padding: 1px 4px; border-radius: 3px; font-weight: 600; margin-left: 4px;">⚠️推定</span>';
+    }
 
     tr.innerHTML = `
       <td style="color: var(--tact-text-sub);">${index + 1}</td>
       <td>
         <span style="font-weight: 600; color: ${isNonCredit ? '#475569' : 'var(--tact-navy)'};">${course.title}</span>
+        ${originBadge}
+        ${estimatedBadge}
         ${isNonCredit ? `<span style="background: #e2e8f0; color: #475569; font-size: 11px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600;">単位対象外</span>` : ''}
         ${course.rawTitle && course.rawTitle !== course.title ? `<div style="font-size: 11px; color: var(--tact-text-sub);">${course.rawTitle}</div>` : ''}
       </td>

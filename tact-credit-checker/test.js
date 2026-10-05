@@ -4,7 +4,7 @@
  */
 
 import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "./core/presets.js";
-import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear, isNonCreditCourse } from "./core/parser.js";
+import { parseCourseSite, calculateCredits, cleanCourseTitle, extractTermAndYear, isNonCreditCourse, detectCourseOrigin } from "./core/parser.js";
 import { getMockCourseSites } from "./core/api.js";
 
 let passedCount = 0;
@@ -206,6 +206,50 @@ const nonCreditInSections = Object.values(calculatedSummary.categoryProgress).so
   cat.courses.some(c => c.isNonCredit)
 );
 assert(!nonCreditInSections, "No non-credit site leaked into any graduation categoryProgress");
+
+console.log("\n=== 7. Hierarchy & Course Origin Separation Tests (Proposal A & B) ===");
+// 提案A: 階層構造（基礎科目群36単位・総合科目群4単位・専門基礎2単位・専門科目82単位）
+const litCats = buildLiteratureCategories("philosophy");
+
+const basicGeneralCredits = litCats
+  .filter(c => c.section === "全学教育科目" && c.group === "基礎科目")
+  .reduce((s, c) => s + c.requiredCredits, 0);
+assert(basicGeneralCredits === 36, `General Ed Basic group credits sum to exactly 36 (got ${basicGeneralCredits})`);
+
+const integratedGeneralCredits = litCats
+  .filter(c => c.section === "全学教育科目" && c.group === "総合科目")
+  .reduce((s, c) => s + c.requiredCredits, 0);
+assert(integratedGeneralCredits === 4, `General Ed Integrated group credits sum to exactly 4 (got ${integratedGeneralCredits})`);
+
+const specBasicsGroupCredits = litCats
+  .filter(c => c.section === "専門系科目" && c.group === "専門基礎科目")
+  .reduce((s, c) => s + c.requiredCredits, 0);
+assert(specBasicsGroupCredits === 2, `Specialized Basics group credits sum to exactly 2 (got ${specBasicsGroupCredits})`);
+
+// 全カテゴリに scope ("ilas" または "faculty") が付与されていること
+const allHaveScope = litCats.every(c => c.scope === "ilas" || c.scope === "faculty");
+assert(allHaveScope, "All literature categories have well-defined origin scope ('ilas' or 'faculty')");
+
+// 提案B: 開講元判定 (教養教育院 01 vs 文学部 02) による厳格なマッチング分離
+const ilasOrigin = detectCourseOrigin("2024_01_0001234", "哲学入門 (2024前期)");
+assert(ilasOrigin === "ilas", `Detected origin for 2024_01 is 'ilas' (got ${ilasOrigin})`);
+
+const facultyOrigin = detectCourseOrigin("2024_02_0005678", "哲学特殊講義：現代実存思想");
+assert(facultyOrigin === "faculty", `Detected origin for 2024_02 is 'faculty' (got ${facultyOrigin})`);
+
+// 開講元が教養(ilas)の科目は、決して文学部専門科目（哲学特殊講義・演習）にはマッピングされない
+const parsedIlasPhilosophy = parseCourseSite({ id: "2024_01_0001234", title: "哲学入門 (2024前期)" }, litCats);
+assert(parsedIlasPhilosophy.origin === "ilas", "Parsed origin is 'ilas'");
+assert(parsedIlasPhilosophy.categoryId === "hum_soc", `教養開講の哲学入門 maps to 'hum_soc' (got ${parsedIlasPhilosophy.categoryId})`);
+
+// 開講元が文学部(faculty)の科目は、全学の哲学入門ではなく文学部専門科目（特殊講義）にマッピングされる
+const parsedFacultyPhilosophy = parseCourseSite({ id: "2024_02_0005678", title: "哲学特殊講義：現代実存思想" }, litCats);
+assert(parsedFacultyPhilosophy.origin === "faculty", "Parsed origin is 'faculty'");
+assert(parsedFacultyPhilosophy.categoryId === "dept_elec_lecture", `文学部開講の哲学特殊講義 maps to 'dept_elec_lecture' (got ${parsedFacultyPhilosophy.categoryId})`);
+
+// 文学部開講の「人文学入門Ⅰ」は専門基礎科目へマッピング
+const parsedFacultyIntro = parseCourseSite({ id: "2024_02_0009999", title: "専門基礎：人文学入門Ⅰ" }, litCats);
+assert(parsedFacultyIntro.categoryId === "major_basics", `人文学入門 maps to 'major_basics' (got ${parsedFacultyIntro.categoryId})`);
 
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
