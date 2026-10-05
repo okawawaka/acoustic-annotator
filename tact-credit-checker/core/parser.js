@@ -268,13 +268,19 @@ export function estimateCredits(cleanTitle, rawTitle) {
     return 1;
   }
 
-  // 6. スポーツ科学の講義は2単位（※実習より先に判定）
-  if (/健康.*講義|スポーツ.*講義|健康・スポーツ科学講義/i.test(combined)) {
-    return 2;
+  // 6. 健康・スポーツ科学科目（講義と実習の厳格な峻別）
+  // 実習科目（1単位）の明示的キーワード: 実習、実技、身体運動、または具体的な競技名
+  const isSportsPractice = /実習|実技|身体運動|フィットネス|バドミントン|テニス|卓球|サッカー|バスケット|バレー|水泳|スキー|陸上|トレーニング/i.test(combined);
+  if (/健康|スポーツ|身体科学/i.test(combined)) {
+    if (isSportsPractice) {
+      return 1; // 健康・スポーツ科学実習は 1 単位
+    } else {
+      return 2; // 健康・スポーツ科学講義は 2 単位（必修）
+    }
   }
 
-  // 7. スポーツ科学の実習・演習、実験、実習、1単位指定科目
-  if (/日本文化事情|異文化理解|ジェンダー学概論|セクシュアリティ学概論|情報リテラシー|科学技術と人文学|デジタル人文学|コミュニケーションスキル|イノベーション創出|実験|実習|スポーツ|体育|身体運動|チュートリアル/i.test(combined)) {
+  // 7. その他の1単位指定科目（専門実習・共通実践・実験等）
+  if (/日本文化事情|異文化理解|ジェンダー学概論|セクシュアリティ学概論|情報リテラシー|科学技術と人文学|デジタル人文学|コミュニケーションスキル|イノベーション創出|実験|チュートリアル/i.test(combined)) {
     return 1;
   }
 
@@ -380,14 +386,16 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
-  // 健康・スポーツ科学科目（講義と実習の識別）
-  if ((title.includes("講義") || title.includes("概論")) && (title.includes("健康") || title.includes("スポーツ"))) {
-    const catLec = targetPool.find(c => c.id === "health_sports_lec");
-    if (catLec) return { categoryId: catLec.id, confidence: 0.95, isEstimated: false };
-  }
-  if (/健康|スポーツ|身体運動|体育|バドミントン|テニス|サッカー|バレー|卓球|水泳|スキー/i.test(title)) {
-    const catPrac = targetPool.find(c => c.id === "health_sports_prac" || c.id === "health_sports");
-    if (catPrac) return { categoryId: catPrac.id, confidence: 0.95, isEstimated: false };
+  // 健康・スポーツ科学科目（講義と実習の厳格な峻別）
+  const isPrac = /実習|実技|身体運動|フィットネス|バドミントン|テニス|卓球|サッカー|バスケット|バレー|水泳|スキー|陸上|トレーニング/i.test(title);
+  if (/健康|スポーツ|身体科学/i.test(title)) {
+    if (isPrac) {
+      const catPrac = targetPool.find(c => c.id === "health_sports_prac" || c.id === "health_sports");
+      if (catPrac) return { categoryId: catPrac.id, confidence: 1.0, isEstimated: false };
+    } else {
+      const catLec = targetPool.find(c => c.id === "health_sports_lec");
+      if (catLec) return { categoryId: catLec.id, confidence: 1.0, isEstimated: false };
+    }
   }
 
   if (title.includes("国際理解") || title.includes("多文化")) {

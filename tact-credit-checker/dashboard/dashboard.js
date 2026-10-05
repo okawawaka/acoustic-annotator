@@ -1,5 +1,5 @@
 import { DEFAULT_PRESETS, SUPPORTED_FACULTIES, LIT_DEPARTMENTS, buildLiteratureCategories } from "../core/presets.js";
-import { parseCourseSite, calculateCredits, guessCategory, estimateCredits, isNonCreditCourse } from "../core/parser.js";
+import { parseCourseSite, calculateCredits, guessCategory, estimateCredits, isNonCreditCourse, detectCourseOrigin, guessCategoryWithMeta } from "../core/parser.js";
 import {
   loadAppState,
   saveCourses,
@@ -37,21 +37,9 @@ let state = {
 document.addEventListener("DOMContentLoaded", async () => {
   const loaded = await loadAppState();
   state = { ...state, ...loaded };
-  // 既存科目の中に現行カテゴリに存在しないものや未分類のものがあれば再推定
-  let hadUnmapped = false;
-  state.courses.forEach(course => {
-    const catExists = state.categories.some(c => c.id === course.categoryId);
-    if (!course.categoryId || course.categoryId === "uncategorized" || !catExists) {
-      const guessed = guessCategory(course.title, state.categories, state.mappings);
-      if (guessed && guessed !== "uncategorized") {
-        course.categoryId = guessed;
-        hadUnmapped = true;
-      }
-    }
-  });
-  if (hadUnmapped) {
-    await saveCourses(state.courses);
-  }
+  // 既存科目データを最新の判定（非単位除外・単位数・開講元・カテゴリ）で自動マイグレーション
+  migrateAndSanitizeCourses(state.courses);
+  await saveCourses(state.courses);
   await syncThesisCourse();
   initUI();
   render();
@@ -158,6 +146,45 @@ function render() {
   renderSummary();
   renderCoursesTable();
   document.getElementById("tab-course-count").textContent = state.courses.length;
+}
+
+/**
+ * 過去に保存されたコースデータを最新の判定ロジック（非単位除外・単位数・開講元・カテゴリ）で自動マイグレーション
+ */
+function migrateAndSanitizeCourses(courses = []) {
+  courses.forEach(course => {
+    // 1. 非単位サイトの再判定（お知らせ・研修・検定試験手続等）
+    const isNonCredit = isNonCreditCourse(course.title, course.rawTitle);
+    if (isNonCredit) {
+      course.isNonCredit = true;
+      course.credits = 0;
+      course.categoryId = "non_credit";
+      course.status = "exempt";
+      return;
+    }
+
+    // 2. 手動登録・手動変更科目でない場合、最新の単位数と開講元を再評価
+    if (!course.isManual) {
+      // 単位数の再判定（スポーツ講義は2単位、実習は1単位、学び基礎論は1単位等）
+      course.credits = estimateCredits(course.title, course.rawTitle);
+
+      // 開講元の再判定
+      course.origin = detectCourseOrigin(course.id, course.rawTitle || course.title);
+
+      // カテゴリが未設定、または過去の古い判定の場合に再推定
+      const catExists = state.categories.some(cat => cat.id === course.categoryId);
+      if (!course.categoryId || course.categoryId === "uncategorized" || course.categoryId === "non_credit" || !catExists) {
+        if (state.mappings && state.mappings[course.title]) {
+          course.categoryId = state.mappings[course.title];
+        } else {
+          const res = guessCategoryWithMeta(course.title, state.categories, course.origin);
+          course.categoryId = res.categoryId;
+          course.isEstimated = res.isEstimated;
+        }
+      }
+    }
+  });
+  return courses;
 }
 
 /**
@@ -364,6 +391,7 @@ function renderSummary() {
 
       const isFulfilled = data.passed >= data.required;
       const shortfall = Math.max(0, data.required - data.passed);
+      const isExpanded = state.expandedCategories.has(cat.id);
       const isThesisCat = cat.id === "major_thesis";
       const thesisHtml = isThesisCat ? `
         <div style="margin-top: 5px;" class="thesis-toggle-wrap">
@@ -971,6 +999,7 @@ async function handleTactSync() {
       return course;
     });
 
+    migrateAndSanitizeCourses(parsed);
     state.courses = parsed;
     await syncThesisCourse();
     state.lastSync = Date.now();
@@ -995,6 +1024,7 @@ async function handleTactSync() {
 async function handleLoadSample() {
   const mockSites = getMockCourseSites();
   const parsed = mockSites.map(s => parseCourseSite(s, state.categories, state.mappings));
+  migrateAndSanitizeCourses(parsed);
   state.courses = parsed;
   await syncThesisCourse();
   state.lastSync = Date.now();

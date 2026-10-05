@@ -262,6 +262,15 @@ const parsedThesis = parseCourseSite({ id: "thesis_manual", title: "卒業論文
 assert(parsedThesis.credits === 10, `卒業論文は10単位 (got ${parsedThesis.credits})`);
 assert(parsedThesis.categoryId === "major_thesis", `卒業論文 maps to 'major_thesis' (got ${parsedThesis.categoryId})`);
 
+// 健康・スポーツ科学：表記揺れテスト（講義という文字列がなくても原則2単位・実習は1単位）
+const parsedSportsLecNoWord = parseCourseSite({ id: "2024_01_sports1", title: "健康・スポーツ科学（水2）" }, litCats);
+assert(parsedSportsLecNoWord.credits === 2, `健康・スポーツ科学（講義表記なし）は2単位 (got ${parsedSportsLecNoWord.credits})`);
+assert(parsedSportsLecNoWord.categoryId === "health_sports_lec", `健康・スポーツ科学（講義表記なし） maps to 'health_sports_lec' (got ${parsedSportsLecNoWord.categoryId})`);
+
+const parsedSportsPracTennis = parseCourseSite({ id: "2024_01_sports2", title: "健康スポーツ（テニス）" }, litCats);
+assert(parsedSportsPracTennis.credits === 1, `健康スポーツ（テニス）は1単位 (got ${parsedSportsPracTennis.credits})`);
+assert(parsedSportsPracTennis.categoryId === "health_sports_prac", `健康スポーツ（テニス） maps to 'health_sports_prac' (got ${parsedSportsPracTennis.categoryId})`);
+
 console.log(`\n======================================`);
 console.log(`Total: ${passedCount} passed, ${failedCount} failed`);
 
