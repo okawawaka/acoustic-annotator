@@ -374,6 +374,14 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
 
   const title = cleanTitle.toLowerCase();
   const normTitle = normalizeTitle(cleanTitle);
+  // 区分名プレフィックス（専門基礎、共通基盤、共通実践、教養、分野別等）を除去したコアタイトル
+  const coreNormTitle = normTitle.replace(/^(専門基礎|共通基盤|共通実践|教養|分野別|人文社会系基礎|国際理解科目|現代教養科目)/, "");
+
+  const matchesExact = (targetItem) => {
+    if (!targetItem) return false;
+    const normTarget = normalizeTitle(targetItem);
+    return normTitle === normTarget || (coreNormTitle && coreNormTitle === normTarget);
+  };
 
   // 開講元（教養教育院 vs 文学部）による候補カテゴリプールの厳格分離
   let targetPool = categories;
@@ -385,9 +393,72 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     targetPool = categories.filter(c => c.scope === "faculty" || c.section !== "全学教育科目");
   }
 
-  // -------------------------------------------------------------
-  // [A] B表プレフィックスの明示的一致（最も高い信頼度 1.0）
-  // -------------------------------------------------------------
+  // =========================================================================
+  // 【フェーズ1】文学部専門科目の厳格ホワイトリスト完全一致照合（Exact Match Only）
+  // ユーザー提示の指定リストに基づき、100%完全一致するもののみ各専門区分へ分類。
+  // 推測・部分一致・あいまい判定は一切排除する。
+  // =========================================================================
+  if (origin !== "ilas") {
+    // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ のみ厳格完全一致）
+    const basicsCat = targetPool.find(c => c.id === "major_basics");
+    if (basicsCat) {
+      const isBasicsMatch = (basicsCat.courseList && basicsCat.courseList.some(item => matchesExact(item)))
+        || LIT_MAJOR_BASICS.some(item => matchesExact(item));
+      if (isBasicsMatch) {
+        return { categoryId: basicsCat.id, confidence: 1.0, isEstimated: false };
+      }
+    }
+
+    // 2. 文学部 共通基盤科目（公式マスター完全一致）
+    const commonBaseCat = targetPool.find(c => c.id === "major_common_base");
+    if (commonBaseCat) {
+      const isBaseMatch = (commonBaseCat.courseList && commonBaseCat.courseList.some(item => matchesExact(item)))
+        || LIT_COMMON_BASE.some(item => matchesExact(item));
+      if (isBaseMatch) {
+        return { categoryId: commonBaseCat.id, confidence: 1.0, isEstimated: false };
+      }
+    }
+
+    // 3. 文学部 共通実践科目（公式マスター完全一致）
+    const commonPracticeCat = targetPool.find(c => c.id === "major_common_practice");
+    if (commonPracticeCat) {
+      const isPracticeMatch = (commonPracticeCat.courseList && commonPracticeCat.courseList.some(item => matchesExact(item)))
+        || LIT_COMMON_PRACTICE.some(item => matchesExact(item));
+      if (isPracticeMatch) {
+        return { categoryId: commonPracticeCat.id, confidence: 1.0, isEstimated: false };
+      }
+    }
+
+    // 4. 文学部 卒業論文（10単位・論文審査科目：完全一致かつ演習除外）
+    const thesisCat = targetPool.find(c => c.id === "major_thesis");
+    if (thesisCat && !/演習/i.test(title)) {
+      const isThesisMatch = (thesisCat.courseList && thesisCat.courseList.some(item => matchesExact(item)))
+        || ["卒業論文", "卒業研究", "学士論文"].some(item => matchesExact(item));
+      if (isThesisMatch) {
+        return { categoryId: thesisCat.id, confidence: 1.0, isEstimated: false };
+      }
+    }
+
+    // 5. 専攻に関係のある科目（32単位：概論・講義・語学・入門演習・実習・演習・卒論演習）
+    // ★厳格ホワイトリスト完全一致 (Exact Match Only)
+    // ユーザー提示の courseList に含まれる科目名と Unicode NFKC 正規化後が完全一致（===）する場合のみ割り当て。
+    for (const cat of targetPool) {
+      if (cat.id && (cat.id.startsWith("dept_") || cat.id.startsWith("major_")) && cat.id !== "dept_free") {
+        if (cat.courseList && Array.isArray(cat.courseList) && cat.courseList.length > 0) {
+          for (const item of cat.courseList) {
+            if (matchesExact(item)) {
+              return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // 【フェーズ2】教養教育院（全学教育科目）公式マスター判定
+  // =========================================================================
+  // 1. B表プレフィックスの明示的一致
   if (title.includes("教養・現代教養") || title.startsWith("現代教養")) {
     const cat = targetPool.find(c => c.id === "modern_liberal");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
@@ -405,78 +476,7 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
   }
 
-  // -------------------------------------------------------------
-  // [B] 文学部専門科目マスターによる完全・高信頼判定
-  // -------------------------------------------------------------
-  // 1. 文学部 専門基礎科目（人文学入門Ⅰ〜Ⅳ のみ厳格判定）
-  if (normTitle.includes("人文学入門") || LIT_MAJOR_BASICS.some(kw => title.includes(kw))) {
-    const cat = targetPool.find(c => c.id === "major_basics");
-    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
-  }
-
-  // 2. 文学部 共通基盤科目（ジェンダー学概論、セクシュアリティ学概論、日本文化事情等）
-  if (LIT_COMMON_BASE.some(kw => title.includes(kw))) {
-    const cat = targetPool.find(c => c.id === "major_common_base");
-    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
-  }
-
-  // 3. 文学部 共通実践科目（デジタル人文学、情報リテラシー、応用倫理学演習等）
-  if (LIT_COMMON_PRACTICE.some(kw => title.includes(kw))) {
-    const cat = targetPool.find(c => c.id === "major_common_practice");
-    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
-  }
-
-  // 4. 文学部 卒業論文（10単位・論文審査科目）
-  if (/卒業論文$|卒業論文\s|卒業研究|学士論文/i.test(title) && !/演習/i.test(title)) {
-    const cat = targetPool.find(c => c.id === "major_thesis");
-    if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
-  }
-
-  // 5. 各専修の専門科目（courseList による高精度一致）
-  for (const cat of targetPool) {
-    if (cat.courseList && Array.isArray(cat.courseList) && cat.courseList.length > 0) {
-      for (const item of cat.courseList) {
-        const normItem = normalizeTitle(item);
-        if (normTitle === normItem || normTitle.includes(normItem) || normItem.includes(normTitle)) {
-          return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
-        }
-      }
-    }
-  }
-
-  // 6. 各専修の専門科目（専攻カテゴリ固有の keywords 一致）
-  for (const cat of targetPool) {
-    if (cat.id && (cat.id.startsWith("dept_") || cat.id.startsWith("major_"))) {
-      if (cat.keywords && cat.keywords.length > 0) {
-        for (const kw of cat.keywords) {
-          const normKw = normalizeTitle(kw);
-          if (title.includes(kw.toLowerCase()) || (normKw && normTitle.includes(normKw))) {
-            return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
-          }
-        }
-      }
-    }
-  }
-
-  // 7. 文学部 専修実習科目（発掘調査、心理学実験、社会調査実習、野外実習巡検等 - 汎用）
-  if (/発掘調査|実測|調査実習|野外実習|巡検|心理学実験|心理学実習|社会調査実習/i.test(title)) {
-    const cat = targetPool.find(c => c.id === "dept_practice" || c.id === "dept_req_prac");
-    if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
-  }
-
-  // 8. 文学部 専修演習・講読科目（汎用）
-  if (/演習|講読|史料講読|原典講読|文献講読/i.test(title) && origin !== "ilas") {
-    const cat = targetPool.find(c => c.id === "dept_seminar" || c.id === "dept_req_seminar" || c.id === "major_req");
-    if (cat) return { categoryId: cat.id, confidence: 0.85, isEstimated: false };
-  }
-
-  // 9. 文学部 特殊講義・専門講義（汎用）
-  if (/特殊講義|特論|特殊研究/i.test(title) && origin !== "ilas") {
-    const cat = targetPool.find(c => c.id === "dept_lecture" || c.id === "dept_elec_lecture" || c.id === "major_elec");
-    if (cat) return { categoryId: cat.id, confidence: 0.85, isEstimated: false };
-  }
-
-  // 10. 全学教育科目固有の確実なキーワード判定
+  // 2. 全学教育科目固有の確実なキーワード判定
   if (title.includes("大学での学び")) {
     const cat = targetPool.find(c => c.id === "intro_study");
     if (cat) return { categoryId: cat.id, confidence: 1.0, isEstimated: false };
@@ -516,34 +516,44 @@ export function guessCategoryWithMeta(cleanTitle, categories = [], origin = "unk
     if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
 
-  // 教養・現代教養（B表に掲載されている入門・概論・融合科目群: 歴史学入門、心理学入門、社会学入門、ジェンダー学等）
+  // 教養・現代教養
   if (B_TABLE_MODERN_LIBERAL.some(kw => title.includes(kw)) || title.includes("現代教養") || title.includes("超学部")) {
     const cat = targetPool.find(c => c.id === "modern_liberal");
     if (cat) return { categoryId: cat.id, confidence: 0.95, isEstimated: false };
   }
 
-  // 分野別・人文社会（B表の人文社会系基礎科目: 哲学、歴史学、文学、社会学、心理学等）
+  // 分野別・人文社会
   if (B_TABLE_HUM_SOC.some(kw => title.includes(kw))) {
     const cat = targetPool.find(c => c.id === "hum_soc");
     if (cat) return { categoryId: cat.id, confidence: 0.9, isEstimated: false };
   }
 
-  // 9. 各カテゴリ定義のキーワード配列による判定（フォールバック）
+  // =========================================================================
+  // 【フェーズ3】文学部専門科目の残余振替：専攻外選択科目（35単位枠）へ隔離
+  // 自専攻の指定リスト（32単位）および共通・基礎・卒論のホワイトリストに
+  // 一致しなかった文学部科目は、自専修区分には絶対に紛れ込ませず、
+  // すべて「専攻外選択科目（dept_free）」へと安全に分類する。
+  // =========================================================================
+  if (origin === "faculty") {
+    const freeCat = targetPool.find(c => c.id === "dept_free" || c.id === "free_elec");
+    if (freeCat) {
+      return { categoryId: freeCat.id, confidence: 0.9, isEstimated: false };
+    }
+  }
+
+  // =========================================================================
+  // 【フェーズ4】汎用モデル用フォールバック（文学部モデル以外の場合のみ）
+  // =========================================================================
   for (const cat of targetPool) {
+    // 文学部モデルの専門区分（dept_ または major_basics, major_common_*）へはフォールバックさせない
+    if (cat.id.startsWith("dept_") || cat.id.startsWith("major_")) continue;
+
     if (!cat.keywords || cat.keywords.length === 0) continue;
     for (const kw of cat.keywords) {
       const normKw = normalizeTitle(kw);
       if (title.includes(kw.toLowerCase()) || (normKw && normTitle.includes(normKw))) {
         return { categoryId: cat.id, confidence: 0.7, isEstimated: true };
       }
-    }
-  }
-
-  // 10. 学部専門科目（faculty）だが自専修の特定区分に該当しない場合、専攻外選択科目（他専修・関連科目）へ自動判定
-  if (origin === "faculty") {
-    const freeCat = targetPool.find(c => c.id === "dept_free" || c.id === "free_elec");
-    if (freeCat) {
-      return { categoryId: freeCat.id, confidence: 0.8, isEstimated: true };
     }
   }
 

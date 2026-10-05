@@ -221,9 +221,36 @@ const lingThesis = parseCourseSite({ id: "manual_thesis", title: "卒業論文" 
 assert(lingThesis.credits === 10, "卒業論文 credits = 10");
 assert(lingThesis.categoryId === "major_thesis", "卒業論文 maps to 'major_thesis'");
 
-// 他専修の文学部科目（例: 日本史学講義）を受講した場合、専攻外選択科目(dept_free: 35単位)に算入
-const otherMajorCourse = parseCourseSite({ id: "2024_02_jhist", title: "日本史学講義（古代）" }, lingCats);
-assert(otherMajorCourse.categoryId === "dept_free", `文学部他専修科目 maps to 'dept_free' (got ${otherMajorCourse.categoryId})`);
+// 他専修の文学部科目（例: 日本史学講義、哲学演習など）を受講した場合、自専攻区分には紛れ込まず、専攻外選択科目(dept_free: 35単位)に確実に算入されることの検証
+const otherMajorCourses = [
+  "日本史学講義（古代）",
+  "哲学特殊講義",
+  "宗教学演習Ⅰ",
+  "中国哲学史史料講読",
+  "心理学実験実習",
+  "地理学野外実習巡検",
+  "社会学演習"
+];
+
+otherMajorCourses.forEach(title => {
+  const c = parseCourseSite({ id: "2024_02_other", title }, lingCats);
+  assert(c.categoryId === "dept_free", `'${title}' must be isolated into 'dept_free' (got '${c.categoryId}')`);
+});
+
+// 他学部科目（法学部、経済学部、理学部等）が専攻専門32単位枠に絶対に紛れ込まないことの検証
+const otherFacultyCourses = [
+  "民法総則",
+  "ミクロ経済学基礎",
+  "アルゴリズム入門",
+  "量子力学基礎"
+];
+otherFacultyCourses.forEach(title => {
+  const c = parseCourseSite({ id: "2024_03_other_fac", title }, lingCats);
+  assert(
+    !c.categoryId.startsWith("dept_") || c.categoryId === "dept_free",
+    `'${title}' must NOT be in major 32-credit track (got '${c.categoryId}')`
+  );
+});
 
 console.log("\n=== 7. Overflow Absorption into 35 Free Credits Tests ===");
 // 超過算入シミュレーション:
