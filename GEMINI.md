@@ -1,4 +1,4 @@
-﻿# GEMINI.md - プロジェクト全体 開発ガイドライン & 自律エージェント運用規則
+# GEMINI.md - プロジェクト全体 開発ガイドライン & 自律エージェント運用規則
 
 本ワークスペース（`音響分析ソフト` スイート全体および配下の各アプリケーション群）における Antigravity / AI エージェントの自律動作ルール、Git 運用規約、品質検証方針を定義します。
 
@@ -13,7 +13,8 @@
 - **サブツール群 (独立リポジトリ)**:
   - `ipa-keyboard/` (`ipa-editor.git`): 国際音声字母入力エディタ (Vanilla HTML/JS, GitHub Pages)
   - `phonological-rule-editor/` (`phonological-rule-editor.git`): 音韻規則・音変化エディタ (KaTeX / SVG, GitHub Pages)
-  - `syntax-tree-editor/` (`syntax-tree-editor.git`): 構文木エディタ (Canvas / SVG, GitHub Pages)
+  - `cinii-enhancer/` (`cinii-enhancer.git`): CiNii Research 文献引用・書誌支援拡張機能
+  - `jstage-enhancer/` (`jstage-enhancer.git`): J-STAGE 論文PDF自動リネーム・書誌支援拡張機能
   - 今後 `apps/` やルート配下に追加される新規ツール
 
 ---
